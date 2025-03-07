@@ -1,5 +1,6 @@
 @import "tailwindcss";
 @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Dancing+Script:wght@400;500;600;700&display=swap');
 
 :root {
   --background: #ffffff;
@@ -85,4 +86,9 @@ a:hover {
 /* Estilos para textos en fondos oscuros */
 .bg-secondary text-light {
   color: #ffffff;
+}
+
+/* Estilos para la fuente Dancing Script */
+.font-dancing-script {
+  font-family: 'Dancing Script', cursive !important;
 }

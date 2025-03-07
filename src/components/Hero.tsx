@@ -89,7 +89,7 @@ export default function Hero() {
               />
             </div>
             
-            <h1 className="text-4xl md:text-6xl font-bold mb-4 font-dancing-script" style={{ color: '#E76F51' }}>
+            <h1 className="text-4xl md:text-6xl font-bold mb-4" style={{ color: '#E76F51', fontFamily: 'Dancing Script, cursive' }}>
               Coiffure Ciwan
             </h1>
             <p className="text-xl md:text-2xl mb-8" style={{ color: '#E0E0E0' }}>
