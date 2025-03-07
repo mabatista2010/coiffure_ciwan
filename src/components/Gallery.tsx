@@ -26,8 +26,8 @@ export default function Gallery() {
         }
 
         setImages(data || []);
-      } catch (err: any) {
-        setError(err.message);
+      } catch (err: Error | unknown) {
+        setError(err instanceof Error ? err.message : String(err));
         console.error('Error fetching gallery:', err);
         // Datos fallback en caso de error con Supabase
         setImages([

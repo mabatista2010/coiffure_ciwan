@@ -29,7 +29,7 @@ export default function Navbar() {
     <nav className={`fixed w-full z-50 py-4 transition-all duration-300 ${scrolled ? 'bg-black/50 backdrop-blur-md' : 'bg-transparent'}`}>
       <div className="container mx-auto px-4 flex justify-between items-center">
         {/* Logo */}
-        <Link href="/" className="text-2xl font-bold" style={{ color: '#E76F51', fontFamily: "'Dancing Script', cursive" }}>
+        <Link href="/" className="text-2xl font-bold font-dancing-script" style={{ color: '#E76F51' }}>
           Coiffure Ciwan
         </Link>
 

@@ -16,7 +16,8 @@ module.exports = {
         'text-medium': '#E0E0E0', // texto gris muy claro para mejor contraste en fondos oscuros
       },
       fontFamily: {
-        sans: ['Montserrat', 'sans-serif'],
+        sans: ['var(--font-montserrat)', 'sans-serif'],
+        'dancing-script': ['var(--font-dancing-script)', 'cursive'],
       },
     },
   },

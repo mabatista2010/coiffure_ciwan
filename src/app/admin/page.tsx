@@ -3,14 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { supabase, Service, GalleryImage } from '@/lib/supabase';
 import { v4 as uuidv4 } from 'uuid';
-
-// Tipo para la configuración
-type Config = {
-  id: number;
-  clave: string;
-  valor: string;
-  descripcion: string;
-};
+import Image from 'next/image';
 
 export default function AdminPage() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -40,7 +33,6 @@ export default function AdminPage() {
   const [galleryImagePreview, setGalleryImagePreview] = useState<string>('');
 
   // Estado para configuraciones
-  const [configs, setConfigs] = useState<Config[]>([]);
   const [heroDesktopImage, setHeroDesktopImage] = useState('');
   const [heroMobileImage, setHeroMobileImage] = useState('');
   const [heroDesktopFile, setHeroDesktopFile] = useState<File | null>(null);
@@ -60,7 +52,7 @@ export default function AdminPage() {
   useEffect(() => {
     // Verificar si el usuario ya está autenticado
     const checkSession = async () => {
-      const { data, error } = await supabase.auth.getSession();
+      const { data } = await supabase.auth.getSession();
       if (data.session) {
         setIsAuthenticated(true);
         loadData();
@@ -84,8 +76,8 @@ export default function AdminPage() {
       
       setIsAuthenticated(true);
       loadData();
-    } catch (error: any) {
-      setErrorMessage(error.message);
+    } catch (error: Error | unknown) {
+      setErrorMessage(error instanceof Error ? error.message : String(error));
     }
   };
 
@@ -116,8 +108,6 @@ export default function AdminPage() {
       .select('*');
     
     if (configData) {
-      setConfigs(configData);
-      
       // Buscar configuraciones específicas
       const desktopImage = configData.find(c => c.clave === 'hero_image_desktop');
       const mobileImage = configData.find(c => c.clave === 'hero_image_mobile');
@@ -179,8 +169,8 @@ export default function AdminPage() {
       console.log('URL pública generada:', urlData.publicUrl);
       
       return urlData.publicUrl;
-    } catch (error) {
-      console.error('Error al subir archivo:', error);
+    } catch (err: Error | unknown) {
+      console.error('Error al subir archivo:', err);
       return null;
     } finally {
       setIsUploading(false);
@@ -221,8 +211,9 @@ export default function AdminPage() {
       }
       
       loadData();
-    } catch (error: any) {
-      alert(`Error al añadir servicio: ${error.message}`);
+    } catch (error: Error | unknown) {
+      setErrorMessage(error instanceof Error ? error.message : String(error));
+      console.error('Error al añadir servicio:', error);
     }
   };
 
@@ -237,8 +228,9 @@ export default function AdminPage() {
         if (error) throw error;
         
         loadData();
-      } catch (error: any) {
-        alert(`Error al eliminar servicio: ${error.message}`);
+      } catch (error: Error | unknown) {
+        setErrorMessage(error instanceof Error ? error.message : String(error));
+        console.error('Error al eliminar servicio:', error);
       }
     }
   };
@@ -276,8 +268,9 @@ export default function AdminPage() {
       }
       
       loadData();
-    } catch (error: any) {
-      alert(`Error al añadir imagen: ${error.message}`);
+    } catch (error: Error | unknown) {
+      setErrorMessage(error instanceof Error ? error.message : String(error));
+      console.error('Error al añadir imagen:', error);
     }
   };
 
@@ -292,8 +285,9 @@ export default function AdminPage() {
         if (error) throw error;
         
         loadData();
-      } catch (error: any) {
-        alert(`Error al eliminar imagen: ${error.message}`);
+      } catch (error: Error | unknown) {
+        setErrorMessage(error instanceof Error ? error.message : String(error));
+        console.error('Error al eliminar imagen:', error);
       }
     }
   };
@@ -305,53 +299,28 @@ export default function AdminPage() {
       
       // Si hay un archivo seleccionado, subirlo primero
       if (file) {
-        const fileUrl = await uploadFile(file, 'fotos_peluqueria', 'hero');
+        const fileUrl = await uploadFile(file, 'hero_images');
         if (fileUrl) {
           valor = fileUrl;
-          console.log(`Nueva URL de imagen obtenida: ${valor}`);
         } else {
-          console.error('No se pudo obtener la URL del archivo subido');
-          return; // No continuar si no hay URL
+          throw new Error('No se pudo subir el archivo');
         }
-      } else {
-        console.log(`Usando URL actual: ${valor}`);
       }
       
-      console.log(`Actualizando configuración: clave=${clave}, valor=${valor}`);
-      
-      const { data, error } = await supabase
+      // Actualizar la configuración en la base de datos
+      const { error } = await supabase
         .from('configuracion')
         .update({ valor })
-        .eq('clave', clave)
-        .select();
+        .eq('clave', clave);
       
-      if (error) {
-        console.error('Error al actualizar configuración:', error);
-        throw error;
-      }
+      if (error) throw error;
       
-      console.log('Configuración actualizada:', data);
-      
-      // Limpiar el formulario
-      if (clave === 'hero_image_desktop') {
-        setHeroDesktopFile(null);
-        setHeroDesktopImage(valor);
-        if (heroDesktopInputRef.current) {
-          heroDesktopInputRef.current.value = '';
-        }
-      } else if (clave === 'hero_image_mobile') {
-        setHeroMobileFile(null);
-        setHeroMobileImage(valor);
-        if (heroMobileInputRef.current) {
-          heroMobileInputRef.current.value = '';
-        }
-      }
-      
-      alert('Imagen actualizada correctamente');
+      // Recargar datos
       loadData();
-    } catch (error: any) {
+      
+    } catch (error: Error | unknown) {
       console.error('Error completo:', error);
-      alert(`Error al actualizar imagen: ${error.message}`);
+      setErrorMessage(error instanceof Error ? error.message : String(error));
     } finally {
       setIsUploading(false);
     }
@@ -446,9 +415,11 @@ export default function AdminPage() {
                 
                 {heroDesktopPreview && (
                   <div className="relative h-40 mb-4 rounded overflow-hidden">
-                    <img 
+                    <Image 
                       src={heroDesktopPreview} 
                       alt="Hero Desktop Preview" 
+                      width={200} 
+                      height={150} 
                       className="absolute inset-0 w-full h-full object-cover"
                     />
                   </div>
@@ -481,9 +452,11 @@ export default function AdminPage() {
                 
                 {heroMobilePreview && (
                   <div className="relative h-40 mb-4 rounded overflow-hidden">
-                    <img 
+                    <Image 
                       src={heroMobilePreview} 
                       alt="Hero Mobile Preview" 
+                      width={200} 
+                      height={150} 
                       className="absolute inset-0 w-full h-full object-cover"
                     />
                   </div>
@@ -550,11 +523,13 @@ export default function AdminPage() {
                 />
                 
                 {serviceImagePreview && (
-                  <div className="relative h-40 mt-2 rounded overflow-hidden">
-                    <img 
+                  <div className="mt-4">
+                    <Image 
                       src={serviceImagePreview} 
-                      alt="Service Preview" 
-                      className="absolute inset-0 w-full h-full object-cover"
+                      alt="Vista previa" 
+                      width={200} 
+                      height={150} 
+                      className="rounded-lg"
                     />
                   </div>
                 )}
@@ -591,9 +566,11 @@ export default function AdminPage() {
                       <td className="py-2 px-4 border-b">
                         {service.imagen_url && (
                           <div className="relative h-16 w-16 rounded overflow-hidden">
-                            <img 
+                            <Image 
                               src={service.imagen_url} 
                               alt={service.nombre} 
+                              width={64} 
+                              height={64} 
                               className="absolute inset-0 w-full h-full object-cover"
                             />
                           </div>
@@ -654,9 +631,11 @@ export default function AdminPage() {
                 
                 {galleryImagePreview && (
                   <div className="relative h-40 mt-2 rounded overflow-hidden">
-                    <img 
+                    <Image 
                       src={galleryImagePreview} 
                       alt="Gallery Preview" 
+                      width={200} 
+                      height={150} 
                       className="absolute inset-0 w-full h-full object-cover"
                     />
                   </div>
@@ -678,9 +657,11 @@ export default function AdminPage() {
               {galleryImages.map((image) => (
                 <div key={image.id} className="border rounded-lg overflow-hidden">
                   <div className="relative pt-[60%]">
-                    <img 
+                    <Image 
                       src={image.imagen_url} 
                       alt={image.descripcion} 
+                      width={200} 
+                      height={150} 
                       className="absolute top-0 left-0 w-full h-full object-cover"
                     />
                   </div>

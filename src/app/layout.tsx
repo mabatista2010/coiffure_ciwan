@@ -1,21 +1,20 @@
 import type { Metadata } from "next";
 import "./globals.css";
-import { Dancing_Script, Montserrat } from "next/font/google";
+import { Montserrat, Dancing_Script } from 'next/font/google';
 
-// Importar la fuente Dancing Script
-const dancingScript = Dancing_Script({
-  subsets: ["latin"],
-  display: "swap",
-  weight: ["400", "500", "600", "700"],
-  variable: "--font-dancing-script",
+// Configurar las fuentes usando la API de Next.js
+const montserrat = Montserrat({
+  subsets: ['latin'],
+  display: 'swap',
+  variable: '--font-montserrat',
+  weight: ['300', '400', '500', '600', '700'],
 });
 
-// Importar la fuente principal Montserrat
-const montserrat = Montserrat({
-  subsets: ["latin"],
-  display: "swap",
-  weight: ["300", "400", "500", "600", "700"],
-  variable: "--font-montserrat",
+const dancingScript = Dancing_Script({
+  subsets: ['latin'],
+  display: 'swap',
+  variable: '--font-dancing-script',
+  weight: ['400', '500', '600', '700'],
 });
 
 export const metadata: Metadata = {
@@ -26,7 +25,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: "Coiffure Ciwan - Peluquería Moderna para Hombres y Niños",
     description: "Especialistas en cortes modernos y estilos para hombres y niños",
-    url: "https://coiffureciwan.com",
+    url: "https://coiffureciwan.ch",
     siteName: "Coiffure Ciwan",
     images: [
       {
@@ -36,7 +35,7 @@ export const metadata: Metadata = {
         alt: "Coiffure Ciwan",
       },
     ],
-    locale: "es_ES",
+    locale: "fr_FR",
     type: "website",
   },
 };
@@ -47,12 +46,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="es" className="scroll-smooth">
-      <head>
-        <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Dancing+Script:wght@400;500;600;700&display=swap" />
-        <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700&display=swap" />
-      </head>
-      <body className="antialiased">
+    <html lang="fr" className={`scroll-smooth ${montserrat.variable} ${dancingScript.variable}`}>
+      <body className={montserrat.className}>
         {children}
       </body>
     </html>
