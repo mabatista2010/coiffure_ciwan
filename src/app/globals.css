@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700&display=swap');
 
 :root {
   --background: #ffffff;
@@ -8,7 +9,7 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
+  --font-sans: 'Montserrat', sans-serif;
   --font-mono: var(--font-geist-mono);
 }
 
@@ -22,5 +23,66 @@
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: 'Montserrat', sans-serif;
+}
+
+/* Mejoras de contraste */
+h1, h2, h3, h4, h5, h6 {
+  color: #212121;
+}
+
+p, span, div {
+  color: #4a4a4a;
+}
+
+label {
+  color: #212121;
+  font-weight: 500;
+}
+
+input, textarea, select {
+  color: #212121;
+}
+
+button {
+  font-weight: 600;
+}
+
+table th {
+  color: #212121;
+  font-weight: 600;
+}
+
+table td {
+  color: #4a4a4a;
+}
+
+/* Estilos para botones de acción */
+.btn-primary {
+  background-color: #FDD835;
+  color: #212121;
+  font-weight: 600;
+  padding: 0.5rem 1rem;
+  border-radius: 0.375rem;
+  transition: all 0.3s ease;
+}
+
+.btn-primary:hover {
+  background-color: #F9A825;
+}
+
+/* Estilos para enlaces */
+a {
+  color: #212121;
+  font-weight: 500;
+  transition: color 0.3s ease;
+}
+
+a:hover {
+  color: #FDD835;
+}
+
+/* Estilos para textos en fondos oscuros */
+.bg-secondary text-light {
+  color: #ffffff;
 }
