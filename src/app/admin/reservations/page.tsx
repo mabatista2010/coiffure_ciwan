@@ -647,7 +647,9 @@ export default function AdminBookingsPage() {
                     <FaCalendarAlt className="mr-1" /> Retour au calendrier
                   </button>
                 </div>
-              <div className="overflow-x-auto">
+              
+              {/* Tabla para pantallas medianas y grandes */}
+              <div className="hidden md:block overflow-x-auto">
                 <table className="min-w-full divide-y divide-gray-200">
                   <thead className="bg-gray-50">
                     <tr>
@@ -720,6 +722,67 @@ export default function AdminBookingsPage() {
                   </tbody>
                 </table>
               </div>
+
+              {/* Tarjetas para dispositivos móviles */}
+              <div className="md:hidden">
+                <div className="grid grid-cols-1 gap-4 p-4">
+                  {bookings.map((booking) => (
+                    <div key={booking.id} className="bg-white rounded-lg shadow border border-gray-100 overflow-hidden">
+                      <div className="px-4 py-3 bg-gray-50 border-b border-gray-100 flex justify-between items-center">
+                        <div className="font-medium text-gray-900">{formatTime(booking.start_time)} - {formatTime(booking.end_time)}</div>
+                        <span className={`px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(booking.status)}`}>
+                          {booking.status === 'pending' && 'En attente'}
+                          {booking.status === 'confirmed' && 'Confirmé'}
+                          {booking.status === 'cancelled' && 'Annulé'}
+                          {booking.status === 'completed' && 'Terminé'}
+                        </span>
+                      </div>
+                      
+                      <div className="p-4 space-y-3">
+                        <div className="flex justify-between items-start border-b border-gray-100 pb-2">
+                          <div>
+                            <div className="text-xs uppercase text-gray-500 font-medium">Client</div>
+                            <div className="font-medium">{booking.customer_name}</div>
+                            <div className="text-sm text-gray-500">{booking.customer_phone}</div>
+                            {booking.customer_email && <div className="text-sm text-gray-500">{booking.customer_email}</div>}
+                          </div>
+                          <div className="text-right">
+                            <div className="text-xs uppercase text-gray-500 font-medium">Service</div>
+                            <div className="font-medium">{booking.service?.nombre}</div>
+                            <div className="text-sm text-gray-500">{booking.service?.precio}€</div>
+                          </div>
+                        </div>
+                        
+                        <div className="flex justify-between items-start">
+                          <div>
+                            <div className="text-xs uppercase text-gray-500 font-medium">Styliste</div>
+                            <div className="font-medium">{booking.stylist?.name}</div>
+                          </div>
+                          <div className="text-right">
+                            <div className="text-xs uppercase text-gray-500 font-medium">Centre</div>
+                            <div className="font-medium">{booking.location?.name}</div>
+                          </div>
+                        </div>
+                        
+                        <div className="pt-3 border-t border-gray-100">
+                          <label className="text-xs uppercase text-gray-500 font-medium block mb-1">Changer le statut</label>
+                          <select
+                            value={booking.status}
+                            onChange={(e) => handleStatusChange(booking.id, e.target.value as 'pending' | 'confirmed' | 'cancelled' | 'completed')}
+                            className="w-full bg-white border border-gray-300 text-gray-700 text-sm rounded-lg focus:ring-primary focus:border-primary block p-2"
+                          >
+                            <option value="pending">En attente</option>
+                            <option value="confirmed">Confirmer</option>
+                            <option value="cancelled">Annuler</option>
+                            <option value="completed">Terminer</option>
+                          </select>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
             </div>
             )
           )}
