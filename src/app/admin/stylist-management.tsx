@@ -632,6 +632,9 @@ export default function StylistManagement({ services, locations, onUpdate }: Sty
       setSelectedStylist(stylistId);
       setEditMode(true);
       setShowStylistForm(true);
+      
+      // Desplazar automáticamente hacia la parte superior con animación suave
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     }
   };
   
@@ -869,6 +872,7 @@ export default function StylistManagement({ services, locations, onUpdate }: Sty
       // Recargar datos
       await loadStylists();
       resetStylistForm();
+      setShowStylistForm(false);
       onUpdate(); // Notificar al componente padre que hubo cambios
       
     } catch (error) {
@@ -919,9 +923,7 @@ export default function StylistManagement({ services, locations, onUpdate }: Sty
   };
 
   return (
-    <div>
-      <h2 className="text-2xl font-semibold mb-4" style={{color: '#ffffff'}}>Gestión de Estilistas</h2>
-      
+    <div className="bg-black text-white p-6">
       {errorMessage && (
         <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
           {errorMessage}
@@ -929,22 +931,25 @@ export default function StylistManagement({ services, locations, onUpdate }: Sty
       )}
       
       {/* Botón para mostrar formulario de nuevo estilista */}
-      {!showStylistForm ? (
+      {!editMode && (
         <button
-          onClick={() => setShowStylistForm(true)}
-          className="bg-primary px-4 py-2 rounded mb-6"
-          style={{color: '#000000', fontWeight: 'bold'}}
+          onClick={() => setShowStylistForm(!showStylistForm)}
+          className="bg-white text-black px-6 py-2 rounded-md mb-6 hover:bg-yellow-300 transition-colors border-2 border-primary"
+          style={{fontWeight: 'bold'}}
         >
-          Agregar Nuevo Estilista
+          {showStylistForm ? 'Cerrar formulario' : 'Agregar Nuevo Estilista'}
         </button>
-      ) : (
-        <div className="bg-gray-800 p-6 rounded mb-6 border border-gray-700">
-          <h3 className="text-xl font-semibold mb-4" style={{color: '#ffffff'}}>
+      )}
+      
+      {/* Formulario para añadir/editar estilista */}
+      {showStylistForm && (
+        <div className="bg-white p-6 rounded mb-6 border border-gray-300 shadow-sm">
+          <h3 className="text-xl font-semibold mb-4" style={{color: '#1a1a1a'}}>
             {editMode ? "Modificar Estilista" : "Agregar Nuevo Estilista"}
           </h3>
           
-          <div className="mb-4 p-3 rounded" style={{backgroundColor: '#2a2a2a', borderLeft: '3px solid #ffd700'}}>
-            <p className="text-sm" style={{color: '#e0e0e0'}}>
+          <div className="mb-4 p-3 rounded bg-blue-50 border-l-4 border-blue-400">
+            <p className="text-sm text-gray-700">
               <strong>Información importante sobre horarios:</strong> Cuando seleccionas un centro, el sistema carga automáticamente 
               todos los horarios definidos para ese centro. Si el centro tiene múltiples franjas horarias para un día 
               (por ejemplo, mañana y tarde), el estilista estará disponible en todas esas franjas si el día está activo.
@@ -953,35 +958,35 @@ export default function StylistManagement({ services, locations, onUpdate }: Sty
           
           <form onSubmit={handleStylistSubmit} className="space-y-4">
             <div>
-              <label className="block mb-1" style={{color: '#ffffff'}}>Nombre:</label>
+              <label className="block mb-1 text-gray-700">Nombre:</label>
               <input
                 type="text"
                 value={newStylist.name}
                 onChange={(e) => setNewStylist({...newStylist, name: e.target.value})}
-                className="w-full p-2 rounded"
-                style={{backgroundColor: '#f0f0f0', color: '#000000'}}
+                className="w-full p-2 rounded border border-gray-300"
+                style={{backgroundColor: '#ffffff', color: '#000000'}}
                 placeholder="Nombre del estilista"
                 required
               />
             </div>
             
             <div>
-              <label className="block mb-1" style={{color: '#ffffff'}}>Descripción / Bio:</label>
+              <label className="block mb-1 text-gray-700">Descripción / Bio:</label>
               <textarea
                 value={newStylist.bio}
                 onChange={(e) => setNewStylist({...newStylist, bio: e.target.value})}
-                className="w-full p-2 rounded"
-                style={{backgroundColor: '#f0f0f0', color: '#000000'}}
+                className="w-full p-2 rounded border border-gray-300"
+                style={{backgroundColor: '#ffffff', color: '#000000'}}
                 rows={4}
                 placeholder="Descripción o biografía del estilista"
               />
             </div>
             
             <div>
-              <label className="block mb-1" style={{color: '#ffffff'}}>Centros donde trabaja:</label>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-2 p-3 rounded" style={{backgroundColor: '#333333'}}>
+              <label className="block mb-1 text-gray-700">Centros donde trabaja:</label>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-2 p-3 rounded bg-gray-50 border border-gray-200">
                 {locations.map(location => (
-                  <div key={location.id} className="flex items-center" style={{color: '#e0e0e0'}}>
+                  <div key={location.id} className="flex items-center text-gray-800">
                     <input
                       type="checkbox"
                       id={`location-${location.id}`}
@@ -999,30 +1004,30 @@ export default function StylistManagement({ services, locations, onUpdate }: Sty
             
             {/* Horarios de trabajo */}
             <div className="mb-6">
-              <h3 className="text-lg font-semibold mb-2" style={{color: '#ffd700'}}>
+              <h3 className="text-lg font-semibold mb-2 text-gray-800">
                 Horarios de trabajo:
               </h3>
               
-              <div className="mb-4 p-3 rounded" style={{backgroundColor: '#2a2a2a', borderLeft: '3px solid #ffd700'}}>
-                <p className="text-sm" style={{color: '#e0e0e0'}}>
+              <div className="mb-4 p-3 rounded bg-yellow-50 border-l-4 border-yellow-400">
+                <p className="text-sm text-gray-700">
                   Los horarios del estilista se adaptan automáticamente a los horarios definidos para cada centro. 
                   Si un centro tiene múltiples franjas horarias para un día, el estilista estará disponible en todas ellas.
                 </p>
-                <p className="text-sm mt-1" style={{color: '#e0e0e0'}}>
+                <p className="text-sm mt-1 text-gray-700">
                   Para cada día, puedes activar o desactivar la disponibilidad. Si un día está activo, 
                   todos los horarios del centro para ese día se asignarán al estilista.
                 </p>
               </div>
               
               {newStylist.locationIds.length === 0 ? (
-                <p style={{color: '#e0e0e0'}}>Selecciona al menos un centro para configurar los horarios.</p>
+                <p className="text-gray-700">Selecciona al menos un centro para configurar los horarios.</p>
               ) : (
                 <div className="space-y-4">
                   {newStylist.locationIds.map(locationId => {
                     const location = locations.find(l => l.id === locationId);
                     return (
-                      <div key={`hours-${locationId}`} className="p-3 rounded" style={{backgroundColor: '#333333'}}>
-                        <h4 className="font-medium mb-2" style={{color: '#ffffff'}}>
+                      <div key={`hours-${locationId}`} className="p-3 rounded bg-gray-50 border border-gray-200">
+                        <h4 className="font-medium mb-2 text-gray-800">
                           {location?.name}
                         </h4>
                         <div className="space-y-2">
@@ -1036,7 +1041,7 @@ export default function StylistManagement({ services, locations, onUpdate }: Sty
                                   onChange={(e) => updateWorkingHour(locationId, day.id, 'active', e.target.checked)}
                                   className="mr-2"
                                 />
-                                <label htmlFor={`active-${locationId}-${day.id}`} style={{color: '#e0e0e0'}}>
+                                <label htmlFor={`active-${locationId}-${day.id}`} className="text-gray-700">
                                   {day.name}
                                 </label>
                               </div>
@@ -1044,7 +1049,7 @@ export default function StylistManagement({ services, locations, onUpdate }: Sty
                               {workingHours[locationId]?.[day.id]?.active && (
                                 <div className="flex items-center space-x-2 flex-wrap">
                                   <div className="flex items-center">
-                                    <span style={{color: '#e0e0e0'}} className="mr-2">De</span>
+                                    <span className="text-gray-700 mr-2">De</span>
                                     <input
                                       type="time"
                                       className="px-2 py-1 border rounded"
@@ -1054,7 +1059,7 @@ export default function StylistManagement({ services, locations, onUpdate }: Sty
                                     />
                                   </div>
                                   <div className="flex items-center">
-                                    <span style={{color: '#e0e0e0'}} className="mr-2">a</span>
+                                    <span className="text-gray-700 mr-2">a</span>
                                     <input
                                       type="time"
                                       className="px-2 py-1 border rounded"
@@ -1076,7 +1081,7 @@ export default function StylistManagement({ services, locations, onUpdate }: Sty
                                   
                                   if (centerSlots && centerSlots.slots.length > 0) {
                                     return (
-                                      <div className="mt-2 text-xs" style={{color: '#e0e0e0'}}>
+                                      <div className="mt-2 text-xs text-gray-700">
                                         <p className="mb-1"><strong>Selecciona las franjas horarias:</strong></p>
                                         <div className="pl-2 space-y-2">
                                           {centerSlots.slots.map((slot, idx) => (
@@ -1097,7 +1102,7 @@ export default function StylistManagement({ services, locations, onUpdate }: Sty
                                             </div>
                                           ))}
                                         </div>
-                                        <p className="mt-2 text-xs" style={{color: '#ffd700'}}>
+                                        <p className="mt-2 text-xs text-amber-700">
                                           ℹ️ Solo se habilitarán las franjas horarias seleccionadas
                                         </p>
                                       </div>
@@ -1118,10 +1123,10 @@ export default function StylistManagement({ services, locations, onUpdate }: Sty
             
             {/* Servicios que ofrece el estilista */}
             <div>
-              <label className="block mb-1" style={{color: '#ffffff'}}>Servicios ofrecidos:</label>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-2 p-3 rounded" style={{backgroundColor: '#333333'}}>
+              <label className="block mb-1 text-gray-700">Servicios ofrecidos:</label>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-2 p-3 rounded bg-gray-50 border border-gray-200">
                 {services.map(service => (
-                  <div key={service.id} className="flex items-center" style={{color: '#e0e0e0'}}>
+                  <div key={service.id} className="flex items-center text-gray-800">
                     <input
                       type="checkbox"
                       id={`service-${service.id}`}
@@ -1150,17 +1155,16 @@ export default function StylistManagement({ services, locations, onUpdate }: Sty
             </div>
             
             <div>
-              <label className="block mb-1" style={{color: '#ffffff'}}>Imagen de perfil:</label>
+              <label className="block mb-1 text-gray-700">Imagen de perfil:</label>
               <div className="flex space-x-4">
                 <div className="flex-1">
                   <input
                     type="file"
                     accept="image/*"
                     onChange={handleFileChange}
-                    className="w-full p-2 rounded"
-                    style={{color: '#ffffff'}}
+                    className="w-full p-2 rounded text-gray-800 border border-gray-300"
                   />
-                  <p className="text-sm mt-1" style={{color: '#999999'}}>
+                  <p className="text-sm mt-1 text-gray-500">
                     Formato recomendado: JPEG o PNG, tamaño máximo 2MB
                   </p>
                 </div>
@@ -1170,8 +1174,7 @@ export default function StylistManagement({ services, locations, onUpdate }: Sty
                     <Image
                       src={stylistImagePreview}
                       alt="Vista previa"
-                      className="rounded object-cover w-full h-full border-2"
-                      style={{borderColor: '#555555'}}
+                      className="rounded object-cover w-full h-full border-2 border-gray-300"
                       width={96}
                       height={96}
                     />
@@ -1192,8 +1195,11 @@ export default function StylistManagement({ services, locations, onUpdate }: Sty
               
               <button
                 type="button"
-                onClick={resetStylistForm}
-                className="bg-gray-600 text-white px-4 py-2 rounded"
+                onClick={() => {
+                  resetStylistForm();
+                  setShowStylistForm(false);
+                }}
+                className="bg-gray-400 text-white px-4 py-2 rounded"
               >
                 Cancelar
               </button>
@@ -1202,21 +1208,16 @@ export default function StylistManagement({ services, locations, onUpdate }: Sty
         </div>
       )}
       
-      {/* Lista de estilistas */}
+      {/* Lista de estilistas - siempre visible */}
       <div className="mb-6">
-        <h3 className="text-xl font-semibold mb-2" style={{color: '#ffffff'}}>
-          Estilistas Registrados
-        </h3>
-        
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {stylists.length === 0 ? (
-            <p style={{color: '#e0e0e0'}}>No hay estilistas registrados.</p>
+            <p className="text-gray-700">No hay estilistas registrados.</p>
           ) : (
             stylists.map(stylist => (
               <div 
                 key={stylist.id} 
-                className="p-4 rounded border"
-                style={{backgroundColor: '#333333', borderColor: '#555555'}}
+                className="p-4 rounded border shadow-sm bg-white border-gray-200"
               >
                 <div className="flex items-center space-x-3 mb-2">
                   {stylist.profile_img ? (
@@ -1229,34 +1230,32 @@ export default function StylistManagement({ services, locations, onUpdate }: Sty
                     />
                   ) : (
                     <div 
-                      className="w-12 h-12 rounded-full flex items-center justify-center"
-                      style={{backgroundColor: '#555555'}}
+                      className="w-12 h-12 rounded-full flex items-center justify-center bg-gray-200"
                     >
-                      <span style={{color: '#ffffff'}}>
+                      <span className="text-gray-700">
                         {stylist.name.charAt(0)}
                       </span>
                     </div>
                   )}
                   
-                  <h4 className="text-lg font-medium" style={{color: '#ffffff'}}>
+                  <h4 className="text-lg font-medium text-gray-800">
                     {stylist.name}
                   </h4>
                 </div>
                 
                 {stylist.bio && (
-                  <p className="mb-3" style={{color: '#e0e0e0'}}>
+                  <p className="mb-3 text-gray-600">
                     {stylist.bio.length > 100 ? `${stylist.bio.substring(0, 100)}...` : stylist.bio}
                   </p>
                 )}
                 
                 <div className="mb-3">
-                  <h5 className="text-sm font-medium mb-1" style={{color: '#cccccc'}}>Centros:</h5>
+                  <h5 className="text-sm font-medium mb-1 text-gray-700">Centros:</h5>
                   <div className="flex flex-wrap gap-1">
                     {stylist.location_ids?.map(locId => (
                       <span 
                         key={locId} 
-                        className="text-xs rounded px-2 py-1"
-                        style={{backgroundColor: '#444444', color: '#e0e0e0'}}
+                        className="text-xs rounded px-2 py-1 bg-gray-100 text-gray-700"
                       >
                         {locations.find(loc => loc.id === locId)?.name || 'Centro desconocido'}
                       </span>

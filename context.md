@@ -56,6 +56,7 @@ Lors du développement de nouvelles fonctionnalités ou de la modification de fo
 - **Qualité du Code** : Élimination des variables et fonctions non utilisées
 - **Maintenance** : Ajout de commentaires explicatifs pour faciliter le développement futur
 - **Gestion des Centres** : Ajout d'une interface complète pour gérer les centres dans le tableau de bord administratif
+- **Sécurité Renforcée** : Mise en place d'un système d'authentification centralisé pour toutes les routes administratives
 
 ## Structure de l'Application
 
@@ -102,6 +103,14 @@ Le système de réservation suit un flux en 6 étapes :
 - **Upload d'Images** : Téléverser des images pour les estilistas avec prévisualisation
 - **Gestion Complète des Centres** : Interface dédiée pour ajouter, modifier et supprimer des centres avec toutes leurs informations (nom, adresse, téléphone, email, description, image et horaires d'ouverture multiples)
 - **Configuration des Horaires des Centres** : Possibilité de définir plusieurs plages horaires par jour pour chaque centre (par exemple, matin et après-midi)
+- **Prévisualisation des Images** : Fonctionnalité améliorée pour prévisualiser les images avant leur téléversement dans toutes les sections (services, galerie, configuration)
+
+### Système de Sécurité Administratif
+- **Authentification Centralisée** : Utilisation d'un layout qui vérifie l'authentification pour toutes les routes sous `/admin`
+- **Protection des Routes** : Toutes les pages du panel d'administration, y compris les sous-routes comme `/admin/reservations`, sont protégées par authentification
+- **Vérification de Session** : Vérification automatique de la présence d'une session Supabase valide
+- **Formulaire de Connexion Unifié** : Interface de connexion cohérente pour toutes les routes administratives
+- **Gestion d'État de l'Authentification** : Trois états possibles (chargement, non authentifié, authentifié) pour une expérience utilisateur fluide
 
 ### APIs Implémentées
 - **API de Disponibilité** : Calcule les horaires disponibles selon le service, le centre, le coiffeur et la date, en tenant compte de toutes les plages horaires de travail du coiffeur
@@ -169,13 +178,19 @@ Le système de réservation suit un flux en 6 étapes :
 
 ## Accès et Authentification
 - **Clients** : Ne nécessitent pas d'authentification pour faire des réservations
-- **Administrateurs** : Nécessitent une authentification pour accéder au tableau de bord d'administration
+- **Administrateurs** : 
+  - Authentification obligatoire via Supabase Auth pour accéder à toutes les routes sous `/admin`
+  - Implémentation via un layout React qui vérifie la session utilisateur
+  - Redirection automatique vers le formulaire de connexion pour toutes les routes protégées
+  - Protection complète de toutes les sous-routes administratives
+  - Interface utilisateur adaptée pour les différents états d'authentification (chargement, connexion, authentifié)
 
 ## Maintenance et Mise à Jour
 - Le contenu dynamique (services, images, centres) est géré depuis le tableau de bord d'administration
 - Les mises à jour de code nécessitent un déploiement sur Vercel
 - La configuration de Supabase se fait via sa console ou par des scripts SQL
 - **Vérification Qualité** : Les pull requests doivent passer toutes les vérifications ESLint avant fusion
+- **Sécurité** : Vérifier régulièrement que toutes les routes administratives sont correctement protégées
 
 ## Points d'Attention Importants
 - **Gestion des Horaires Multiples** : Les centres peuvent avoir plusieurs plages horaires par jour (matin/après-midi), et les estilistas peuvent choisir quelles plages ils travaillent
@@ -185,4 +200,5 @@ Le système de réservation suit un flux en 6 étapes :
 - **Stylistes Multi-centres** : Un styliste peut travailler dans plusieurs centres avec des horaires différents 
 - **Qualité du Code** : Éviter l'utilisation de `any` et veiller à utiliser des types explicites
 - **Performance Images** : Toujours utiliser le composant `<Image>` de Next.js pour les images 
-- **Gestion des Centres** : Tous les champs doivent être remplis correctement pour assurer le bon fonctionnement du système de réservation 
+- **Gestion des Centres** : Tous les champs doivent être remplis correctement pour assurer le bon fonctionnement du système de réservation
+- **Sécurité du Panel Admin** : Toutes les pages et sous-routes sous `/admin/*` doivent être protégées par l'authentification centralisée du layout 

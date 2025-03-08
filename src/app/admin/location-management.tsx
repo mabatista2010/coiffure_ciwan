@@ -50,6 +50,7 @@ export default function LocationManagement() {
     image: '',
     active: true,
   });
+  const [showAddForm, setShowAddForm] = useState(false);
 
   const [locationImageFile, setLocationImageFile] = useState<File | null>(null);
   const [locationImagePreview, setLocationImagePreview] = useState<string>('');
@@ -363,9 +364,13 @@ export default function LocationManagement() {
   const handleEditLocation = async (location: Location) => {
     setEditingLocation(location);
     setLocationImagePreview(location.image || '');
+    setShowAddForm(true);
     
     // Cargar los horarios del centro
     await loadLocationHours(location.id);
+    
+    // Desplazar automáticamente hacia la parte superior con animación suave
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const handleDeleteLocation = async (id: string) => {
@@ -412,6 +417,16 @@ export default function LocationManagement() {
     initializeEmptyHours();
   };
 
+  const handleFormSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (editingLocation) {
+      await handleUpdateLocation(e);
+    } else {
+      await handleAddLocation(e);
+      setShowAddForm(false); // Ocultar el formulario después de añadir
+    }
+  };
+
   // Inicializar horarios vacíos
   const initializeEmptyHours = () => {
     const emptyHours: {
@@ -426,226 +441,301 @@ export default function LocationManagement() {
   };
 
   return (
-    <div className="bg-white shadow-lg rounded-lg overflow-hidden">
-      <div className="p-6">
-        <h2 className="text-xl font-bold text-secondary mb-4">
-          {editingLocation ? 'Modifier un Centre' : 'Ajouter un Nouveau Centre'}
-        </h2>
-        
-        <form onSubmit={editingLocation ? handleUpdateLocation : handleAddLocation} className="mb-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-            <div>
-              <label className="block text-text-dark text-sm font-bold mb-2">Nom</label>
-              <input
-                type="text"
-                className="w-full px-3 py-2 border border-gray-300 rounded"
-                value={editingLocation ? editingLocation.name : newLocation.name}
-                onChange={(e) => editingLocation 
-                  ? setEditingLocation({...editingLocation, name: e.target.value})
-                  : setNewLocation({...newLocation, name: e.target.value})
-                }
-                required
-              />
-            </div>
+    <div className="bg-black text-white p-6">
+      {/* Botón desplegable para agregar nuevo centro */}
+      {!editingLocation && (
+        <button 
+          onClick={() => setShowAddForm(!showAddForm)}
+          className="bg-white text-black px-6 py-2 rounded-md mb-6 hover:bg-yellow-300 transition-colors border-2 border-primary font-bold"
+        >
+          {showAddForm ? 'Cerrar formulario' : 'Agregar un Nuevo Centro'} 
+        </button>
+      )}
+      
+      {/* Formulario para agregar/editar centro */}
+      {(showAddForm || editingLocation) && (
+        <div className="bg-white text-black shadow-lg rounded-lg overflow-hidden mb-8">
+          <div className="p-6">
+            <h2 className="text-xl font-bold text-secondary mb-4">
+              {editingLocation ? 'Modifier un Centre' : 'Ajouter un Nouveau Centre'}
+            </h2>
             
-            <div>
-              <label className="block text-text-dark text-sm font-bold mb-2">Adresse</label>
-              <input
-                type="text"
-                className="w-full px-3 py-2 border border-gray-300 rounded"
-                value={editingLocation ? editingLocation.address : newLocation.address}
-                onChange={(e) => editingLocation 
-                  ? setEditingLocation({...editingLocation, address: e.target.value})
-                  : setNewLocation({...newLocation, address: e.target.value})
-                }
-                required
-              />
-            </div>
-            
-            <div>
-              <label className="block text-text-dark text-sm font-bold mb-2">Téléphone</label>
-              <input
-                type="text"
-                className="w-full px-3 py-2 border border-gray-300 rounded"
-                value={editingLocation ? editingLocation.phone || '' : newLocation.phone || ''}
-                onChange={(e) => editingLocation 
-                  ? setEditingLocation({...editingLocation, phone: e.target.value})
-                  : setNewLocation({...newLocation, phone: e.target.value})
-                }
-              />
-            </div>
-            
-            <div>
-              <label className="block text-text-dark text-sm font-bold mb-2">Email</label>
-              <input
-                type="email"
-                className="w-full px-3 py-2 border border-gray-300 rounded"
-                value={editingLocation ? editingLocation.email || '' : newLocation.email || ''}
-                onChange={(e) => editingLocation 
-                  ? setEditingLocation({...editingLocation, email: e.target.value})
-                  : setNewLocation({...newLocation, email: e.target.value})
-                }
-              />
-            </div>
-            
-            <div className="md:col-span-2">
-              <label className="block text-text-dark text-sm font-bold mb-2">Description</label>
-              <textarea
-                className="w-full px-3 py-2 border border-gray-300 rounded"
-                rows={3}
-                value={editingLocation ? editingLocation.description || '' : newLocation.description || ''}
-                onChange={(e) => editingLocation 
-                  ? setEditingLocation({...editingLocation, description: e.target.value})
-                  : setNewLocation({...newLocation, description: e.target.value})
-                }
-              />
-            </div>
-            
-            <div className="md:col-span-2">
-              <label className="block text-text-dark text-sm font-bold mb-2">Image du Centre</label>
-              <input
-                ref={locationImageInputRef}
-                type="file"
-                accept="image/*"
-                className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-primary file:text-secondary hover:file:bg-yellow-400"
-                onChange={handleFileChange}
-              />
-              
-              {(locationImagePreview || (editingLocation && editingLocation.image)) && (
-                <div className="relative h-40 mt-2 rounded overflow-hidden">
-                  <Image 
-                    src={locationImagePreview || (editingLocation?.image || '')} 
-                    alt="Prévisualisation du Centre" 
-                    width={200} 
-                    height={150} 
-                    className="absolute inset-0 w-full h-full object-cover"
+            <form onSubmit={handleFormSubmit} className="mb-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                <div>
+                  <label className="block text-text-dark text-sm font-bold mb-2">Nom</label>
+                  <input
+                    type="text"
+                    className="w-full px-3 py-2 border border-gray-300 rounded"
+                    value={editingLocation ? editingLocation.name : newLocation.name}
+                    onChange={(e) => editingLocation 
+                      ? setEditingLocation({...editingLocation, name: e.target.value})
+                      : setNewLocation({...newLocation, name: e.target.value})
+                    }
+                    required
                   />
                 </div>
-              )}
-            </div>
-          </div>
-          
-          {/* Sección de horarios */}
-          <div className="mb-6">
-            <h3 className="text-lg font-bold text-secondary mb-4">Horaires du Centre</h3>
-            
-            {weekdays.map((day) => (
-              <div key={day.id} className="mb-4">
-                <h4 className="font-semibold mb-2">{day.name}</h4>
                 
-                {locationHours[day.id].map((slot, slotIndex) => (
-                  <div key={slotIndex} className="flex items-center mb-2 gap-2">
-                    <input
-                      type="time"
-                      className="px-3 py-2 border border-gray-300 rounded"
-                      value={slot.start}
-                      onChange={(e) => updateTimeSlot(day.id, slotIndex, 'start', e.target.value)}
-                    />
-                    <span className="mx-2">-</span>
-                    <input
-                      type="time"
-                      className="px-3 py-2 border border-gray-300 rounded"
-                      value={slot.end}
-                      onChange={(e) => updateTimeSlot(day.id, slotIndex, 'end', e.target.value)}
-                    />
+                <div>
+                  <label className="block text-text-dark text-sm font-bold mb-2">Adresse</label>
+                  <input
+                    type="text"
+                    className="w-full px-3 py-2 border border-gray-300 rounded"
+                    value={editingLocation ? editingLocation.address : newLocation.address}
+                    onChange={(e) => editingLocation 
+                      ? setEditingLocation({...editingLocation, address: e.target.value})
+                      : setNewLocation({...newLocation, address: e.target.value})
+                    }
+                    required
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-text-dark text-sm font-bold mb-2">Téléphone</label>
+                  <input
+                    type="text"
+                    className="w-full px-3 py-2 border border-gray-300 rounded"
+                    value={editingLocation ? editingLocation.phone || '' : newLocation.phone || ''}
+                    onChange={(e) => editingLocation 
+                      ? setEditingLocation({...editingLocation, phone: e.target.value})
+                      : setNewLocation({...newLocation, phone: e.target.value})
+                    }
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-text-dark text-sm font-bold mb-2">Email</label>
+                  <input
+                    type="email"
+                    className="w-full px-3 py-2 border border-gray-300 rounded"
+                    value={editingLocation ? editingLocation.email || '' : newLocation.email || ''}
+                    onChange={(e) => editingLocation 
+                      ? setEditingLocation({...editingLocation, email: e.target.value})
+                      : setNewLocation({...newLocation, email: e.target.value})
+                    }
+                  />
+                </div>
+                
+                <div className="md:col-span-2">
+                  <label className="block text-text-dark text-sm font-bold mb-2">Description</label>
+                  <textarea
+                    className="w-full px-3 py-2 border border-gray-300 rounded"
+                    rows={3}
+                    value={editingLocation ? editingLocation.description || '' : newLocation.description || ''}
+                    onChange={(e) => editingLocation 
+                      ? setEditingLocation({...editingLocation, description: e.target.value})
+                      : setNewLocation({...newLocation, description: e.target.value})
+                    }
+                  />
+                </div>
+                
+                <div className="md:col-span-2">
+                  <label className="block text-text-dark text-sm font-bold mb-2">Image du Centre</label>
+                  <input
+                    ref={locationImageInputRef}
+                    type="file"
+                    accept="image/*"
+                    className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-primary file:text-secondary hover:file:bg-yellow-400"
+                    onChange={handleFileChange}
+                  />
+                  
+                  {(locationImagePreview || (editingLocation && editingLocation.image)) && (
+                    <div className="relative h-40 mt-2 rounded overflow-hidden">
+                      <Image 
+                        src={locationImagePreview || (editingLocation?.image || '')} 
+                        alt="Prévisualisation du Centre" 
+                        width={200} 
+                        height={150} 
+                        className="absolute inset-0 w-full h-full object-cover"
+                      />
+                    </div>
+                  )}
+                </div>
+              </div>
+              
+              {/* Sección de horarios */}
+              <div className="mb-6">
+                <h3 className="text-lg font-bold text-secondary mb-4">Horaires du Centre</h3>
+                
+                {weekdays.map((day) => (
+                  <div key={day.id} className="mb-4">
+                    <h4 className="font-semibold mb-2">{day.name}</h4>
+                    
+                    {locationHours[day.id].map((slot, slotIndex) => (
+                      <div key={slotIndex} className="flex items-center mb-2 gap-2">
+                        <input
+                          type="time"
+                          className="px-3 py-2 border border-gray-300 rounded"
+                          value={slot.start}
+                          onChange={(e) => updateTimeSlot(day.id, slotIndex, 'start', e.target.value)}
+                        />
+                        <span className="mx-2">-</span>
+                        <input
+                          type="time"
+                          className="px-3 py-2 border border-gray-300 rounded"
+                          value={slot.end}
+                          onChange={(e) => updateTimeSlot(day.id, slotIndex, 'end', e.target.value)}
+                        />
+                        
+                        <button
+                          type="button"
+                          onClick={() => removeTimeSlot(day.id, slotIndex)}
+                          className="ml-2 text-red-600 hover:text-red-800"
+                          disabled={locationHours[day.id].length === 1 && !slot.start && !slot.end}
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                            <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                          </svg>
+                        </button>
+                      </div>
+                    ))}
                     
                     <button
                       type="button"
-                      onClick={() => removeTimeSlot(day.id, slotIndex)}
-                      className="ml-2 text-red-600 hover:text-red-800"
-                      disabled={locationHours[day.id].length === 1 && !slot.start && !slot.end}
+                      onClick={() => addTimeSlot(day.id)}
+                      className="text-blue-600 hover:text-blue-800 text-sm font-medium"
                     >
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                        <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
-                      </svg>
+                      + Ajouter un créneau horaire
                     </button>
                   </div>
                 ))}
+              </div>
+              
+              <div className="flex space-x-2">
+                <button
+                  type="submit"
+                  className="bg-primary text-secondary font-bold py-2 px-4 rounded hover:bg-yellow-400 transition duration-300 disabled:opacity-50"
+                  disabled={isUploading}
+                >
+                  {isUploading ? 'Téléchargement en cours...' : (editingLocation ? 'Mettre à Jour' : 'Ajouter')}
+                </button>
                 
                 <button
                   type="button"
-                  onClick={() => addTimeSlot(day.id)}
-                  className="text-blue-600 hover:text-blue-800 text-sm font-medium"
+                  className="bg-gray-300 text-gray-700 font-bold py-2 px-4 rounded hover:bg-gray-400 transition duration-300"
+                  onClick={() => {
+                    cancelEdit();
+                    setShowAddForm(false);
+                  }}
                 >
-                  + Ajouter un créneau horaire
+                  Annuler
                 </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+      
+      {/* Tabla de centros (siempre visible) */}
+      <div className="bg-white text-black shadow-lg rounded-lg overflow-hidden">
+        <div className="p-6">
+          <h2 className="text-xl font-bold text-secondary mb-4">Liste des Centres</h2>
+          
+          {/* Vista de tabla para pantallas grandes */}
+          <div className="hidden md:block overflow-x-auto">
+            <table className="min-w-full bg-white">
+              <thead>
+                <tr>
+                  <th className="py-2 px-4 border-b text-left text-text-dark">Nom</th>
+                  <th className="py-2 px-4 border-b text-left text-text-dark">Adresse</th>
+                  <th className="py-2 px-4 border-b text-left text-text-dark">Téléphone</th>
+                  <th className="py-2 px-4 border-b text-left text-text-dark">Email</th>
+                  <th className="py-2 px-4 border-b text-left text-text-dark">Image</th>
+                  <th className="py-2 px-4 border-b text-left text-text-dark">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {locations.map((location) => (
+                  <tr key={location.id}>
+                    <td className="py-2 px-4 border-b text-text-dark">{location.name}</td>
+                    <td className="py-2 px-4 border-b text-text-dark">{location.address}</td>
+                    <td className="py-2 px-4 border-b text-text-dark">{location.phone}</td>
+                    <td className="py-2 px-4 border-b text-text-dark">{location.email}</td>
+                    <td className="py-2 px-4 border-b">
+                      {location.image && (
+                        <div className="relative h-16 w-16 rounded overflow-hidden">
+                          <Image 
+                            src={location.image} 
+                            alt={location.name} 
+                            width={64} 
+                            height={64} 
+                            className="absolute inset-0 w-full h-full object-cover"
+                          />
+                        </div>
+                      )}
+                    </td>
+                    <td className="py-2 px-4 border-b">
+                      <button
+                        onClick={() => handleEditLocation(location)}
+                        className="text-blue-600 hover:text-blue-800 font-medium mr-2"
+                      >
+                        Modifier
+                      </button>
+                      <button
+                        onClick={() => handleDeleteLocation(location.id)}
+                        className="text-red-600 hover:text-red-800 font-medium"
+                      >
+                        Supprimer
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          
+          {/* Vista de tarjetas para pantallas pequeñas */}
+          <div className="md:hidden space-y-4">
+            {locations.map((location) => (
+              <div key={location.id} className="border rounded-lg p-4 shadow-sm">
+                <div className="flex">
+                  {location.image && (
+                    <div className="relative h-20 w-20 rounded overflow-hidden mr-3 flex-shrink-0">
+                      <Image 
+                        src={location.image} 
+                        alt={location.name} 
+                        width={80} 
+                        height={80} 
+                        className="absolute inset-0 w-full h-full object-cover"
+                      />
+                    </div>
+                  )}
+                  <div>
+                    <h3 className="font-bold text-lg text-text-dark">{location.name}</h3>
+                    <p className="text-sm text-gray-600 mb-1">{location.address}</p>
+                  </div>
+                </div>
+                
+                <div className="mt-3 space-y-1">
+                  {location.phone && (
+                    <p className="text-sm">
+                      <span className="font-medium">Téléphone:</span> {location.phone}
+                    </p>
+                  )}
+                  {location.email && (
+                    <p className="text-sm">
+                      <span className="font-medium">Email:</span> {location.email}
+                    </p>
+                  )}
+                </div>
+                
+                <div className="flex space-x-2 pt-3 mt-3 border-t">
+                  <button
+                    onClick={() => handleEditLocation(location)}
+                    className="flex-1 text-center py-1 rounded bg-blue-100 text-blue-700 font-medium text-sm"
+                  >
+                    Modifier
+                  </button>
+                  <button
+                    onClick={() => handleDeleteLocation(location.id)}
+                    className="flex-1 text-center py-1 rounded bg-red-100 text-red-700 font-medium text-sm"
+                  >
+                    Supprimer
+                  </button>
+                </div>
               </div>
             ))}
           </div>
-          
-          <div className="flex space-x-2">
-            <button
-              type="submit"
-              className="bg-primary text-secondary font-bold py-2 px-4 rounded hover:bg-yellow-400 transition duration-300 disabled:opacity-50"
-              disabled={isUploading}
-            >
-              {isUploading ? 'Téléchargement en cours...' : (editingLocation ? 'Mettre à Jour' : 'Ajouter')}
-            </button>
-            
-            {editingLocation && (
-              <button
-                type="button"
-                className="bg-gray-300 text-gray-700 font-bold py-2 px-4 rounded hover:bg-gray-400 transition duration-300"
-                onClick={cancelEdit}
-              >
-                Annuler
-              </button>
-            )}
-          </div>
-        </form>
-        
-        <h2 className="text-xl font-bold text-secondary mb-4">Liste des Centres</h2>
-        
-        <div className="overflow-x-auto">
-          <table className="min-w-full bg-white">
-            <thead>
-              <tr>
-                <th className="py-2 px-4 border-b text-left text-text-dark">Nom</th>
-                <th className="py-2 px-4 border-b text-left text-text-dark">Adresse</th>
-                <th className="py-2 px-4 border-b text-left text-text-dark">Téléphone</th>
-                <th className="py-2 px-4 border-b text-left text-text-dark">Email</th>
-                <th className="py-2 px-4 border-b text-left text-text-dark">Image</th>
-                <th className="py-2 px-4 border-b text-left text-text-dark">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {locations.map((location) => (
-                <tr key={location.id}>
-                  <td className="py-2 px-4 border-b text-text-dark">{location.name}</td>
-                  <td className="py-2 px-4 border-b text-text-dark">{location.address}</td>
-                  <td className="py-2 px-4 border-b text-text-dark">{location.phone}</td>
-                  <td className="py-2 px-4 border-b text-text-dark">{location.email}</td>
-                  <td className="py-2 px-4 border-b">
-                    {location.image && (
-                      <div className="relative h-16 w-16 rounded overflow-hidden">
-                        <Image 
-                          src={location.image} 
-                          alt={location.name} 
-                          width={64} 
-                          height={64} 
-                          className="absolute inset-0 w-full h-full object-cover"
-                        />
-                      </div>
-                    )}
-                  </td>
-                  <td className="py-2 px-4 border-b">
-                    <button
-                      onClick={() => handleEditLocation(location)}
-                      className="text-blue-600 hover:text-blue-800 font-medium mr-2"
-                    >
-                      Modifier
-                    </button>
-                    <button
-                      onClick={() => handleDeleteLocation(location.id)}
-                      className="text-red-600 hover:text-red-800 font-medium"
-                    >
-                      Supprimer
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
         </div>
       </div>
     </div>

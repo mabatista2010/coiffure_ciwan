@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { supabase, Service, GalleryImage, Stylist, StylistService } from '@/lib/supabase';
+import { supabase, Service, GalleryImage } from '@/lib/supabase';
 import { v4 as uuidv4 } from 'uuid';
 import Image from 'next/image';
 import Link from 'next/link';
@@ -21,11 +21,6 @@ interface Location {
 }
 
 export default function AdminPage() {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [errorMessage, setErrorMessage] = useState('');
-  
   // Estado para servicios
   const [services, setServices] = useState<Service[]>([]);
   const [newService, setNewService] = useState<Partial<Service>>({
@@ -36,6 +31,8 @@ export default function AdminPage() {
   });
   const [serviceImageFile, setServiceImageFile] = useState<File | null>(null);
   const [serviceImagePreview, setServiceImagePreview] = useState<string>('');
+  const [showServiceForm, setShowServiceForm] = useState(false);
+  const [editingServiceId, setEditingServiceId] = useState<number | null>(null);
   
   // Estado para galería
   const [galleryImages, setGalleryImages] = useState<GalleryImage[]>([]);
@@ -46,6 +43,8 @@ export default function AdminPage() {
   });
   const [galleryImageFile, setGalleryImageFile] = useState<File | null>(null);
   const [galleryImagePreview, setGalleryImagePreview] = useState<string>('');
+  const [showGalleryForm, setShowGalleryForm] = useState(false);
+  const [editingGalleryId, setEditingGalleryId] = useState<number | null>(null);
 
   // Estado para configuraciones
   const [heroDesktopImage, setHeroDesktopImage] = useState('');
@@ -55,41 +54,13 @@ export default function AdminPage() {
   const [heroDesktopPreview, setHeroDesktopPreview] = useState<string>('');
   const [heroMobilePreview, setHeroMobilePreview] = useState<string>('');
   
-  // Estado para estilistas y sus servicios
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const [stylists, setStylists] = useState<Stylist[]>([]);
+  // Estado para locations (necesario para el componente StylistManagement)
   const [locations, setLocations] = useState<Location[]>([]);
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const [selectedStylist, setSelectedStylist] = useState<string>('');
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const [stylistServices, setStylistServices] = useState<StylistService[]>([]);
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const [selectedService, setSelectedService] = useState<string>('');
+  const [errorMessage, setErrorMessage] = useState('');
+  
   const [activeTab, setActiveTab] = useState('services');
   
-  // Estado para nuevo estilista
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const [newStylist, setNewStylist] = useState<{
-    name: string;
-    bio: string;
-    locationIds: string[];
-    serviceIds: string[];
-  }>({
-    name: '',
-    bio: '',
-    locationIds: [],
-    serviceIds: [],
-  });
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const [stylistImageFile, setStylistImageFile] = useState<File | null>(null);
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const [, setStylistImagePreview] = useState<string>('');
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const [editMode, setEditMode] = useState<boolean>(false);
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const [, setShowStylistForm] = useState<boolean>(false);
-  
-  // Referencias para les inputs de fichier
+  // Referencias para los inputs de fichero
   const heroDesktopInputRef = useRef<HTMLInputElement>(null);
   const heroMobileInputRef = useRef<HTMLInputElement>(null);
   const serviceImageInputRef = useRef<HTMLInputElement>(null);
@@ -99,96 +70,68 @@ export default function AdminPage() {
   const [isUploading, setIsUploading] = useState(false);
 
   useEffect(() => {
-    // Vérifier si l'utilisateur est déjà authentifié
-    const checkSession = async () => {
-      const { data } = await supabase.auth.getSession();
-      if (data.session) {
-        setIsAuthenticated(true);
-        loadData();
-      }
-    };
-    
-    checkSession();
+    loadData();
   }, []);
 
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    try {
-      const { error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
-      
-      if (error) {
-        throw error;
-      }
-      
-      setIsAuthenticated(true);
-      loadData();
-    } catch (error: Error | unknown) {
-      setErrorMessage(error instanceof Error ? error.message : String(error));
-    }
-  };
-
   const loadData = async () => {
-    // Charger les services
-    const { data: servicesData } = await supabase
-      .from('servicios')
-      .select('*')
-      .order('id');
-    
-    if (servicesData) {
-      setServices(servicesData);
-    }
-    
-    // Charger les images de galerie
-    const { data: galleryData } = await supabase
-      .from('imagenes_galeria')
-      .select('*')
-      .order('fecha', { ascending: false });
-    
-    if (galleryData) {
-      setGalleryImages(galleryData);
-    }
-
-    // Charger les configurations
-    const { data: configData } = await supabase
-      .from('configuracion')
-      .select('*');
-    
-    if (configData) {
-      // Trouver les configurations spécifiques
-      const desktopImage = configData.find(c => c.clave === 'hero_image_desktop');
-      const mobileImage = configData.find(c => c.clave === 'hero_image_mobile');
+    try {
+      // Cargar servicios
+      const { data: serviciosData, error: serviciosError } = await supabase
+        .from('servicios')
+        .select('*')
+        .order('id');
       
-      if (desktopImage) {
-        setHeroDesktopImage(desktopImage.valor);
-        setHeroDesktopPreview(desktopImage.valor);
+      if (serviciosError) throw serviciosError;
+      if (serviciosData) {
+        setServices(serviciosData);
       }
-      if (mobileImage) {
-        setHeroMobileImage(mobileImage.valor);
-        setHeroMobilePreview(mobileImage.valor);
+      
+      // Cargar imágenes de galería
+      const { data: imagenesData, error: imagenesError } = await supabase
+        .from('imagenes_galeria')
+        .select('*')
+        .order('fecha', { ascending: false });
+      
+      if (imagenesError) throw imagenesError;
+      if (imagenesData) {
+        setGalleryImages(imagenesData);
       }
-    }
-    
-    // Charger les stylists
-    const { data: stylistsData } = await supabase
-      .from('stylists')
-      .select('*')
-      .eq('active', true);
-    
-    if (stylistsData) {
-      setStylists(stylistsData);
-    }
-    
-    // Charger les centres
-    const { data: locationsData } = await supabase
-      .from('locations')
-      .select('*')
-      .eq('active', true);
-    
-    if (locationsData) {
-      setLocations(locationsData);
+      
+      // Cargar configuración (imágenes hero)
+      const { data: configData, error: configError } = await supabase
+        .from('configuracion')
+        .select('*');
+      
+      if (configError) throw configError;
+      
+      if (configData) {
+        // Trouver les configurations spécifiques
+        const desktopImage = configData.find(c => c.clave === 'hero_image_desktop');
+        const mobileImage = configData.find(c => c.clave === 'hero_image_mobile');
+        
+        if (desktopImage) {
+          setHeroDesktopImage(desktopImage.valor);
+          setHeroDesktopPreview(desktopImage.valor);
+        }
+        if (mobileImage) {
+          setHeroMobileImage(mobileImage.valor);
+          setHeroMobilePreview(mobileImage.valor);
+        }
+      }
+      
+      // Cargar centros (necesario para StylistManagement)
+      const { data: locationsData, error: locationsError } = await supabase
+        .from('locations')
+        .select('*')
+        .eq('active', true);
+      
+      if (locationsError) throw locationsError;
+      if (locationsData) {
+        setLocations(locationsData);
+      }
+    } catch (err: Error | unknown) {
+      console.error('Error al cargar datos:', err);
+      setErrorMessage(err instanceof Error ? err.message : String(err));
     }
   };
 
@@ -270,11 +213,22 @@ export default function AdminPage() {
         }
       }
       
-      const { error } = await supabase
-        .from('servicios')
-        .insert([{ ...newService, imagen_url }]);
-      
-      if (error) throw error;
+      if (editingServiceId) {
+        // Actualizar servicio existente
+        const { error } = await supabase
+          .from('servicios')
+          .update({ ...newService, imagen_url })
+          .eq('id', editingServiceId);
+        
+        if (error) throw error;
+      } else {
+        // Crear nuevo servicio
+        const { error } = await supabase
+          .from('servicios')
+          .insert([{ ...newService, imagen_url }]);
+        
+        if (error) throw error;
+      }
       
       // Réinitialiser le formulaire
       setNewService({
@@ -285,6 +239,8 @@ export default function AdminPage() {
       });
       setServiceImageFile(null);
       setServiceImagePreview('');
+      setShowServiceForm(false);
+      setEditingServiceId(null);
       if (serviceImageInputRef.current) {
         serviceImageInputRef.current.value = '';
       }
@@ -292,7 +248,40 @@ export default function AdminPage() {
       loadData();
     } catch (error: Error | unknown) {
       setErrorMessage(error instanceof Error ? error.message : String(error));
-      console.error('Erreur lors de l\'ajout du service:', error);
+      console.error('Erreur lors de l\'ajout/modification du service:', error);
+    }
+  };
+
+  // Añadir función para editar un servicio
+  const handleEditService = (service: Service) => {
+    setNewService({
+      nombre: service.nombre,
+      descripcion: service.descripcion,
+      precio: service.precio,
+      imagen_url: service.imagen_url,
+    });
+    setServiceImagePreview(service.imagen_url || '');
+    setEditingServiceId(service.id);
+    setShowServiceForm(true);
+    
+    // Desplazar automáticamente hacia la parte superior con animación suave
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  // Modificar función para cancelar
+  const cancelServiceForm = () => {
+    setNewService({
+      nombre: '',
+      descripcion: '',
+      precio: 0,
+      imagen_url: '',
+    });
+    setServiceImageFile(null);
+    setServiceImagePreview('');
+    setShowServiceForm(false);
+    setEditingServiceId(null);
+    if (serviceImageInputRef.current) {
+      serviceImageInputRef.current.value = '';
     }
   };
 
@@ -328,11 +317,22 @@ export default function AdminPage() {
         }
       }
       
-      const { error } = await supabase
-        .from('imagenes_galeria')
-        .insert([{ ...newImage, imagen_url }]);
-      
-      if (error) throw error;
+      if (editingGalleryId) {
+        // Actualizar imagen existente
+        const { error } = await supabase
+          .from('imagenes_galeria')
+          .update({ ...newImage, imagen_url })
+          .eq('id', editingGalleryId);
+        
+        if (error) throw error;
+      } else {
+        // Crear nueva imagen
+        const { error } = await supabase
+          .from('imagenes_galeria')
+          .insert([{ ...newImage, imagen_url }]);
+        
+        if (error) throw error;
+      }
       
       // Réinitialiser le formulaire
       setNewImage({
@@ -342,6 +342,8 @@ export default function AdminPage() {
       });
       setGalleryImageFile(null);
       setGalleryImagePreview('');
+      setShowGalleryForm(false);
+      setEditingGalleryId(null);
       if (galleryImageInputRef.current) {
         galleryImageInputRef.current.value = '';
       }
@@ -349,7 +351,38 @@ export default function AdminPage() {
       loadData();
     } catch (error: Error | unknown) {
       setErrorMessage(error instanceof Error ? error.message : String(error));
-      console.error('Erreur lors de l\'ajout de l\'image:', error);
+      console.error('Erreur lors de l\'ajout/modification de l\'image:', error);
+    }
+  };
+
+  // Añadir función para editar una imagen
+  const handleEditImage = (image: GalleryImage) => {
+    setNewImage({
+      descripcion: image.descripcion,
+      imagen_url: image.imagen_url,
+      fecha: image.fecha,
+    });
+    setGalleryImagePreview(image.imagen_url || '');
+    setEditingGalleryId(image.id);
+    setShowGalleryForm(true);
+    
+    // Desplazar automáticamente hacia la parte superior con animación suave
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  // Función para cancelar la edición/creación de imagen
+  const cancelGalleryForm = () => {
+    setNewImage({
+      descripcion: '',
+      imagen_url: '',
+      fecha: new Date().toISOString().split('T')[0],
+    });
+    setGalleryImageFile(null);
+    setGalleryImagePreview('');
+    setShowGalleryForm(false);
+    setEditingGalleryId(null);
+    if (galleryImageInputRef.current) {
+      galleryImageInputRef.current.value = '';
     }
   };
 
@@ -405,122 +438,15 @@ export default function AdminPage() {
     }
   };
 
-  // Fonction pour charger les services d'un styliste
-  const loadStylistServices = async (stylistId: string) => {
-    if (!stylistId) return;
-    
-    try {
-      const { data, error } = await supabase
-        .from('stylist_services')
-        .select('*')
-        .eq('stylist_id', stylistId);
-      
-      if (error) throw error;
-      
-      setStylistServices(data || []);
-    } catch (error: Error | unknown) {
-      console.error('Erreur lors du chargement des services du styliste:', error);
-      setStylistServices([]);
-    }
-  };
-
-  // Effect pour charger les services du styliste sélectionné
-  useEffect(() => {
-    if (selectedStylist) {
-      loadStylistServices(selectedStylist);
-    } else {
-      setStylistServices([]);
-    }
-  }, [selectedStylist]);
-
-  // Agregar resetStylistForm para evitar el error
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const resetStylistForm = () => {
-    // Function stub para evitar el error
-  };
-  
-  // Funciones stub para evitar errores
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const _handleAddStylistService = () => {
-    // Function stub para evitar el error
-  };
-  
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const _handleDeleteStylistService = () => {
-    // Function stub para evitar el error
-  };
-  
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const _loadStylistForEdit = () => {
-    // Function stub para evitar el error
-  };
-  
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const _handleStylistSubmit = () => {
-    // Function stub para evitar el error
-  };
-  
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const _handleDeleteStylist = () => {
-    // Function stub para evitar el error
-  };
-
-  if (!isAuthenticated) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-100">
-        <div className="max-w-md w-full p-8 bg-white rounded-lg shadow-lg">
-          <h1 className="text-2xl font-bold text-center mb-6 text-secondary">Admin Login</h1>
-          
-          {errorMessage && (
-            <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
-              {errorMessage}
-            </div>
-          )}
-          
-          <form onSubmit={handleLogin}>
-            <div className="mb-4">
-              <label className="block text-text-dark text-sm font-bold mb-2" htmlFor="email">
-                Email
-              </label>
-              <input
-                id="email"
-                type="email"
-                className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-primary focus:border-primary"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-              />
-            </div>
-            
-            <div className="mb-6">
-              <label className="block text-text-dark text-sm font-bold mb-2" htmlFor="password">
-                Mot de passe
-              </label>
-              <input
-                id="password"
-                type="password"
-                className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-primary focus:border-primary"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-              />
-            </div>
-            
-            <button
-              type="submit"
-              className="w-full bg-primary text-secondary font-bold py-2 px-4 rounded hover:bg-yellow-400 transition duration-300"
-            >
-              Connexion
-            </button>
-          </form>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="container mx-auto px-4 py-8">
       <h1 className="text-3xl font-bold mb-6" style={{ color: '#E76F51' }}>Panneau d&apos;Administration</h1>
+      
+      {errorMessage && (
+        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+          {errorMessage}
+        </div>
+      )}
       
       <div className="mb-6">
         <div className="flex border-b border-gray-200 mb-4 overflow-x-auto whitespace-nowrap">
@@ -584,214 +510,350 @@ export default function AdminPage() {
       
       {/* Sections existantes */}
       {activeTab === 'services' && (
-        <div className="bg-white shadow-lg rounded-lg overflow-hidden mb-8">
-          <div className="p-6">
-            <h2 className="text-xl font-bold text-secondary mb-4">Gérer les Services</h2>
-            
-            <form onSubmit={handleAddService} className="mb-6 grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-text-dark text-sm font-bold mb-2">Nom</label>
-                <input
-                  type="text"
-                  className="w-full px-3 py-2 border border-gray-300 rounded"
-                  value={newService.nombre}
-                  onChange={(e) => setNewService({ ...newService, nombre: e.target.value })}
-                  required
-                />
-              </div>
-              
-              <div>
-                <label className="block text-text-dark text-sm font-bold mb-2">Precio (€)</label>
-                <input
-                  type="number"
-                  className="w-full px-3 py-2 border border-gray-300 rounded"
-                  value={newService.precio}
-                  onChange={(e) => setNewService({ ...newService, precio: Number(e.target.value) })}
-                  required
-                />
-              </div>
-              
-              <div className="md:col-span-2">
-                <label className="block text-text-dark text-sm font-bold mb-2">Descripción</label>
-                <textarea
-                  className="w-full px-3 py-2 border border-gray-300 rounded"
-                  rows={2}
-                  value={newService.descripcion}
-                  onChange={(e) => setNewService({ ...newService, descripcion: e.target.value })}
-                  required
-                />
-              </div>
-              
-              <div className="md:col-span-2">
-                <label className="block text-text-dark text-sm font-bold mb-2">Imagen del servicio</label>
-                <input
-                  ref={serviceImageInputRef}
-                  type="file"
-                  accept="image/*"
-                  className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-primary file:text-secondary hover:file:bg-yellow-400"
-                  onChange={(e) => handleFileChange(e, setServiceImageFile, setServiceImagePreview)}
-                />
+        <>
+          {/* Botón para mostrar/ocultar el formulario - ahora fuera del componente blanco */}
+          <button 
+            onClick={() => {
+              if (showServiceForm) {
+                cancelServiceForm();
+              } else {
+                setShowServiceForm(true);
+              }
+            }}
+            className="bg-white text-black px-6 py-2 rounded-md mb-6 hover:bg-yellow-300 transition-colors border-2 border-primary font-bold"
+          >
+            {showServiceForm ? 'Cerrar formulario' : 'Agregar Nuevo Servicio'}
+          </button>
+          
+          {/* Formulario condicional */}
+          {showServiceForm && (
+            <div className="bg-white shadow-lg rounded-lg overflow-hidden mb-8">
+              <div className="p-6">
+                <h2 className="text-xl font-bold text-secondary mb-4">
+                  {editingServiceId ? 'Editar Servicio' : 'Agregar Nuevo Servicio'}
+                </h2>
                 
-                {serviceImagePreview && (
-                  <div className="mt-4">
-                    <Image 
-                      src={serviceImagePreview} 
-                      alt="Aperçu" 
-                      width={200} 
-                      height={150} 
-                      className="rounded-lg"
+                <form onSubmit={handleAddService} className="mb-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-text-dark text-sm font-bold mb-2">Nom</label>
+                    <input
+                      type="text"
+                      className="w-full px-3 py-2 border border-gray-300 rounded"
+                      value={newService.nombre}
+                      onChange={(e) => setNewService({ ...newService, nombre: e.target.value })}
+                      required
                     />
                   </div>
-                )}
+                  
+                  <div>
+                    <label className="block text-text-dark text-sm font-bold mb-2">Precio (€)</label>
+                    <input
+                      type="number"
+                      className="w-full px-3 py-2 border border-gray-300 rounded"
+                      value={newService.precio}
+                      onChange={(e) => setNewService({ ...newService, precio: Number(e.target.value) })}
+                      required
+                    />
+                  </div>
+                  
+                  <div className="md:col-span-2">
+                    <label className="block text-text-dark text-sm font-bold mb-2">Descripción</label>
+                    <textarea
+                      className="w-full px-3 py-2 border border-gray-300 rounded"
+                      rows={2}
+                      value={newService.descripcion}
+                      onChange={(e) => setNewService({ ...newService, descripcion: e.target.value })}
+                      required
+                    />
+                  </div>
+                  
+                  <div className="md:col-span-2">
+                    <label className="block text-text-dark text-sm font-bold mb-2">Imagen del servicio</label>
+                    <input
+                      ref={serviceImageInputRef}
+                      type="file"
+                      accept="image/*"
+                      className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-primary file:text-secondary hover:file:bg-yellow-400"
+                      onChange={(e) => handleFileChange(e, setServiceImageFile, setServiceImagePreview)}
+                    />
+                    
+                    {serviceImagePreview && (
+                      <div className="mt-4 w-full">
+                        <p className="text-sm font-medium text-gray-600 mb-2">Vista previa:</p>
+                        <div className="border rounded-lg overflow-hidden" style={{ maxWidth: '300px' }}>
+                          <Image 
+                            src={serviceImagePreview} 
+                            alt="Vista previa del servicio" 
+                            width={300}
+                            height={200}
+                            className="w-full h-auto object-cover"
+                          />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                  
+                  <div className="md:col-span-2 flex space-x-2">
+                    <button
+                      type="submit"
+                      className="bg-primary text-secondary font-bold py-2 px-4 rounded hover:bg-yellow-400 transition duration-300 disabled:opacity-50"
+                      disabled={isUploading}
+                    >
+                      {isUploading ? 'Subiendo...' : (editingServiceId ? 'Actualizar Servicio' : 'Agregar Servicio')}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={cancelServiceForm}
+                      className="bg-gray-300 text-gray-700 font-bold py-2 px-4 rounded hover:bg-gray-400 transition duration-300"
+                    >
+                      Cancelar
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          )}
+          
+          {/* Componente principal con la lista de servicios - ahora responsive */}
+          <div className="bg-white shadow-lg rounded-lg overflow-hidden mb-8">
+            <div className="p-6">
+              <h2 className="text-xl font-bold text-secondary mb-4">Liste des Services</h2>
+              
+              {/* Vista de tabla para pantallas grandes */}
+              <div className="hidden md:block overflow-x-auto">
+                <table className="min-w-full bg-white">
+                  <thead>
+                    <tr>
+                      <th className="py-2 px-4 border-b text-left text-text-dark">Imagen</th>
+                      <th className="py-2 px-4 border-b text-left text-text-dark">Nombre</th>
+                      <th className="py-2 px-4 border-b text-left text-text-dark">Precio</th>
+                      <th className="py-2 px-4 border-b text-left text-text-dark">Descripción</th>
+                      <th className="py-2 px-4 border-b text-left text-text-dark">Acciones</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {services.map((service) => (
+                      <tr key={service.id}>
+                        <td className="py-2 px-4 border-b">
+                          {service.imagen_url && (
+                            <div className="relative h-16 w-24 rounded overflow-hidden">
+                              <Image 
+                                src={service.imagen_url} 
+                                alt={service.nombre} 
+                                width={96} 
+                                height={64} 
+                                className="absolute inset-0 w-full h-full object-cover"
+                              />
+                            </div>
+                          )}
+                        </td>
+                        <td className="py-2 px-4 border-b text-text-dark">{service.nombre}</td>
+                        <td className="py-2 px-4 border-b text-text-dark">{service.precio}€</td>
+                        <td className="py-2 px-4 border-b text-text-dark">{service.descripcion}</td>
+                        <td className="py-2 px-4 border-b">
+                          <div className="flex space-x-2">
+                            <button
+                              onClick={() => handleEditService(service)}
+                              className="text-blue-600 hover:text-blue-800 font-medium"
+                            >
+                              Modifier
+                            </button>
+                            <button
+                              onClick={() => handleDeleteService(service.id)}
+                              className="text-red-600 hover:text-red-800 font-medium"
+                            >
+                              Supprimer
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
               
-              <div className="md:col-span-2">
-                <button
-                  type="submit"
-                  className="bg-primary text-secondary font-bold py-2 px-4 rounded hover:bg-yellow-400 transition duration-300 disabled:opacity-50"
-                  disabled={isUploading}
-                >
-                  {isUploading ? 'Téléchargement...' : 'Agregar un Servicio'}
-                </button>
+              {/* Vista de tarjetas para pantallas pequeñas */}
+              <div className="md:hidden space-y-4">
+                {services.map((service) => (
+                  <div key={service.id} className="border rounded-lg p-4 shadow-sm">
+                    <div className="flex items-center mb-3">
+                      {service.imagen_url && (
+                        <div className="relative h-20 w-20 rounded overflow-hidden mr-3 flex-shrink-0">
+                          <Image 
+                            src={service.imagen_url} 
+                            alt={service.nombre} 
+                            width={80} 
+                            height={80} 
+                            className="absolute inset-0 w-full h-full object-cover"
+                          />
+                        </div>
+                      )}
+                      <div>
+                        <h3 className="font-bold text-lg">{service.nombre}</h3>
+                        <p className="text-primary font-semibold">{service.precio}€</p>
+                      </div>
+                    </div>
+                    
+                    <p className="text-sm text-gray-600 mb-3">{service.descripcion}</p>
+                    
+                    <div className="flex space-x-2 pt-2 border-t">
+                      <button
+                        onClick={() => handleEditService(service)}
+                        className="flex-1 text-center py-1 rounded bg-blue-100 text-blue-700 font-medium text-sm"
+                      >
+                        Modifier
+                      </button>
+                      <button
+                        onClick={() => handleDeleteService(service.id)}
+                        className="flex-1 text-center py-1 rounded bg-red-100 text-red-700 font-medium text-sm"
+                      >
+                        Supprimer
+                      </button>
+                    </div>
+                  </div>
+                ))}
               </div>
-            </form>
-            
-            <div className="overflow-x-auto">
-              <table className="min-w-full bg-white">
-                <thead>
-                  <tr>
-                    <th className="py-2 px-4 border-b text-left text-text-dark">Nom</th>
-                    <th className="py-2 px-4 border-b text-left text-text-dark">Descripción</th>
-                    <th className="py-2 px-4 border-b text-left text-text-dark">Precio</th>
-                    <th className="py-2 px-4 border-b text-left text-text-dark">Imagen</th>
-                    <th className="py-2 px-4 border-b text-left text-text-dark">Acciones</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {services.map((service) => (
-                    <tr key={service.id}>
-                      <td className="py-2 px-4 border-b text-text-dark">{service.nombre}</td>
-                      <td className="py-2 px-4 border-b text-text-dark">{service.descripcion}</td>
-                      <td className="py-2 px-4 border-b text-text-dark">{service.precio}€</td>
-                      <td className="py-2 px-4 border-b">
-                        {service.imagen_url && (
-                          <div className="relative h-16 w-16 rounded overflow-hidden">
-                            <Image 
-                              src={service.imagen_url} 
-                              alt={service.nombre} 
-                              width={64} 
-                              height={64} 
-                              className="absolute inset-0 w-full h-full object-cover"
-                            />
-                          </div>
-                        )}
-                      </td>
-                      <td className="py-2 px-4 border-b">
-                        <button
-                          onClick={() => handleDeleteService(service.id)}
-                          className="text-red-600 hover:text-red-800 font-medium"
-                        >
-                          Supprimer
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
             </div>
           </div>
-        </div>
+        </>
       )}
       
       {activeTab === 'gallery' && (
-        <div className="bg-white shadow-lg rounded-lg overflow-hidden">
-          <div className="p-6">
-            <h2 className="text-xl font-bold text-secondary mb-4">Gérer la Galerie</h2>
-            
-            <form onSubmit={handleAddImage} className="mb-6 grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-text-dark text-sm font-bold mb-2">Descripción</label>
-                <input
-                  type="text"
-                  className="w-full px-3 py-2 border border-gray-300 rounded"
-                  value={newImage.descripcion}
-                  onChange={(e) => setNewImage({ ...newImage, descripcion: e.target.value })}
-                  required
-                />
-              </div>
-              
-              <div>
-                <label className="block text-text-dark text-sm font-bold mb-2">Fecha</label>
-                <input
-                  type="date"
-                  className="w-full px-3 py-2 border border-gray-300 rounded"
-                  value={newImage.fecha}
-                  onChange={(e) => setNewImage({ ...newImage, fecha: e.target.value })}
-                  required
-                />
-              </div>
-              
-              <div className="md:col-span-2">
-                <label className="block text-text-dark text-sm font-bold mb-2">Imagen para la galería</label>
-                <input
-                  ref={galleryImageInputRef}
-                  type="file"
-                  accept="image/*"
-                  className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-primary file:text-secondary hover:file:bg-yellow-400"
-                  onChange={(e) => handleFileChange(e, setGalleryImageFile, setGalleryImagePreview)}
-                />
+        <>
+          {/* Botón para mostrar/ocultar el formulario - fuera del componente blanco */}
+          <button 
+            onClick={() => {
+              if (showGalleryForm) {
+                cancelGalleryForm();
+              } else {
+                setShowGalleryForm(true);
+              }
+            }}
+            className="bg-white text-black px-6 py-2 rounded-md mb-6 hover:bg-yellow-300 transition-colors border-2 border-primary font-bold"
+          >
+            {showGalleryForm ? 'Cerrar formulario' : 'Agregar Nueva Imagen'}
+          </button>
+          
+          {/* Formulario condicional */}
+          {showGalleryForm && (
+            <div className="bg-white shadow-lg rounded-lg overflow-hidden mb-8">
+              <div className="p-6">
+                <h2 className="text-xl font-bold text-secondary mb-4">
+                  {editingGalleryId ? 'Editar Imagen' : 'Agregar Nueva Imagen'}
+                </h2>
                 
-                {galleryImagePreview && (
-                  <div className="relative h-40 mt-2 rounded overflow-hidden">
-                    <Image 
-                      src={galleryImagePreview} 
-                      alt="Gallery Preview" 
-                      width={200} 
-                      height={150} 
-                      className="absolute inset-0 w-full h-full object-cover"
+                <form onSubmit={handleAddImage} className="mb-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-text-dark text-sm font-bold mb-2">Descripción</label>
+                    <input
+                      type="text"
+                      className="w-full px-3 py-2 border border-gray-300 rounded"
+                      value={newImage.descripcion}
+                      onChange={(e) => setNewImage({ ...newImage, descripcion: e.target.value })}
+                      required
                     />
                   </div>
-                )}
-              </div>
-              
-              <div className="md:col-span-2">
-                <button
-                  type="submit"
-                  className="bg-primary text-secondary font-bold py-2 px-4 rounded hover:bg-yellow-400 transition duration-300 disabled:opacity-50"
-                  disabled={isUploading}
-                >
-                  {isUploading ? 'Téléchargement...' : 'Agregar una Imagen'}
-                </button>
-              </div>
-            </form>
-            
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-              {galleryImages.map((image) => (
-                <div key={image.id} className="border rounded-lg overflow-hidden">
-                  <div className="relative pt-[60%]">
-                    <Image 
-                      src={image.imagen_url} 
-                      alt={image.descripcion} 
-                      width={200} 
-                      height={150} 
-                      className="absolute top-0 left-0 w-full h-full object-cover"
+                  
+                  <div>
+                    <label className="block text-text-dark text-sm font-bold mb-2">Fecha</label>
+                    <input
+                      type="date"
+                      className="w-full px-3 py-2 border border-gray-300 rounded"
+                      value={newImage.fecha}
+                      onChange={(e) => setNewImage({ ...newImage, fecha: e.target.value })}
+                      required
                     />
                   </div>
-                  <div className="p-4">
-                    <p className="font-medium text-text-dark">{image.descripcion}</p>
-                    <p className="text-sm text-text-medium">{new Date(image.fecha).toLocaleDateString()}</p>
+                  
+                  <div className="md:col-span-2">
+                    <label className="block text-text-dark text-sm font-bold mb-2">Imagen para la galería</label>
+                    <input
+                      ref={galleryImageInputRef}
+                      type="file"
+                      accept="image/*"
+                      className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-primary file:text-secondary hover:file:bg-yellow-400"
+                      onChange={(e) => handleFileChange(e, setGalleryImageFile, setGalleryImagePreview)}
+                      required={!editingGalleryId}
+                    />
+                    
+                    {galleryImagePreview && (
+                      <div className="mt-4 w-full">
+                        <p className="text-sm font-medium text-gray-600 mb-2">Vista previa:</p>
+                        <div className="border rounded-lg overflow-hidden" style={{ maxWidth: '300px' }}>
+                          <Image 
+                            src={galleryImagePreview} 
+                            alt="Vista previa de la galería" 
+                            width={300}
+                            height={200}
+                            className="w-full h-auto object-cover"
+                          />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                  
+                  <div className="md:col-span-2 flex space-x-2">
                     <button
-                      onClick={() => handleDeleteImage(image.id)}
-                      className="mt-2 text-sm text-red-600 hover:text-red-800 font-medium"
+                      type="submit"
+                      className="bg-primary text-secondary font-bold py-2 px-4 rounded hover:bg-yellow-400 transition duration-300 disabled:opacity-50"
+                      disabled={isUploading}
                     >
-                      Supprimer
+                      {isUploading ? 'Subiendo...' : (editingGalleryId ? 'Actualizar Imagen' : 'Agregar Imagen')}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={cancelGalleryForm}
+                      className="bg-gray-300 text-gray-700 font-bold py-2 px-4 rounded hover:bg-gray-400 transition duration-300"
+                    >
+                      Cancelar
                     </button>
                   </div>
-                </div>
-              ))}
+                </form>
+              </div>
+            </div>
+          )}
+          
+          {/* Componente principal con galería */}
+          <div className="bg-white shadow-lg rounded-lg overflow-hidden">
+            <div className="p-6">
+              <h2 className="text-xl font-bold text-secondary mb-4">Images de la Galerie</h2>
+              
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {galleryImages.map((image) => (
+                  <div key={image.id} className="border rounded-lg overflow-hidden shadow-sm">
+                    <div className="relative h-48 w-full">
+                      <Image 
+                        src={image.imagen_url} 
+                        alt={image.descripcion} 
+                        width={400} 
+                        height={300} 
+                        className="absolute inset-0 w-full h-full object-cover"
+                      />
+                    </div>
+                    <div className="p-3">
+                      <p className="text-sm text-gray-700 mb-1">{image.descripcion}</p>
+                      <p className="text-xs text-gray-500 mb-2">{new Date(image.fecha).toLocaleDateString('fr-FR')}</p>
+                      <div className="flex space-x-2 pt-2 border-t mt-2">
+                        <button
+                          onClick={() => handleEditImage(image)}
+                          className="flex-1 text-center py-1 rounded bg-blue-100 text-blue-700 font-medium text-sm"
+                        >
+                          Modifier
+                        </button>
+                        <button
+                          onClick={() => handleDeleteImage(image.id)}
+                          className="flex-1 text-center py-1 rounded bg-red-100 text-red-700 font-medium text-sm"
+                        >
+                          Supprimer
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
-        </div>
+        </>
       )}
       
       {activeTab === 'config' && (
@@ -817,20 +879,23 @@ export default function AdminPage() {
                 </div>
                 
                 {heroDesktopPreview && (
-                  <div className="relative h-40 mb-4 rounded overflow-hidden">
-                    <Image 
-                      src={heroDesktopPreview} 
-                      alt="Hero Desktop Preview" 
-                      width={200} 
-                      height={150} 
-                      className="absolute inset-0 w-full h-full object-cover"
-                    />
+                  <div className="mt-4 w-full">
+                    <p className="text-sm font-medium text-gray-600 mb-2">Vista previa:</p>
+                    <div className="border rounded-lg overflow-hidden">
+                      <Image 
+                        src={heroDesktopPreview} 
+                        alt="Vista previa de la imagen para ordenador" 
+                        width={400}
+                        height={200}
+                        className="w-full h-auto object-cover"
+                      />
+                    </div>
                   </div>
                 )}
                 
                 <button
                   onClick={() => updateHeroImage('hero_image_desktop', heroDesktopFile, heroDesktopImage)}
-                  className="bg-primary text-secondary font-bold py-2 px-4 rounded hover:bg-yellow-400 transition duration-300 disabled:opacity-50"
+                  className="bg-primary text-secondary font-bold py-2 px-4 rounded hover:bg-yellow-400 transition duration-300 disabled:opacity-50 mt-4"
                   disabled={isUploading}
                 >
                   {isUploading ? 'Téléchargement...' : 'Actualizar la Imagen'}
@@ -854,20 +919,23 @@ export default function AdminPage() {
                 </div>
                 
                 {heroMobilePreview && (
-                  <div className="relative h-40 mb-4 rounded overflow-hidden">
-                    <Image 
-                      src={heroMobilePreview} 
-                      alt="Hero Mobile Preview" 
-                      width={200} 
-                      height={150} 
-                      className="absolute inset-0 w-full h-full object-cover"
-                    />
+                  <div className="mt-4 w-full">
+                    <p className="text-sm font-medium text-gray-600 mb-2">Vista previa:</p>
+                    <div className="border rounded-lg overflow-hidden">
+                      <Image 
+                        src={heroMobilePreview} 
+                        alt="Vista previa de la imagen para móvil" 
+                        width={400}
+                        height={200}
+                        className="w-full h-auto object-cover"
+                      />
+                    </div>
                   </div>
                 )}
                 
                 <button
                   onClick={() => updateHeroImage('hero_image_mobile', heroMobileFile, heroMobileImage)}
-                  className="bg-primary text-secondary font-bold py-2 px-4 rounded hover:bg-yellow-400 transition duration-300 disabled:opacity-50"
+                  className="bg-primary text-secondary font-bold py-2 px-4 rounded hover:bg-yellow-400 transition duration-300 disabled:opacity-50 mt-4"
                   disabled={isUploading}
                 >
                   {isUploading ? 'Téléchargement...' : 'Actualizar la Imagen'}
