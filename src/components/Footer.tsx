@@ -1,13 +1,13 @@
 'use client';
 
 import Link from 'next/link';
-import { FaFacebook, FaInstagram, FaTwitter, FaWhatsapp } from 'react-icons/fa';
+import { FaFacebook, FaInstagram, FaTwitter, FaWhatsapp, FaLock } from 'react-icons/fa';
 
 export default function Footer() {
   const currentYear = new Date().getFullYear();
 
   return (
-    <footer id="contacto" className="py-12" style={{ backgroundColor: '#121212' }}>
+    <footer id="contacto" className="py-12 relative" style={{ backgroundColor: '#121212' }}>
       <div className="container mx-auto px-4">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           {/* Logo y descripción */}
@@ -97,10 +97,23 @@ export default function Footer() {
 
         {/* Línea divisoria */}
         <div className="border-t border-gray-700 mt-8 pt-8 text-center">
-          <p style={{ color: '#E0E0E0' }}>
+          <p style={{ color: '#E0E0E0' }} className="mb-2">
             © {currentYear} Coiffure Ciwan. Tous droits réservés.
           </p>
         </div>
+      </div>
+      
+      {/* Botón de administración colocado en la esquina inferior derecha */}
+      <div className="absolute bottom-4 right-4">
+        <Link 
+          href="/admin" 
+          className="flex items-center space-x-1 px-3 py-1 rounded-full bg-black bg-opacity-60 hover:bg-opacity-90 transition-all duration-300 border border-gray-700"
+          aria-label="Accès administrateur"
+          title="Administration"
+        >
+          <FaLock size={10} className="text-yellow-500" />
+          <span className="text-xs text-yellow-500 font-light">Admin</span>
+        </Link>
       </div>
     </footer>
   );

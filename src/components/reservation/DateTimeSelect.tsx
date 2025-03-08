@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Service, Location, Stylist, AvailabilitySlot } from '@/lib/supabase';
-import { FaCalendarAlt, FaSpinner } from 'react-icons/fa';
+import { FaCalendarAlt, FaSpinner, FaChevronLeft, FaChevronRight } from 'react-icons/fa';
 
 interface DateTimeSelectProps {
   selectedService: Service;
@@ -25,25 +25,73 @@ export default function DateTimeSelect({
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [availableDates, setAvailableDates] = useState<string[]>([]);
+  const [currentWeekStart, setCurrentWeekStart] = useState<Date>(new Date());
+  const [calendarView, setCalendarView] = useState<'week' | 'month'>('week');
 
-  // Generar fechas disponibles (próximos 14 días)
+  // Generar fechas disponibles según la vista actual
   useEffect(() => {
     const dates = [];
-    const today = new Date();
-    for (let i = 0; i < 14; i++) {
-      const date = new Date(today);
-      date.setDate(today.getDate() + i);
-      // Excluir domingos (0) y sábados (6)
+    const startDate = new Date(currentWeekStart);
+    
+    // Determinar cuántas fechas generar según la vista
+    const daysToGenerate = calendarView === 'week' ? 7 : 28;
+    
+    for (let i = 0; i < daysToGenerate; i++) {
+      const date = new Date(startDate);
+      date.setDate(startDate.getDate() + i);
+      // Excluir domingos (0)
       if (date.getDay() !== 0) {
         dates.push(date.toISOString().split('T')[0]);
       }
     }
     setAvailableDates(dates);
-    // Seleccionar la primera fecha por defecto
-    if (dates.length > 0) {
+    
+    // Si la fecha seleccionada ya no está en el rango, seleccionar la primera fecha
+    if (dates.length > 0 && (!selectedDate || !dates.includes(selectedDate))) {
       setSelectedDate(dates[0]);
     }
-  }, []);
+  }, [currentWeekStart, calendarView, selectedDate]);
+
+  // Funciones de navegación del calendario
+  const goToPreviousPeriod = () => {
+    const newStart = new Date(currentWeekStart);
+    if (calendarView === 'week') {
+      newStart.setDate(newStart.getDate() - 7);
+    } else {
+      newStart.setDate(newStart.getDate() - 28);
+    }
+    setCurrentWeekStart(newStart);
+  };
+
+  const goToNextPeriod = () => {
+    const newStart = new Date(currentWeekStart);
+    if (calendarView === 'week') {
+      newStart.setDate(newStart.getDate() + 7);
+    } else {
+      newStart.setDate(newStart.getDate() + 28);
+    }
+    setCurrentWeekStart(newStart);
+  };
+
+  const toggleCalendarView = () => {
+    setCalendarView(prevView => prevView === 'week' ? 'month' : 'week');
+  };
+
+  // Limitar navegación al pasado (no permitir fechas anteriores a hoy)
+  const isPreviousDisabled = () => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return currentWeekStart <= today;
+  };
+
+  // Limitar navegación al futuro (máximo 3 meses)
+  const isNextDisabled = () => {
+    const today = new Date();
+    const threeMonthsLater = new Date(today);
+    threeMonthsLater.setMonth(today.getMonth() + 3);
+    
+    return currentWeekStart >= threeMonthsLater;
+  };
 
   // Cargar slots disponibles cuando se selecciona una fecha
   useEffect(() => {
@@ -152,9 +200,43 @@ export default function DateTimeSelect({
       <div className="flex flex-col md:flex-row gap-8">
         {/* Selector de fechas */}
         <div className="w-full md:w-1/3">
-          <h3 className="text-xl font-semibold mb-4 flex items-center gap-2 text-secondary">
-            <FaCalendarAlt /> Sélectionnez une date
-          </h3>
+          <div className="flex justify-between items-center mb-4">
+            <h3 className="text-xl font-semibold flex items-center gap-2 text-secondary">
+              <FaCalendarAlt /> Sélectionnez une date
+            </h3>
+            <div className="flex items-center space-x-2">
+              <button
+                onClick={goToPreviousPeriod}
+                disabled={isPreviousDisabled()}
+                className={`p-2 rounded ${
+                  isPreviousDisabled()
+                    ? 'text-gray-400 cursor-not-allowed'
+                    : 'text-primary hover:bg-gray-100'
+                }`}
+                aria-label="Période précédente"
+              >
+                <FaChevronLeft />
+              </button>
+              <button
+                onClick={toggleCalendarView}
+                className="px-3 py-1 text-xs bg-gray-100 hover:bg-gray-200 rounded"
+              >
+                {calendarView === 'week' ? 'Vue mois' : 'Vue semaine'}
+              </button>
+              <button
+                onClick={goToNextPeriod}
+                disabled={isNextDisabled()}
+                className={`p-2 rounded ${
+                  isNextDisabled()
+                    ? 'text-gray-400 cursor-not-allowed'
+                    : 'text-primary hover:bg-gray-100'
+                }`}
+                aria-label="Période suivante"
+              >
+                <FaChevronRight />
+              </button>
+            </div>
+          </div>
           <div className="bg-white rounded-lg shadow-md p-4">
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-2 lg:grid-cols-3 gap-2">
               {availableDates.map((date) => (
