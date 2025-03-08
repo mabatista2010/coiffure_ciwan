@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 import ServiceSelect from '@/components/reservation/ServiceSelect';
@@ -33,6 +33,17 @@ export default function ReservationPage() {
   const [selectedTime, setSelectedTime] = useState<string>('');
   const [customerData, setCustomerData] = useState<CustomerData | null>(null);
   const [bookingId, setBookingId] = useState<string>('');
+
+  // Añadir un efecto para desplazar al principio cuando cambia la etapa
+  useEffect(() => {
+    // Desplazar al principio cuando se llega a la confirmación
+    if (currentStage === BookingStage.Confirmation) {
+      window.scrollTo({
+        top: 0,
+        behavior: 'smooth'
+      });
+    }
+  }, [currentStage]);
 
   // Gérer la sélection de service
   const handleServiceSelect = (service: Service) => {

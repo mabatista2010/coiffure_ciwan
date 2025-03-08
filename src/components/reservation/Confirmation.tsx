@@ -2,6 +2,7 @@
 
 import { motion } from 'framer-motion';
 import Link from 'next/link';
+import { useEffect } from 'react';
 import { Service, Location, Stylist } from '@/lib/supabase';
 import { CustomerData } from './CustomerForm';
 import { FaCheckCircle, FaCalendarAlt, FaHome } from 'react-icons/fa';
@@ -26,6 +27,14 @@ export default function Confirmation({
   selectedTime,
   customerData
 }: ConfirmationProps) {
+  // Efecto para desplazar al principio cuando se monta el componente
+  useEffect(() => {
+    window.scrollTo({
+      top: 0,
+      behavior: 'smooth'
+    });
+  }, []);
+
   // Formatear fecha para mostrar
   const formatDate = (dateString: string): string => {
     const date = new Date(dateString);
