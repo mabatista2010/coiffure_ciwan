@@ -2,12 +2,15 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { FaBars, FaTimes } from 'react-icons/fa';
+import { usePathname } from 'next/navigation';
+import { FaBars, FaTimes, FaCalendarAlt } from 'react-icons/fa';
 import { motion } from 'framer-motion';
 
 export default function Navbar() {
   const [isOpen, setIsOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
+  const pathname = usePathname();
+  const isHomePage = pathname === '/';
 
   // Detectar scroll para añadir un fondo semitransparente al navbar
   useEffect(() => {
@@ -25,6 +28,11 @@ export default function Navbar() {
     };
   }, []);
 
+  // Función para generar la URL correcta según la ruta actual
+  const getUrl = (anchor: string) => {
+    return isHomePage ? anchor : `/${anchor}`;
+  };
+
   return (
     <nav className={`fixed w-full z-50 py-4 transition-all duration-300 ${scrolled ? 'bg-black/50 backdrop-blur-md' : 'bg-transparent'}`}>
       <div className="container mx-auto px-4 flex justify-between items-center">
@@ -34,18 +42,25 @@ export default function Navbar() {
         </Link>
 
         {/* Desktop Menu */}
-        <div className="hidden md:flex space-x-8">
-          <Link href="#servicios" style={{ color: '#FFD700' }} className="hover:opacity-75 transition duration-300">
+        <div className="hidden md:flex space-x-8 items-center">
+          <Link href={getUrl("#servicios")} style={{ color: '#FFD700' }} className="hover:opacity-75 transition duration-300">
             Services
           </Link>
-          <Link href="#galeria" style={{ color: '#FFD700' }} className="hover:opacity-75 transition duration-300">
+          <Link href={getUrl("#galeria")} style={{ color: '#FFD700' }} className="hover:opacity-75 transition duration-300">
             Galerie
           </Link>
-          <Link href="#ubicacion" style={{ color: '#FFD700' }} className="hover:opacity-75 transition duration-300">
+          <Link href={getUrl("#ubicacion")} style={{ color: '#FFD700' }} className="hover:opacity-75 transition duration-300">
             Localisation
           </Link>
-          <Link href="#contacto" style={{ color: '#FFD700' }} className="hover:opacity-75 transition duration-300">
+          <Link href={getUrl("#contacto")} style={{ color: '#FFD700' }} className="hover:opacity-75 transition duration-300">
             Contact
+          </Link>
+          <Link 
+            href="/reservation" 
+            style={{ color: '#FFD700' }} 
+            className="hover:opacity-75 transition duration-300 flex items-center gap-1"
+          >
+            <FaCalendarAlt className="text-sm" /> Réserver
           </Link>
         </div>
 
@@ -72,7 +87,7 @@ export default function Navbar() {
         >
           <div className="flex flex-col items-center space-y-4">
             <Link 
-              href="#servicios" 
+              href={getUrl("#servicios")}
               style={{ color: '#FFD700' }}
               className="hover:opacity-75 transition duration-300"
               onClick={() => setIsOpen(false)}
@@ -80,7 +95,7 @@ export default function Navbar() {
               Services
             </Link>
             <Link 
-              href="#galeria" 
+              href={getUrl("#galeria")} 
               style={{ color: '#FFD700' }}
               className="hover:opacity-75 transition duration-300"
               onClick={() => setIsOpen(false)}
@@ -88,7 +103,7 @@ export default function Navbar() {
               Galerie
             </Link>
             <Link 
-              href="#ubicacion" 
+              href={getUrl("#ubicacion")} 
               style={{ color: '#FFD700' }}
               className="hover:opacity-75 transition duration-300"
               onClick={() => setIsOpen(false)}
@@ -96,12 +111,20 @@ export default function Navbar() {
               Localisation
             </Link>
             <Link 
-              href="#contacto" 
+              href={getUrl("#contacto")} 
               style={{ color: '#FFD700' }}
               className="hover:opacity-75 transition duration-300"
               onClick={() => setIsOpen(false)}
             >
               Contact
+            </Link>
+            <Link 
+              href="/reservation" 
+              style={{ color: '#FFD700' }}
+              className="hover:opacity-75 transition duration-300 flex items-center gap-1"
+              onClick={() => setIsOpen(false)}
+            >
+              <FaCalendarAlt className="text-sm" /> Réserver
             </Link>
           </div>
         </motion.div>

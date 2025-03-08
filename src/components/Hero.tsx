@@ -4,6 +4,7 @@ import { motion } from 'framer-motion';
 import Image from 'next/image';
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
+import Link from 'next/link';
 
 export default function Hero() {
   const [heroImage, setHeroImage] = useState({
@@ -96,20 +97,21 @@ export default function Hero() {
               Venez prendre du temps pour vous dans une ambiance sympa, et vous faire plaisir
             </p>
             
-            <motion.a
-              href="#contacto"
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-              style={{ 
-                backgroundColor: '#DAA520', 
-                color: '#212121',
-                boxShadow: '0 2px 8px rgba(218, 165, 32, 0.2)',
-                fontFamily: "'Montserrat', sans-serif"
-              }}
-              className="font-medium py-2 px-6 rounded-full transition-all duration-300 inline-block mb-6 md:mb-0 text-base"
-            >
-              Réservez votre rendez-vous
-            </motion.a>
+            <Link href="/reservation">
+              <motion.div
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                style={{ 
+                  backgroundColor: '#DAA520', 
+                  color: '#212121',
+                  boxShadow: '0 2px 8px rgba(218, 165, 32, 0.2)',
+                  fontFamily: "'Montserrat', sans-serif"
+                }}
+                className="font-medium py-2 px-6 rounded-full transition-all duration-300 inline-block mb-6 md:mb-0 text-base cursor-pointer"
+              >
+                Réservez votre rendez-vous
+              </motion.div>
+            </Link>
           </motion.div>
         </div>
       </div>
