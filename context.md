@@ -86,7 +86,7 @@ Le système de réservation suit un flux en 6 étapes :
 1. **Sélection du Service** : Le client choisit le service souhaité
 2. **Sélection du Centre** : Le client choisit l'un des cinq centres disponibles
 3. **Sélection du Coiffeur** : Le client choisit un coiffeur qui propose le service dans le centre sélectionné
-4. **Sélection de la Date et de l'Heure** : Le client choisit une date et une heure disponibles
+4. **Sélection de la Date et de l'Heure** : Le client choisit une date et une heure disponibles parmi tous les créneaux générés à partir des plages horaires du coiffeur
 5. **Informations du Client** : Le client fournit ses coordonnées
 6. **Confirmation** : Un résumé de la réservation est affiché et confirmé
 
@@ -97,14 +97,15 @@ Le système de réservation suit un flux en 6 étapes :
 - **Changement de Statut** : Marquer les réservations comme confirmées, annulées ou terminées
 - **Localisation des Dates** : Format des dates adapté à la locale française (fr-FR)
 - **Gestion Complète des Estilistas** : Ajouter, modifier et supprimer des estilistas avec les informations complètes
-- **Gestion Intégrée des Horaires** : Configurer les horaires de travail pour chaque estilista par centre et par jour
+- **Gestion Intégrée des Horaires** : Configurer les horaires de travail pour chaque estilista par centre et par jour, avec possibilité de sélectionner des plages horaires spécifiques parmi les horaires du centre
 - **Gestion des Services par Estilista** : Assigner des services à des estilistas et les modifier directement dans le même formulaire
 - **Upload d'Images** : Téléverser des images pour les estilistas avec prévisualisation
-- **Gestion Complète des Centres** : Interface dédiée pour ajouter, modifier et supprimer des centres avec toutes leurs informations (nom, adresse, téléphone, email, description et image)
+- **Gestion Complète des Centres** : Interface dédiée pour ajouter, modifier et supprimer des centres avec toutes leurs informations (nom, adresse, téléphone, email, description, image et horaires d'ouverture multiples)
+- **Configuration des Horaires des Centres** : Possibilité de définir plusieurs plages horaires par jour pour chaque centre (par exemple, matin et après-midi)
 
 ### APIs Implémentées
-- **API de Disponibilité** : Calcule les horaires disponibles selon le service, le centre, le coiffeur et la date
-- **API de Création de Réservations** : Crée de nouvelles réservations en vérifiant la disponibilité en temps réel
+- **API de Disponibilité** : Calcule les horaires disponibles selon le service, le centre, le coiffeur et la date, en tenant compte de toutes les plages horaires de travail du coiffeur
+- **API de Création de Réservations** : Crée de nouvelles réservations en vérifiant la disponibilité en temps réel et que l'horaire est dans une plage horaire de travail valide
 - **API de Stockage** : Gestion des téléversements d'images avec politiques de sécurité RLS
 
 ## Base de Données (Supabase)
@@ -115,6 +116,7 @@ Le système de réservation suit un flux en 6 étapes :
 - **stylists** : Coiffeurs qui travaillent dans les centres
 - **stylist_services** : Relation entre coiffeurs et services
 - **working_hours** : Horaires de travail des coiffeurs par centre et par jour de la semaine
+- **location_hours** : Horaires d'ouverture des centres par jour de la semaine, avec support pour plusieurs plages horaires par jour
 - **time_off** : Temps libre programmé pour les coiffeurs
 - **bookings** : Réservations des clients
 - **imagenes_galeria** : Images pour la galerie
@@ -133,7 +135,10 @@ Le système de réservation suit un flux en 6 étapes :
 
 ### Relations Critiques
 - Un **estilista** peut travailler dans plusieurs **centres**
+- Un **estilista** peut avoir plusieurs **plages horaires de travail** par jour dans un même centre
+- Un **centre** peut avoir plusieurs **plages horaires d'ouverture** par jour (ex: 9h-13h et 16h-20h)
 - Un **estilista** doit avoir des **horaires de travail** configurés pour chaque centre et jour où il travaille
+- Un **estilista** peut sélectionner quelles plages horaires spécifiques il travaille parmi les plages disponibles du centre
 - Un **estilista** peut offrir plusieurs **services**
 
 ## Caractéristiques de Design
@@ -173,7 +178,9 @@ Le système de réservation suit un flux en 6 étapes :
 - **Vérification Qualité** : Les pull requests doivent passer toutes les vérifications ESLint avant fusion
 
 ## Points d'Attention Importants
+- **Gestion des Horaires Multiples** : Les centres peuvent avoir plusieurs plages horaires par jour (matin/après-midi), et les estilistas peuvent choisir quelles plages ils travaillent
 - **Gestion des Horaires** : Pour qu'un estilista apparaisse comme disponible dans le système de réservation, il doit avoir des horaires configurés dans la table `working_hours` pour chaque centre et jour où il travaille
+- **API de Disponibilité** : L'API combine toutes les plages horaires de travail d'un estilista pour générer les slots disponibles pour les réservations
 - **Stockage des Images** : Les images sont stockées dans des buckets Supabase avec des politiques de sécurité spécifiques
 - **Stylistes Multi-centres** : Un styliste peut travailler dans plusieurs centres avec des horaires différents 
 - **Qualité du Code** : Éviter l'utilisation de `any` et veiller à utiliser des types explicites

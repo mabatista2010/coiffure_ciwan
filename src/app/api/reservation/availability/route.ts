@@ -59,11 +59,6 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ availableSlots: [] });
     }
 
-    // Nous utilisons le premier horaire trouvé (normalement, il n'y en aura qu'un par jour)
-    const workHours = workingHours[0];
-    const startTime = workHours.start_time;
-    const endTime = workHours.end_time;
-
     // 2. Obtenir la durée du service
     const { data: service, error: serviceError } = await supabase
       .from('servicios')
@@ -115,17 +110,43 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // 5. Générer des créneaux horaires disponibles
-    const availableSlots = generateAvailableSlots(
-      startTime,
-      endTime,
-      serviceDuration,
-      existingBookings || [],
-      timeOff || [],
-      date
-    );
+    // 5. Générer des créneaux horaires disponibles pour chaque plage horaire
+    const allAvailableSlots: { time: string; available: boolean }[] = [];
+    
+    // Utiliser tous les horaires de travail du styliste pour ce jour
+    for (const workHours of workingHours) {
+      const startTime = workHours.start_time;
+      const endTime = workHours.end_time;
+      
+      const slotsForThisRange = generateAvailableSlots(
+        startTime,
+        endTime,
+        serviceDuration,
+        existingBookings || [],
+        timeOff || [],
+        date
+      );
+      
+      // Fusionner les créneaux en évitant les duplications
+      slotsForThisRange.forEach(slot => {
+        // Vérifier si le créneau existe déjà
+        const existingSlotIndex = allAvailableSlots.findIndex(s => s.time === slot.time);
+        
+        if (existingSlotIndex === -1) {
+          // Si le créneau n'existe pas, l'ajouter
+          allAvailableSlots.push(slot);
+        } else if (slot.available) {
+          // Si le créneau existe et est disponible dans cette plage horaire, 
+          // le marquer comme disponible
+          allAvailableSlots[existingSlotIndex].available = true;
+        }
+      });
+    }
+    
+    // Trier les créneaux par heure
+    allAvailableSlots.sort((a, b) => a.time.localeCompare(b.time));
 
-    return NextResponse.json({ availableSlots });
+    return NextResponse.json({ availableSlots: allAvailableSlots });
   } catch (error) {
     console.error('Erreur lors du calcul de la disponibilité:', error);
     return NextResponse.json(

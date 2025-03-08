@@ -125,6 +125,38 @@ async function checkAvailability(
   const slotStartMinutes = startHours * 60 + startMinutes;
   const slotEndMinutes = endHours * 60 + endMinutes;
 
+  // Obtenir le jour de la semaine pour cette date
+  const dayOfWeek = new Date(bookingDate).getDay();
+
+  // Vérifier si l'horaire de réservation est à l'intérieur des plages horaires de travail du styliste
+  const { data: workingHours, error: workingHoursError } = await supabase
+    .from('working_hours')
+    .select('*')
+    .eq('stylist_id', stylistId)
+    .eq('location_id', locationId)
+    .eq('day_of_week', dayOfWeek);
+
+  if (workingHoursError) {
+    console.error('Erreur lors de la vérification des horaires de travail:', workingHoursError);
+    throw new Error('Erreur lors de la vérification des horaires de travail');
+  }
+
+  // Vérifier si l'horaire est dans au moins une plage horaire de travail
+  const isWithinWorkingHours = workingHours?.some(workHour => {
+    const [whStartHours, whStartMins] = workHour.start_time.split(':').map(Number);
+    const [whEndHours, whEndMins] = workHour.end_time.split(':').map(Number);
+    const whStartMinutes = whStartHours * 60 + whStartMins;
+    const whEndMinutes = whEndHours * 60 + whEndMins;
+
+    // Le créneau de réservation doit être entièrement à l'intérieur d'une plage horaire de travail
+    return (slotStartMinutes >= whStartMinutes && slotEndMinutes <= whEndMinutes);
+  });
+
+  if (!isWithinWorkingHours) {
+    console.error('L\'horaire de réservation n\'est pas dans les plages horaires de travail du styliste');
+    return false;
+  }
+
   // Vérifier s'il y a des réservations existantes qui se chevauchent
   const { data: existingBookings, error: bookingsError } = await supabase
     .from('bookings')
@@ -190,6 +222,7 @@ async function checkAvailability(
     return false;
   });
 
-  // L'horaire est disponible s'il n'y a pas de réservations ni de temps libres qui se chevauchent
-  return !isSlotBooked && !isSlotInTimeOff;
+  // L'horaire est disponible s'il est dans une plage horaire de travail, 
+  // qu'il n'y a pas de réservations ni de temps libres qui se chevauchent
+  return isWithinWorkingHours && !isSlotBooked && !isSlotInTimeOff;
 } 

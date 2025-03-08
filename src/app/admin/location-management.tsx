@@ -5,6 +5,17 @@ import { supabase } from '@/lib/supabase';
 import Image from 'next/image';
 import { v4 as uuidv4 } from 'uuid';
 
+// Definir días de la semana
+const weekdays = [
+  { id: 0, name: 'Dimanche' },
+  { id: 1, name: 'Lundi' },
+  { id: 2, name: 'Mardi' },
+  { id: 3, name: 'Mercredi' },
+  { id: 4, name: 'Jeudi' },
+  { id: 5, name: 'Vendredi' },
+  { id: 6, name: 'Samedi' }
+];
+
 // Definir la interfaz Location
 interface Location {
   id: string;
@@ -15,6 +26,16 @@ interface Location {
   email?: string;
   image?: string;
   active: boolean;
+}
+
+// Interfaz para los horarios de centros
+interface LocationHour {
+  id?: string;
+  location_id: string;
+  day_of_week: number;
+  slot_number: number;
+  start_time: string;
+  end_time: string;
 }
 
 export default function LocationManagement() {
@@ -35,6 +56,19 @@ export default function LocationManagement() {
   const [isUploading, setIsUploading] = useState(false);
   const locationImageInputRef = useRef<HTMLInputElement>(null);
 
+  // Estado para los horarios del centro
+  const [locationHours, setLocationHours] = useState<{
+    [day: number]: Array<{ start: string; end: string }>
+  }>({
+    0: [{ start: '', end: '' }],
+    1: [{ start: '', end: '' }],
+    2: [{ start: '', end: '' }],
+    3: [{ start: '', end: '' }],
+    4: [{ start: '', end: '' }],
+    5: [{ start: '', end: '' }],
+    6: [{ start: '', end: '' }],
+  });
+
   useEffect(() => {
     loadLocations();
   }, []);
@@ -50,6 +84,57 @@ export default function LocationManagement() {
     } else if (error) {
       console.error('Erreur lors du chargement des centres:', error);
     }
+  };
+
+  // Función para cargar los horarios de un centro
+  const loadLocationHours = async (locationId: string) => {
+    const { data, error } = await supabase
+      .from('location_hours')
+      .select('*')
+      .eq('location_id', locationId)
+      .order('day_of_week')
+      .order('slot_number');
+    
+    if (error) {
+      console.error('Erreur lors du chargement des horaires:', error);
+      return;
+    }
+    
+    // Inicializar estructura de horarios
+    const initialHours: {
+      [day: number]: Array<{ start: string; end: string }>
+    } = {};
+    
+    // Inicializar cada día con un slot vacío
+    weekdays.forEach(day => {
+      initialHours[day.id] = [{ start: '', end: '' }];
+    });
+    
+    // Rellenar con datos existentes
+    if (data && data.length > 0) {
+      data.forEach(hour => {
+        const dayOfWeek = hour.day_of_week;
+        const slotNumber = hour.slot_number;
+        
+        // Asegurarse de que el día existe en el objeto
+        if (!initialHours[dayOfWeek]) {
+          initialHours[dayOfWeek] = [];
+        }
+        
+        // Si el número de slot es mayor que la longitud del array, rellenar con slots vacíos
+        while (initialHours[dayOfWeek].length <= slotNumber) {
+          initialHours[dayOfWeek].push({ start: '', end: '' });
+        }
+        
+        // Actualizar el slot específico
+        initialHours[dayOfWeek][slotNumber] = {
+          start: hour.start_time.substring(0, 5), // Convertir "09:00:00" a "09:00"
+          end: hour.end_time.substring(0, 5)
+        };
+      });
+    }
+    
+    setLocationHours(initialHours);
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -92,6 +177,85 @@ export default function LocationManagement() {
     }
   };
 
+  // Funciones para gestionar los horarios
+  const addTimeSlot = (dayOfWeek: number) => {
+    setLocationHours(prev => {
+      const updatedHours = { ...prev };
+      updatedHours[dayOfWeek] = [
+        ...updatedHours[dayOfWeek],
+        { start: '', end: '' }
+      ];
+      return updatedHours;
+    });
+  };
+
+  const removeTimeSlot = (dayOfWeek: number, slotIndex: number) => {
+    setLocationHours(prev => {
+      const updatedHours = { ...prev };
+      if (updatedHours[dayOfWeek].length > 1) {
+        updatedHours[dayOfWeek] = updatedHours[dayOfWeek].filter((_, index) => index !== slotIndex);
+      } else {
+        updatedHours[dayOfWeek] = [{ start: '', end: '' }];
+      }
+      return updatedHours;
+    });
+  };
+
+  const updateTimeSlot = (dayOfWeek: number, slotIndex: number, field: 'start' | 'end', value: string) => {
+    setLocationHours(prev => {
+      const updatedHours = { ...prev };
+      updatedHours[dayOfWeek][slotIndex][field] = value;
+      return updatedHours;
+    });
+  };
+
+  // Función para guardar los horarios en la base de datos
+  const saveLocationHours = async (locationId: string) => {
+    try {
+      // Primero eliminamos los horarios existentes
+      const { error: deleteError } = await supabase
+        .from('location_hours')
+        .delete()
+        .eq('location_id', locationId);
+      
+      if (deleteError) {
+        throw deleteError;
+      }
+      
+      // Preparamos los nuevos horarios
+      const newHours: LocationHour[] = [];
+      
+      Object.entries(locationHours).forEach(([dayStr, slots]) => {
+        const day = parseInt(dayStr);
+        
+        slots.forEach((slot, index) => {
+          // Solo guardar slots con valores válidos
+          if (slot.start && slot.end) {
+            newHours.push({
+              location_id: locationId,
+              day_of_week: day,
+              slot_number: index,
+              start_time: `${slot.start}:00`,
+              end_time: `${slot.end}:00`
+            });
+          }
+        });
+      });
+      
+      if (newHours.length > 0) {
+        const { error: insertError } = await supabase
+          .from('location_hours')
+          .insert(newHours);
+        
+        if (insertError) {
+          throw insertError;
+        }
+      }
+    } catch (error) {
+      console.error('Erreur lors de la sauvegarde des horaires:', error);
+    }
+  };
+
   const handleAddLocation = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -109,12 +273,18 @@ export default function LocationManagement() {
         created_at: new Date().toISOString(),
       };
       
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('locations')
-        .insert([newLocationData]);
+        .insert([newLocationData])
+        .select();
       
       if (error) {
         throw error;
+      }
+      
+      if (data && data.length > 0) {
+        // Guardar los horarios del centro
+        await saveLocationHours(data[0].id);
       }
       
       // Réinitialiser le formulaire
@@ -132,6 +302,9 @@ export default function LocationManagement() {
       if (locationImageInputRef.current) {
         locationImageInputRef.current.value = '';
       }
+      
+      // Reiniciar horarios
+      initializeEmptyHours();
       
       // Recharger les centres
       loadLocations();
@@ -166,6 +339,9 @@ export default function LocationManagement() {
         throw error;
       }
       
+      // Guardar los horarios actualizados
+      await saveLocationHours(editingLocation.id);
+      
       // Réinitialiser le formulaire
       setEditingLocation(null);
       setLocationImageFile(null);
@@ -174,6 +350,9 @@ export default function LocationManagement() {
         locationImageInputRef.current.value = '';
       }
       
+      // Reiniciar horarios
+      initializeEmptyHours();
+      
       // Recharger les centres
       loadLocations();
     } catch (error) {
@@ -181,9 +360,12 @@ export default function LocationManagement() {
     }
   };
 
-  const handleEditLocation = (location: Location) => {
+  const handleEditLocation = async (location: Location) => {
     setEditingLocation(location);
     setLocationImagePreview(location.image || '');
+    
+    // Cargar los horarios del centro
+    await loadLocationHours(location.id);
   };
 
   const handleDeleteLocation = async (id: string) => {
@@ -192,6 +374,16 @@ export default function LocationManagement() {
     }
     
     try {
+      // Primero eliminamos los horarios asociados
+      const { error: hoursError } = await supabase
+        .from('location_hours')
+        .delete()
+        .eq('location_id', id);
+      
+      if (hoursError) {
+        console.error('Erreur lors de la suppression des horaires:', hoursError);
+      }
+      
       const { error } = await supabase
         .from('locations')
         .delete()
@@ -215,6 +407,22 @@ export default function LocationManagement() {
     if (locationImageInputRef.current) {
       locationImageInputRef.current.value = '';
     }
+    
+    // Reiniciar horarios
+    initializeEmptyHours();
+  };
+
+  // Inicializar horarios vacíos
+  const initializeEmptyHours = () => {
+    const emptyHours: {
+      [day: number]: Array<{ start: string; end: string }>
+    } = {};
+    
+    weekdays.forEach(day => {
+      emptyHours[day.id] = [{ start: '', end: '' }];
+    });
+    
+    setLocationHours(emptyHours);
   };
 
   return (
@@ -224,98 +432,148 @@ export default function LocationManagement() {
           {editingLocation ? 'Modifier un Centre' : 'Ajouter un Nouveau Centre'}
         </h2>
         
-        <form onSubmit={editingLocation ? handleUpdateLocation : handleAddLocation} className="mb-6 grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label className="block text-text-dark text-sm font-bold mb-2">Nom</label>
-            <input
-              type="text"
-              className="w-full px-3 py-2 border border-gray-300 rounded"
-              value={editingLocation ? editingLocation.name : newLocation.name}
-              onChange={(e) => editingLocation 
-                ? setEditingLocation({...editingLocation, name: e.target.value})
-                : setNewLocation({...newLocation, name: e.target.value})
-              }
-              required
-            />
-          </div>
-          
-          <div>
-            <label className="block text-text-dark text-sm font-bold mb-2">Adresse</label>
-            <input
-              type="text"
-              className="w-full px-3 py-2 border border-gray-300 rounded"
-              value={editingLocation ? editingLocation.address : newLocation.address}
-              onChange={(e) => editingLocation 
-                ? setEditingLocation({...editingLocation, address: e.target.value})
-                : setNewLocation({...newLocation, address: e.target.value})
-              }
-              required
-            />
-          </div>
-          
-          <div>
-            <label className="block text-text-dark text-sm font-bold mb-2">Téléphone</label>
-            <input
-              type="text"
-              className="w-full px-3 py-2 border border-gray-300 rounded"
-              value={editingLocation ? editingLocation.phone || '' : newLocation.phone || ''}
-              onChange={(e) => editingLocation 
-                ? setEditingLocation({...editingLocation, phone: e.target.value})
-                : setNewLocation({...newLocation, phone: e.target.value})
-              }
-            />
-          </div>
-          
-          <div>
-            <label className="block text-text-dark text-sm font-bold mb-2">Email</label>
-            <input
-              type="email"
-              className="w-full px-3 py-2 border border-gray-300 rounded"
-              value={editingLocation ? editingLocation.email || '' : newLocation.email || ''}
-              onChange={(e) => editingLocation 
-                ? setEditingLocation({...editingLocation, email: e.target.value})
-                : setNewLocation({...newLocation, email: e.target.value})
-              }
-            />
-          </div>
-          
-          <div className="md:col-span-2">
-            <label className="block text-text-dark text-sm font-bold mb-2">Description</label>
-            <textarea
-              className="w-full px-3 py-2 border border-gray-300 rounded"
-              rows={3}
-              value={editingLocation ? editingLocation.description || '' : newLocation.description || ''}
-              onChange={(e) => editingLocation 
-                ? setEditingLocation({...editingLocation, description: e.target.value})
-                : setNewLocation({...newLocation, description: e.target.value})
-              }
-            />
-          </div>
-          
-          <div className="md:col-span-2">
-            <label className="block text-text-dark text-sm font-bold mb-2">Image du Centre</label>
-            <input
-              ref={locationImageInputRef}
-              type="file"
-              accept="image/*"
-              className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-primary file:text-secondary hover:file:bg-yellow-400"
-              onChange={handleFileChange}
-            />
+        <form onSubmit={editingLocation ? handleUpdateLocation : handleAddLocation} className="mb-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+            <div>
+              <label className="block text-text-dark text-sm font-bold mb-2">Nom</label>
+              <input
+                type="text"
+                className="w-full px-3 py-2 border border-gray-300 rounded"
+                value={editingLocation ? editingLocation.name : newLocation.name}
+                onChange={(e) => editingLocation 
+                  ? setEditingLocation({...editingLocation, name: e.target.value})
+                  : setNewLocation({...newLocation, name: e.target.value})
+                }
+                required
+              />
+            </div>
             
-            {(locationImagePreview || (editingLocation && editingLocation.image)) && (
-              <div className="relative h-40 mt-2 rounded overflow-hidden">
-                <Image 
-                  src={locationImagePreview || (editingLocation?.image || '')} 
-                  alt="Prévisualisation du Centre" 
-                  width={200} 
-                  height={150} 
-                  className="absolute inset-0 w-full h-full object-cover"
-                />
-              </div>
-            )}
+            <div>
+              <label className="block text-text-dark text-sm font-bold mb-2">Adresse</label>
+              <input
+                type="text"
+                className="w-full px-3 py-2 border border-gray-300 rounded"
+                value={editingLocation ? editingLocation.address : newLocation.address}
+                onChange={(e) => editingLocation 
+                  ? setEditingLocation({...editingLocation, address: e.target.value})
+                  : setNewLocation({...newLocation, address: e.target.value})
+                }
+                required
+              />
+            </div>
+            
+            <div>
+              <label className="block text-text-dark text-sm font-bold mb-2">Téléphone</label>
+              <input
+                type="text"
+                className="w-full px-3 py-2 border border-gray-300 rounded"
+                value={editingLocation ? editingLocation.phone || '' : newLocation.phone || ''}
+                onChange={(e) => editingLocation 
+                  ? setEditingLocation({...editingLocation, phone: e.target.value})
+                  : setNewLocation({...newLocation, phone: e.target.value})
+                }
+              />
+            </div>
+            
+            <div>
+              <label className="block text-text-dark text-sm font-bold mb-2">Email</label>
+              <input
+                type="email"
+                className="w-full px-3 py-2 border border-gray-300 rounded"
+                value={editingLocation ? editingLocation.email || '' : newLocation.email || ''}
+                onChange={(e) => editingLocation 
+                  ? setEditingLocation({...editingLocation, email: e.target.value})
+                  : setNewLocation({...newLocation, email: e.target.value})
+                }
+              />
+            </div>
+            
+            <div className="md:col-span-2">
+              <label className="block text-text-dark text-sm font-bold mb-2">Description</label>
+              <textarea
+                className="w-full px-3 py-2 border border-gray-300 rounded"
+                rows={3}
+                value={editingLocation ? editingLocation.description || '' : newLocation.description || ''}
+                onChange={(e) => editingLocation 
+                  ? setEditingLocation({...editingLocation, description: e.target.value})
+                  : setNewLocation({...newLocation, description: e.target.value})
+                }
+              />
+            </div>
+            
+            <div className="md:col-span-2">
+              <label className="block text-text-dark text-sm font-bold mb-2">Image du Centre</label>
+              <input
+                ref={locationImageInputRef}
+                type="file"
+                accept="image/*"
+                className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-primary file:text-secondary hover:file:bg-yellow-400"
+                onChange={handleFileChange}
+              />
+              
+              {(locationImagePreview || (editingLocation && editingLocation.image)) && (
+                <div className="relative h-40 mt-2 rounded overflow-hidden">
+                  <Image 
+                    src={locationImagePreview || (editingLocation?.image || '')} 
+                    alt="Prévisualisation du Centre" 
+                    width={200} 
+                    height={150} 
+                    className="absolute inset-0 w-full h-full object-cover"
+                  />
+                </div>
+              )}
+            </div>
           </div>
           
-          <div className="md:col-span-2 flex space-x-2">
+          {/* Sección de horarios */}
+          <div className="mb-6">
+            <h3 className="text-lg font-bold text-secondary mb-4">Horaires du Centre</h3>
+            
+            {weekdays.map((day) => (
+              <div key={day.id} className="mb-4">
+                <h4 className="font-semibold mb-2">{day.name}</h4>
+                
+                {locationHours[day.id].map((slot, slotIndex) => (
+                  <div key={slotIndex} className="flex items-center mb-2 gap-2">
+                    <input
+                      type="time"
+                      className="px-3 py-2 border border-gray-300 rounded"
+                      value={slot.start}
+                      onChange={(e) => updateTimeSlot(day.id, slotIndex, 'start', e.target.value)}
+                    />
+                    <span className="mx-2">-</span>
+                    <input
+                      type="time"
+                      className="px-3 py-2 border border-gray-300 rounded"
+                      value={slot.end}
+                      onChange={(e) => updateTimeSlot(day.id, slotIndex, 'end', e.target.value)}
+                    />
+                    
+                    <button
+                      type="button"
+                      onClick={() => removeTimeSlot(day.id, slotIndex)}
+                      className="ml-2 text-red-600 hover:text-red-800"
+                      disabled={locationHours[day.id].length === 1 && !slot.start && !slot.end}
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                        <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                      </svg>
+                    </button>
+                  </div>
+                ))}
+                
+                <button
+                  type="button"
+                  onClick={() => addTimeSlot(day.id)}
+                  className="text-blue-600 hover:text-blue-800 text-sm font-medium"
+                >
+                  + Ajouter un créneau horaire
+                </button>
+              </div>
+            ))}
+          </div>
+          
+          <div className="flex space-x-2">
             <button
               type="submit"
               className="bg-primary text-secondary font-bold py-2 px-4 rounded hover:bg-yellow-400 transition duration-300 disabled:opacity-50"
