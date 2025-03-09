@@ -20,6 +20,8 @@ export default function AdminBookingsPage() {
   const [selectedDate, setSelectedDate] = useState<string>(new Date().toISOString().split('T')[0]);
   const [locations, setLocations] = useState<Location[]>([]);
   const [selectedLocation, setSelectedLocation] = useState<string>('all');
+  const [stylists, setStylists] = useState<Stylist[]>([]);
+  const [selectedStylist, setSelectedStylist] = useState<string>('all');
   const [currentMonth, setCurrentMonth] = useState<Date>(() => {
     const today = new Date();
     return new Date(today.getFullYear(), today.getMonth(), 1);
@@ -46,12 +48,32 @@ export default function AdminBookingsPage() {
         }
 
         setLocations(data || []);
-      } catch (err: Error | unknown) {
+      } catch (err) {
         console.error('Erreur lors du chargement des centres:', err);
       }
     };
 
+    // Cargar estilistas al inicio
+    const fetchStylists = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('stylists')
+          .select('*')
+          .eq('active', true)
+          .order('name');
+
+        if (error) {
+          throw error;
+        }
+
+        setStylists(data || []);
+      } catch (err) {
+        console.error('Erreur lors du chargement des estilistas:', err);
+      }
+    };
+
     fetchLocations();
+    fetchStylists();
   }, []);
 
   useEffect(() => {
@@ -74,6 +96,11 @@ export default function AdminBookingsPage() {
         // Filtrar por centro si se ha seleccionado uno
         if (selectedLocation !== 'all') {
           query = query.eq('location_id', selectedLocation);
+        }
+        
+        // Filtrar por estilista si se ha seleccionado uno
+        if (selectedStylist !== 'all') {
+          query = query.eq('stylist_id', selectedStylist);
         }
 
         const { data, error: fetchError } = await query.order('start_time');
@@ -106,7 +133,7 @@ export default function AdminBookingsPage() {
     if (!showCalendarView) {
     fetchBookings();
     }
-  }, [selectedDate, selectedLocation, showCalendarView]);
+  }, [selectedDate, selectedLocation, selectedStylist, showCalendarView]);
 
   useEffect(() => {
     const fetchCenterSchedule = async () => {
@@ -182,6 +209,11 @@ export default function AdminBookingsPage() {
         // Filtrar por centro si es necesario
         if (selectedLocation !== 'all') {
           query = query.eq('location_id', selectedLocation);
+        }
+        
+        // Filtrar por estilista si uno está seleccionado
+        if (selectedStylist !== 'all') {
+          query = query.eq('stylist_id', selectedStylist);
         }
         
         const { data: bookings, error } = await query;
@@ -271,7 +303,13 @@ export default function AdminBookingsPage() {
     if (showCalendarView) {
       fetchBookingDays();
     }
-  }, [currentMonth, selectedLocation, showCalendarView]);
+  }, [currentMonth, selectedLocation, selectedStylist, showCalendarView]);
+
+  // Añadir efecto para restablecer la vista cuando se cambia el estilista seleccionado
+  useEffect(() => {
+    // Volver a la vista de calendario cuando cambia el estilista
+    setShowCalendarView(true);
+  }, [selectedStylist]);
 
   // Manejar cambio de estado de una reserva
   const handleStatusChange = async (bookingId: string, newStatus: 'pending' | 'confirmed' | 'cancelled' | 'completed') => {
@@ -308,13 +346,13 @@ export default function AdminBookingsPage() {
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'pending':
-        return 'bg-primary bg-opacity-20 text-light border-primary border-opacity-40';
+        return 'bg-primary bg-opacity-20 text-secondary font-medium border-primary border-opacity-40';
       case 'confirmed':
-        return 'bg-primary bg-opacity-30 text-light border-primary border-opacity-50';
+        return 'bg-blue-500 bg-opacity-30 text-white border-blue-500 border-opacity-50';
       case 'cancelled':
-        return 'bg-coral bg-opacity-20 text-coral border-coral border-opacity-40';
+        return 'bg-coral bg-opacity-30 text-white border-coral border-opacity-50';
       case 'completed':
-        return 'bg-secondary bg-opacity-30 text-light border-secondary border-opacity-50';
+        return 'bg-green-500 bg-opacity-30 text-white border-green-500 border-opacity-50';
       default:
         return 'bg-secondary bg-opacity-20 text-light border-secondary border-opacity-40';
     }
@@ -419,17 +457,40 @@ export default function AdminBookingsPage() {
         
         {/* Contenido principal */}
         <div className="bg-secondary rounded-lg shadow-lg p-4 md:p-6">
-          {/* Filtros */}
+          {/* Layout principal con grid para separar filtros y contenido */}
+          <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+            {/* Panel de filtros - ocupa 1 columna en escritorio y toda la anchura en móvil */}
+            <div className="lg:col-span-1">
           <div className="bg-dark rounded-lg shadow-md p-4 mb-6">
-            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-              <div className="flex flex-col md:flex-row gap-4 items-start md:items-center">
+                <div className="flex justify-between items-center mb-4">
+                  <h2 className="text-lg font-semibold text-primary">Filtres</h2>
+                  {/* Botón para colapsar/expandir filtros en móvil */}
+                  <button 
+                    className="lg:hidden text-light hover:text-primary"
+                    onClick={() => {
+                      const filtersContent = document.getElementById('filters-content');
+                      if (filtersContent) {
+                        filtersContent.classList.toggle('hidden');
+                      }
+                    }}
+                  >
+                    {/* Icono de filtros */}
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" className="w-6 h-6">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                    </svg>
+                  </button>
+                </div>
+                
+                {/* Contenido de filtros - colapsable en móvil */}
+                <div id="filters-content" className="lg:block">
+                  <div className="flex flex-col gap-4">
                 <div>
                   <label htmlFor="location-select" className="block text-sm font-medium text-light mb-1">
                     Centre
                   </label>
                   <select
                     id="location-select"
-                    className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-primary focus:outline-none focus:ring-primary focus:border-primary sm:text-sm rounded-md bg-dark text-light"
+                        className="w-full pl-3 pr-10 py-2 text-base border-accent focus:outline-none focus:ring-primary focus:border-primary sm:text-sm rounded-md bg-dark text-light"
                     value={selectedLocation}
                     onChange={(e) => setSelectedLocation(e.target.value)}
                   >
@@ -441,6 +502,32 @@ export default function AdminBookingsPage() {
                     ))}
                   </select>
                 </div>
+                    
+                    <div>
+                      <label htmlFor="stylist-select" className="block text-sm font-medium text-light mb-1">
+                        Styliste
+                      </label>
+                      <select
+                        id="stylist-select"
+                        className={`w-full pl-3 pr-10 py-2 text-base border-accent focus:outline-none focus:ring-primary focus:border-primary sm:text-sm rounded-md bg-dark text-light ${selectedStylist !== 'all' ? 'border-2 border-primary' : ''}`}
+                        value={selectedStylist}
+                        onChange={(e) => setSelectedStylist(e.target.value)}
+                      >
+                        <option value="all">Tous les stylistes</option>
+                        {stylists.map((stylist) => {
+                          // Contar cuántas reservas tiene este estilista en la fecha seleccionada
+                          const stylistBookingsCount = bookings.filter(
+                            booking => booking.stylist_id === stylist.id
+                          ).length;
+                          
+                          return (
+                            <option key={stylist.id} value={stylist.id}>
+                              {stylist.name} {stylistBookingsCount > 0 ? `(${stylistBookingsCount})` : ''}
+                            </option>
+                          );
+                        })}
+                      </select>
+                    </div>
                 
                 <div>
                   <label htmlFor="date-select" className="block text-sm font-medium text-light mb-1">
@@ -449,59 +536,79 @@ export default function AdminBookingsPage() {
                   <input
                     type="date"
                     id="date-select"
-                    className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-primary focus:outline-none focus:ring-primary focus:border-primary sm:text-sm rounded-md bg-dark text-light"
+                        className="w-full pl-3 pr-10 py-2 text-base border-primary focus:outline-none focus:ring-primary focus:border-primary sm:text-sm rounded-md bg-dark text-light"
                     value={selectedDate}
                     onChange={(e) => setSelectedDate(e.target.value)}
                   />
-                </div>
               </div>
               
-              <div className="flex items-center flex-wrap gap-2">
+                    <div className="flex flex-col gap-2 mt-4">
                 <button
+                        className="flex items-center justify-center gap-2 bg-dark hover:bg-opacity-80 text-light font-medium py-2 px-4 rounded-md transition-all w-full"
                   onClick={backToCalendar}
-                  className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-secondary bg-primary hover:bg-opacity-90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary"
                 >
-                  <FaCalendarAlt className="mr-2" />
+                        <FaCalendarAlt className="text-primary" size={16} />
                   Calendrier
                 </button>
                 
                 <button
+                        className="flex items-center justify-center gap-2 bg-dark hover:bg-opacity-80 text-light font-medium py-2 px-4 rounded-md transition-all w-full"
                   onClick={goToToday}
-                  className="inline-flex items-center px-4 py-2 border border-primary text-sm font-medium rounded-md shadow-sm text-light bg-dark hover:bg-opacity-80 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary"
                 >
-                  <FaCalendarDay className="mr-2" />
-                  Aujourd&apos;hui
+                        <FaCalendarDay className="text-primary" size={16} />
+                        Aujourd&apos;hui
                 </button>
+                      
+                      {(selectedLocation !== 'all' || selectedStylist !== 'all') && (
+                        <button
+                          className="flex items-center justify-center gap-2 bg-coral hover:bg-opacity-80 text-white font-medium py-2 px-4 rounded-md transition-all w-full"
+                          onClick={() => {
+                            setSelectedLocation('all');
+                            setSelectedStylist('all');
+                          }}
+                        >
+                          Effacer les filtres
+                        </button>
+                      )}
                 
                 <button
                   onClick={() => router.push('/admin/reservations/nueva')}
-                  className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-coral hover:bg-opacity-90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-coral"
+                        className="flex items-center justify-center gap-2 bg-coral hover:bg-opacity-80 text-white font-medium py-2 px-4 rounded-md transition-all w-full"
                 >
                   + Nouvelle Réservation
                 </button>
+                    </div>
+                  </div>
               </div>
             </div>
           </div>
 
+            {/* Área principal de contenido - ocupa 3 columnas en escritorio */}
+            <div className="lg:col-span-3">
           {/* Vista de calendario o lista de reservas */}
           {showCalendarView ? (
             <div className="bg-dark rounded-lg shadow-md p-4">
-              <div className="flex justify-between items-center mb-4">
-                <h2 className="text-xl font-semibold text-primary">Calendrier</h2>
-                <div className="flex space-x-2">
+                  <div className="flex flex-col items-center mb-4">
+                    <h2 className="text-xl font-semibold text-primary mb-4">
+                      {selectedStylist !== 'all' 
+                        ? `Calendrier de ${stylists.find(s => s.id === selectedStylist)?.name || 'Styliste'}`
+                        : 'Calendrier'
+                      }
+                    </h2>
+                    <div className="flex items-center space-x-3 mb-4">
                   <button 
                     onClick={prevMonth}
-                    className="p-2 rounded-md bg-secondary hover:bg-opacity-80 flex items-center justify-center text-light"
+                        className="p-3 rounded-md bg-secondary hover:bg-opacity-80 flex items-center justify-center text-light"
                     aria-label="Mois précédent"
                   >
                     &larr;
                   </button>
-                  <span className="font-medium text-light min-w-[140px] text-center">
+                      <span className="font-medium text-light text-xl min-w-[160px] text-center">
                     {currentMonth.toLocaleString('fr-FR', { month: 'long', year: 'numeric' })}
                   </span>
                   <button 
                     onClick={nextMonth}
-                    className="p-2 rounded-md bg-secondary hover:bg-opacity-80 flex items-center justify-center text-light"
+                        className="p-3 rounded-md bg-secondary hover:bg-opacity-80 flex items-center justify-center text-light"
                     aria-label="Mois suivant"
                   >
                     &rarr;
@@ -516,6 +623,7 @@ export default function AdminBookingsPage() {
                   </div>
                 )}
               
+                    {/* Días de la semana */}
                 <div className="grid grid-cols-7 gap-1 sm:gap-2 mb-2">
                   {['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'].map((day) => (
                     <div key={day} className="text-center font-medium text-light py-2 text-xs sm:text-sm">
@@ -524,11 +632,12 @@ export default function AdminBookingsPage() {
                   ))}
                 </div>
                 
+                    {/* Cuadrícula del calendario con días */}
                 <div className="grid grid-cols-7 gap-1 sm:gap-2">
                   {generateCalendarData().map((day, index) => {
                     const dateStr = day ? 
-                      `${currentMonth.getFullYear()}-${String(currentMonth.getMonth() + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}` : 
-                      '';
+                          `${currentMonth.getFullYear()}-${String(currentMonth.getMonth() + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}` 
+                          : '';
                     
                     // Determinar el color según la disponibilidad
                     let bgColor = 'bg-green-100'; // Por defecto, verde (disponible)
@@ -596,125 +705,61 @@ export default function AdminBookingsPage() {
               </h2>
               
               {loading ? (
-                <div className="flex justify-center items-center py-12">
-                  <div className="animate-spin-custom rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
+                    <div className="flex justify-center items-center p-12">
+                      <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
                 </div>
               ) : error ? (
-                <div className="bg-coral bg-opacity-20 border border-coral text-white px-4 py-3 rounded relative" role="alert">
-                  <strong className="font-bold">Erreur!</strong>
-                  <span className="block sm:inline"> {error}</span>
+                    <div className="bg-coral bg-opacity-20 text-coral rounded-lg p-4 mb-4">
+                      {error}
                 </div>
               ) : bookings.length === 0 ? (
-                <div className="text-center py-12 bg-dark rounded-lg">
-                  <p className="text-light text-lg">Aucune réservation trouvée pour cette date</p>
+                    <div className="bg-dark rounded-lg p-8 text-center">
+                      <p className="text-light text-lg mb-4">Aucune réservation pour cette date</p>
+                      <button 
+                        onClick={backToCalendar} 
+                        className="bg-primary text-secondary font-medium px-4 py-2 rounded-md hover:bg-opacity-90 transition-opacity"
+                      >
+                        Retour au calendrier
+                      </button>
                 </div>
               ) : (
-                <div>
-                  {/* Vista de escritorio */}
-                  <div className="hidden md:block overflow-x-auto">
-                    <table className="min-w-full divide-y divide-gray-700">
-                      <thead className="bg-dark">
-                        <tr>
-                          <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-primary uppercase tracking-wider">
-                            Horaire
-                          </th>
-                          <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-primary uppercase tracking-wider">
-                            Client
-                          </th>
-                          <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-primary uppercase tracking-wider">
-                            Service
-                          </th>
-                          <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-primary uppercase tracking-wider">
-                            Styliste
-                          </th>
-                          <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-primary uppercase tracking-wider">
-                            Centre
-                          </th>
-                          <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-primary uppercase tracking-wider">
-                            Statut
-                          </th>
-                          <th scope="col" className="relative px-6 py-3">
-                            <span className="sr-only">Actions</span>
-                          </th>
-                        </tr>
-                      </thead>
-                      <tbody className="bg-dark divide-y divide-gray-700">
-                        {bookings.map((booking) => (
-                          <tr key={booking.id} className="hover:bg-secondary hover:bg-opacity-20 transition-colors duration-150">
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <div className="text-sm text-light font-bold text-primary">
-                                {formatTime(booking.start_time)} - {formatTime(booking.end_time)}
-                              </div>
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <div className="text-sm font-medium text-light">{booking.customer_name}</div>
-                              <div className="text-sm text-light opacity-70">{booking.customer_phone}</div>
-                              {booking.customer_email && <div className="text-sm text-light opacity-70">{booking.customer_email}</div>}
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <div className="text-sm text-light">{booking.service?.nombre || 'Service inconnu'}</div>
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <div className="text-sm text-light">{booking.stylist?.name || 'Styliste inconnu'}</div>
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <div className="text-sm text-light">{booking.location?.name || 'Centre inconnu'}</div>
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <select
-                                value={booking.status}
-                                onChange={(e) => handleStatusChange(booking.id, e.target.value as 'pending' | 'confirmed' | 'cancelled' | 'completed')}
-                                className={`text-sm rounded-full px-3 py-1 font-medium ${getStatusColor(booking.status)}`}
-                              >
-                                <option value="pending">En attente</option>
-                                <option value="confirmed">Confirmé</option>
-                                <option value="completed">Terminé</option>
-                                <option value="cancelled">Annulé</option>
-                              </select>
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                    <div className="bg-dark rounded-lg shadow-md p-4">
+                      <div className="flex justify-between items-center mb-6">
+                        <h2 className="text-xl font-semibold text-primary">
+                          Réservations du {new Date(selectedDate).toLocaleDateString('fr-FR', { dateStyle: 'long' })}
+                        </h2>
                               <button
-                                className="text-primary hover:opacity-80 mr-4 transition-opacity duration-200"
-                                onClick={() => {
-                                  // Implementar edición
-                                  console.log('Editar reserva', booking.id);
-                                }}
-                              >
-                                Modifier
+                          onClick={backToCalendar} 
+                          className="flex items-center gap-2 bg-primary text-secondary px-3 py-1 rounded-md hover:bg-opacity-90 transition-opacity text-sm"
+                        >
+                          <FaCalendarAlt size={14} />
+                          Calendrier
                               </button>
-                              <button
-                                className="text-coral hover:opacity-80 transition-opacity duration-200"
-                                onClick={() => handleStatusChange(booking.id, 'cancelled')}
-                              >
-                                Annuler
-                              </button>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
                   </div>
 
-                  {/* Vista móvil para reservas */}
-                  <div className="md:hidden mt-4 space-y-4">
+                      <div className="space-y-4">
                     {bookings.map((booking) => (
-                      <div key={booking.id} className="bg-secondary rounded-lg shadow-md p-4">
+                          <div key={booking.id} className="bg-secondary rounded-lg shadow-md p-4 border-2 border-primary">
                         <div className="flex justify-between items-start mb-2">
                           <div>
                             <div className="font-medium text-light">{booking.customer_name}</div>
                             <div className="text-sm text-light opacity-70">{booking.customer_phone}</div>
                             {booking.customer_email && <div className="text-sm text-light opacity-70">{booking.customer_email}</div>}
                           </div>
-                          <select
-                            value={booking.status}
-                            onChange={(e) => handleStatusChange(booking.id, e.target.value as 'pending' | 'confirmed' | 'cancelled' | 'completed')}
-                            className={`text-sm rounded-full px-3 py-1 font-medium ${getStatusColor(booking.status)}`}
-                          >
-                            <option value="pending">En attente</option>
-                            <option value="confirmed">Confirmé</option>
-                            <option value="completed">Terminé</option>
-                            <option value="cancelled">Annulé</option>
-                          </select>
+                          {/* Desplegable visible solo en pantallas medianas o más grandes */}
+                          <div className="hidden md:block">
+                            <select
+                              value={booking.status}
+                              onChange={(e) => handleStatusChange(booking.id, e.target.value as 'pending' | 'confirmed' | 'cancelled' | 'completed')}
+                              className={`text-sm rounded-full px-3 py-1 font-medium cursor-pointer border-2 outline-none appearance-none ${getStatusColor(booking.status)}`}
+                              style={{ backgroundImage: 'url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns=\'http://www.w3.org/2000/svg\' viewBox=\'0 0 24 24\' fill=\'none\' stroke=\'white\' stroke-width=\'2\' stroke-linecap=\'round\' stroke-linejoin=\'round\'%3e%3cpolyline points=\'6 9 12 15 18 9\'%3e%3c/polyline%3e%3c/svg%3e")', backgroundRepeat: 'no-repeat', backgroundPosition: 'right 0.5rem center', backgroundSize: '1.2em 1.2em', paddingRight: '2.5rem' }}
+                            >
+                              <option value="pending" className="bg-primary bg-opacity-80 text-black font-medium px-2 py-1">En attente</option>
+                              <option value="confirmed" className="bg-blue-500 bg-opacity-80 text-white font-medium px-2 py-1">Confirmé</option>
+                              <option value="completed" className="bg-green-500 bg-opacity-80 text-white font-medium px-2 py-1">Terminé</option>
+                              <option value="cancelled" className="bg-coral bg-opacity-80 text-white font-medium px-2 py-1">Annulé</option>
+                            </select>
+                          </div>
                         </div>
                         
                         <div className="mt-3 p-2 bg-dark bg-opacity-30 rounded-lg">
@@ -723,37 +768,49 @@ export default function AdminBookingsPage() {
                           </div>
                         </div>
                         
-                        <div className="grid grid-cols-2 gap-2 text-sm mt-3">
-                          <div>
-                            <span className="text-light opacity-70">Service:</span>
-                            <div className="text-light">{booking.service?.nombre || 'Service inconnu'}</div>
+                        <div className="grid grid-cols-1 gap-2 text-sm mt-3">
+                          <div className="flex gap-2">
+                            <div className="flex-1">
+                              <div className="font-medium text-light">{booking.service?.nombre || 'Service inconnu'}</div>
+                              <div className="text-xs text-light opacity-70">
+                                {new Date(booking.booking_date).toLocaleDateString('fr-FR')} - {formatTime(booking.start_time)}
+                              </div>
+                            </div>
+                            <div className="flex flex-col items-end">
+                              <div className="text-primary font-medium">
+                                {booking.service?.precio ? `${booking.service.precio}€` : 'Prix non disponible'}
+                              </div>
+                            </div>
                           </div>
-                          <div>
-                            <span className="text-light opacity-70">Styliste:</span>
-                            <div className="text-light">{booking.stylist?.name || 'Styliste inconnu'}</div>
+                          
+                          <div className="mt-2 p-2 bg-dark bg-opacity-20 rounded-lg flex justify-between items-center">
+                            <div>
+                              <div className="text-xs text-light opacity-70">Styliste:</div>
+                              <div className="font-medium text-light">{booking.stylist?.name || 'Styliste inconnu'}</div>
+                            </div>
+                            <div>
+                              <div className="text-xs text-light opacity-70">Centre:</div>
+                              <div className="font-medium text-light">{booking.location?.name || 'Centre inconnu'}</div>
+                            </div>
                           </div>
-                          <div>
-                            <span className="text-light opacity-70">Centre:</span>
-                            <div className="text-light">{booking.location?.name || 'Centre inconnu'}</div>
+                          
+                          {/* Desplegable visible solo en móvil */}
+                          <div className="md:hidden mt-4">
+                            <label className="block text-xs font-medium text-light opacity-70 mb-1">
+                              Statut de la réservation:
+                            </label>
+                            <select
+                              value={booking.status}
+                              onChange={(e) => handleStatusChange(booking.id, e.target.value as 'pending' | 'confirmed' | 'cancelled' | 'completed')}
+                              className={`w-full text-sm rounded-md py-2 px-3 font-medium cursor-pointer border-2 outline-none appearance-none ${getStatusColor(booking.status)}`}
+                              style={{ backgroundImage: 'url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns=\'http://www.w3.org/2000/svg\' viewBox=\'0 0 24 24\' fill=\'none\' stroke=\'white\' stroke-width=\'2\' stroke-linecap=\'round\' stroke-linejoin=\'round\'%3e%3cpolyline points=\'6 9 12 15 18 9\'%3e%3c/polyline%3e%3c/svg%3e")', backgroundRepeat: 'no-repeat', backgroundPosition: 'right 0.75rem center', backgroundSize: '1.2em 1.2em', paddingRight: '2.5rem' }}
+                            >
+                              <option value="pending" className="bg-primary bg-opacity-80 text-black font-medium px-2 py-1">En attente</option>
+                              <option value="confirmed" className="bg-blue-500 bg-opacity-80 text-white font-medium px-2 py-1">Confirmé</option>
+                              <option value="completed" className="bg-green-500 bg-opacity-80 text-white font-medium px-2 py-1">Terminé</option>
+                              <option value="cancelled" className="bg-coral bg-opacity-80 text-white font-medium px-2 py-1">Annulé</option>
+                            </select>
                           </div>
-                        </div>
-                        
-                        <div className="mt-3 flex justify-end space-x-3">
-                          <button
-                            className="text-primary hover:opacity-80 text-sm font-medium transition-opacity duration-200"
-                            onClick={() => {
-                              // Implementar edición
-                              console.log('Editar reserva', booking.id);
-                            }}
-                          >
-                            Modifier
-                          </button>
-                          <button
-                            className="text-coral hover:opacity-80 text-sm font-medium transition-opacity duration-200"
-                            onClick={() => handleStatusChange(booking.id, 'cancelled')}
-                          >
-                            Annuler
-                          </button>
                         </div>
                       </div>
                     ))}
@@ -762,6 +819,8 @@ export default function AdminBookingsPage() {
               )}
             </div>
           )}
+            </div>
+          </div>
         </div>
       </main>
     </div>

@@ -120,6 +120,10 @@ Le système de réservation suit un flux en 6 étapes :
 - **Navigation Unifiée** : Barre de navigation administrative centralisée avec accès à toutes les sections
 - **Gestion des Réservations** : Voir, créer, modifier et annuler des réservations
 - **Filtrage par Date et Centre** : Filtrer les réservations par date et centre
+- **Filtrage par Estilista** : Possibilité de filtrer les réservations et le calendrier par estilista avec mise à jour dynamique de la vue
+- **Mise en Page Optimisée** : Organisation du panneau de filtres dans une colonne latérale pour mettre en valeur le calendrier
+- **Tarjetas con Bordes Distintivos** : Bordure jaune distinctive pour les cartes de réservation améliorant la lisibilité et la séparation visuelle
+- **Design Responsive Amélioré** : Sélecteur d'état de réservation adapté aux appareils mobiles, positionné en bas des cartes sur petit écran
 - **Changement de Statut** : Marquer les réservations comme confirmées, annulées ou terminées
 - **Localisation des Dates** : Format des dates adapté à la locale française (fr-FR)
 - **Gestion Complète des Estilistas** : Ajouter, modifier et supprimer des estilistas avec les informations complètes
@@ -139,6 +143,10 @@ Le système de réservation suit un flux en 6 étapes :
   - **Affichage des Images** : Visualisation des photos des estilistas et centres dans leurs pages de statistiques
   - **Interface Responsive** : Design adapté à tous les dispositifs, y compris mobiles et tablettes
 - **Calendrier Intuitif** : Interface de calendrier améliorée avec code couleur pour visualiser rapidement la disponibilité
+  - **Filtrage Contextuel** : Affichage des réservations spécifiques à l'estilista sélectionné dans le calendrier
+  - **Indicateurs Visuels** : Affichage de points indiquant les jours avec réservations
+  - **Navigation Optimisée** : Boutons de navigation entre les mois plus visibles et mieux espacés
+  - **Adaptation au Contexte** : Titre du calendrier indiquant l'estilista sélectionné pour une meilleure orientation
 - **Design Sombre** : Thème sombre cohérent pour toutes les interfaces d'administration qui améliore la lisibilité et réduit la fatigue visuelle
 
 ### Système de Styles Centralisé
@@ -252,5 +260,10 @@ Le système de réservation suit un flux en 6 étapes :
 - **Données CRM** : Les données du CRM sont générées à partir des réservations existantes, organisées par email client
 - **Navigation Admin** : Utiliser le composant AdminNav pour maintenir une navigation cohérente dans toutes les sections administratives
 - **Gestion des URLs d'Images** : Utiliser la fonction getImageUrl pour gérer correctement les différents formats d'URLs d'images (locales, Supabase Storage, URLs complètes)
+- **Filtrage des Réservations** : Le système permet de combiner les filtres par centre, estilista et date pour une gestion précise des réservations
+- **Calendrier Adaptatif** : Le calendrier se met à jour dynamiquement selon les filtres appliqués (estilista et/ou centre)
+- **Responsive Design** : Le sélecteur d'état de réservation utilise deux designs différents selon la taille d'écran (haut/droite sur grand écran, bas sur mobile)
+- **Cohérence des Bordes** : Maintenir le borde jaune (`border-primary`) pour les cartes de réservation afin d'assurer la cohérence visuelle
+- **Gestion des Apostrophes** : Toujours échapper les apostrophes dans le texte JSX en utilisant `&apos;` pour éviter des erreurs de compilation
 - **Images de Substitution** : Prévoir toujours des images de substitution (fallback) en cas d'erreur de chargement des images
 - **Cohérence du Thème Sombre** : Maintenir la cohérence du thème sombre dans toutes les sections administratives, en utilisant les classes bg-dark, bg-secondary, text-light et text-primary 
