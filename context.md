@@ -70,6 +70,12 @@ Lors du développement de nouvelles fonctionnalités ou de la modification de fo
 - **Design Responsive Unifié** : Application d'un design responsive cohérent à toutes les sections administratives, y compris les réservations et le calendrier
 - **Navigation Administrative Enrichie** : Ajout d'un accès direct au panel de configuration pour la gestion des estilistas, centres et autres éléments
 - **Thème Sombre Cohérent** : Application d'un thème sombre uniforme à toutes les interfaces d'administration pour améliorer la lisibilité et réduire la fatigue visuelle
+- **Design Unifié de Cartes** : Application d'un design cohérent à toutes les cartes dans le panel administratif (services, galerie, estilistas, centres) avec une présentation visuelle améliorée et une expérience utilisateur optimisée
+- **Correction d'Erreurs de Linter** : Résolution des erreurs de linter concernant les variables non utilisées et correction des typages pour améliorer la qualité du code
+- **Amélioration de l'Expérience Utilisateur** : Ajout de curseur pointer et effet de survol en couleur primaire sur tous les éléments interactifs de la navigation administrative pour une meilleure expérience utilisateur
+- **Correction de la Visualisation des Images de Configuration** : Résolution du problème de prévisualisation des images dans la configuration du hero, permettant une meilleure gestion des images de la page d'accueil
+- **Formulaires Responsifs et Cohérents** : Uniformisation de tous les formulaires dans le panel administratif avec des styles responsifs et cohérents sur tous les dispositifs
+- **Gestion Optimisée des États de Chargement** : Ajout d'indicateurs visuels pendant le chargement et les opérations d'enregistrement dans tous les formulaires administratifs
 
 ## Structure de l'Application
 
@@ -266,4 +272,10 @@ Le système de réservation suit un flux en 6 étapes :
 - **Cohérence des Bordes** : Maintenir le borde jaune (`border-primary`) pour les cartes de réservation afin d'assurer la cohérence visuelle
 - **Gestion des Apostrophes** : Toujours échapper les apostrophes dans le texte JSX en utilisant `&apos;` pour éviter des erreurs de compilation
 - **Images de Substitution** : Prévoir toujours des images de substitution (fallback) en cas d'erreur de chargement des images
-- **Cohérence du Thème Sombre** : Maintenir la cohérence du thème sombre dans toutes les sections administratives, en utilisant les classes bg-dark, bg-secondary, text-light et text-primary 
+- **Cohérence du Thème Sombre** : Maintenir la cohérence du thème sombre dans toutes les sections administratives, en utilisant les classes bg-dark, bg-secondary, text-light et text-primary
+- **Consistance des Cartes** : Maintenir la cohérence visuelle entre toutes les cartes du panel administratif avec les mêmes styles de bordure, effets de survol et transitions
+- **UX Navigation** : Assurer que tous les éléments interactifs de la navigation ont le curseur pointer et des effets de survol cohérents en couleur primaire
+- **Prévisualisation des Images** : Toujours initialiser les états de prévisualisation d'images lors du chargement des données depuis la base de données
+- **États de Chargement** : Afficher des indicateurs visuels lors des opérations asynchrones pour améliorer l'expérience utilisateur
+- **Classes Responsives** : Utiliser les classes flex-col/flex-row avec sm: pour garantir une adaptation correcte sur tous les dispositifs
+- **Indicateurs d'Erreur** : Afficher les messages d'erreur de manière visible pour informer l'utilisateur des problèmes éventuels 
