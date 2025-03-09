@@ -1210,71 +1210,103 @@ export default function StylistManagement({ services, locations, onUpdate }: Sty
       
       {/* Lista de estilistas - siempre visible */}
       <div className="mb-6">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {stylists.length === 0 ? (
             <p className="text-gray-700">No hay estilistas registrados.</p>
           ) : (
             stylists.map(stylist => (
               <div 
                 key={stylist.id} 
-                className="p-4 rounded border shadow-sm bg-white border-gray-200"
+                className="rounded border shadow-sm hover:shadow-md transition-shadow bg-white border-gray-200 overflow-hidden"
               >
-                <div className="flex items-center space-x-3 mb-2">
-                  {stylist.profile_img ? (
-                    <Image 
-                      src={stylist.profile_img} 
-                      alt={stylist.name} 
-                      className="w-12 h-12 rounded-full object-cover"
-                      width={48}
-                      height={48}
-                    />
-                  ) : (
+                {/* Imagen adaptada para diferentes tamaños */}
+                {stylist.profile_img ? (
+                  <>
+                    {/* Imagen grande en escritorio, oculta en móvil */}
+                    <div className="hidden md:block relative w-full h-48">
+                      <Image 
+                        src={stylist.profile_img} 
+                        alt={stylist.name} 
+                        fill
+                        className="object-cover"
+                      />
+                    </div>
+                    {/* Imagen pequeña en móvil, oculta en escritorio */}
+                    <div className="md:hidden flex p-4">
+                      <div className="relative h-16 w-16 rounded-full overflow-hidden mr-3 flex-shrink-0">
+                        <Image 
+                          src={stylist.profile_img} 
+                          alt={stylist.name} 
+                          width={64}
+                          height={64}
+                          className="absolute inset-0 w-full h-full object-cover"
+                        />
+                      </div>
+                      <div>
+                        <h4 className="text-lg font-medium text-gray-800">
+                          {stylist.name}
+                        </h4>
+                      </div>
+                    </div>
+                  </>
+                ) : (
+                  <div className="p-4 flex items-center">
                     <div 
-                      className="w-12 h-12 rounded-full flex items-center justify-center bg-gray-200"
+                      className="w-12 h-12 rounded-full flex items-center justify-center bg-gray-200 mr-3"
                     >
                       <span className="text-gray-700">
                         {stylist.name.charAt(0)}
                       </span>
                     </div>
-                  )}
-                  
-                  <h4 className="text-lg font-medium text-gray-800">
-                    {stylist.name}
-                  </h4>
-                </div>
-                
-                {stylist.bio && (
-                  <p className="mb-3 text-gray-600">
-                    {stylist.bio.length > 100 ? `${stylist.bio.substring(0, 100)}...` : stylist.bio}
-                  </p>
+                    <h4 className="text-lg font-medium text-gray-800">
+                      {stylist.name}
+                    </h4>
+                  </div>
                 )}
                 
-                <div className="mb-3">
-                  <h5 className="text-sm font-medium mb-1 text-gray-700">Centros:</h5>
-                  <div className="flex flex-wrap gap-1">
-                    {stylist.location_ids?.map(locId => (
-                      <span 
-                        key={locId} 
-                        className="text-xs rounded px-2 py-1 bg-gray-100 text-gray-700"
-                      >
-                        {locations.find(loc => loc.id === locId)?.name || 'Centro desconocido'}
-                      </span>
-                    ))}
+                {/* Nombre visible solo en escritorio cuando hay imagen */}
+                {stylist.profile_img && (
+                  <div className="hidden md:block p-4 pb-2">
+                    <h4 className="text-lg font-medium text-gray-800">
+                      {stylist.name}
+                    </h4>
+                  </div>
+                )}
+                
+                <div className="px-4">
+                  {stylist.bio && (
+                    <p className="mb-3 text-gray-600">
+                      {stylist.bio.length > 100 ? `${stylist.bio.substring(0, 100)}...` : stylist.bio}
+                    </p>
+                  )}
+                  
+                  <div className="mb-3">
+                    <h5 className="text-sm font-medium mb-1 text-gray-700">Centros:</h5>
+                    <div className="flex flex-wrap gap-1">
+                      {stylist.location_ids?.map(locId => (
+                        <span 
+                          key={locId} 
+                          className="text-xs rounded px-2 py-1 bg-gray-100 text-gray-700"
+                        >
+                          {locations.find(loc => loc.id === locId)?.name || 'Centro desconocido'}
+                        </span>
+                      ))}
+                    </div>
                   </div>
                 </div>
                 
-                <div className="flex space-x-2">
+                <div className="flex space-x-2 p-4 mt-auto border-t">
                   <button
                     onClick={() => loadStylistForEdit(stylist.id)}
-                    className="flex-1 text-sm bg-blue-500 text-white px-2 py-1 rounded"
+                    className="flex-1 text-center py-1 rounded bg-blue-100 text-blue-700 font-medium text-sm hover:bg-blue-200 transition-colors"
                   >
-                    Editar Estilista y Servicios
+                    Modifier
                   </button>
                   <button
                     onClick={() => handleDeleteStylist(stylist.id)}
-                    className="text-sm bg-red-500 text-white px-2 py-1 rounded"
+                    className="flex-1 text-center py-1 rounded bg-red-100 text-red-700 font-medium text-sm hover:bg-red-200 transition-colors"
                   >
-                    Eliminar
+                    Supprimer
                   </button>
                 </div>
               </div>

@@ -619,96 +619,75 @@ export default function AdminPage() {
             <div className="p-6">
               <h2 className="text-xl font-bold text-secondary mb-4">Liste des Services</h2>
               
-              {/* Vista de tabla para pantallas grandes */}
-              <div className="hidden md:block overflow-x-auto">
-                <table className="min-w-full bg-white">
-                  <thead>
-                    <tr>
-                      <th className="py-2 px-4 border-b text-left text-text-dark">Imagen</th>
-                      <th className="py-2 px-4 border-b text-left text-text-dark">Nombre</th>
-                      <th className="py-2 px-4 border-b text-left text-text-dark">Precio</th>
-                      <th className="py-2 px-4 border-b text-left text-text-dark">Descripción</th>
-                      <th className="py-2 px-4 border-b text-left text-text-dark">Acciones</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {services.map((service) => (
-                      <tr key={service.id}>
-                        <td className="py-2 px-4 border-b">
-                          {service.imagen_url && (
-                            <div className="relative h-16 w-24 rounded overflow-hidden">
+              {/* Vista de tarjetas para todas las pantallas */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {services.map((service) => (
+                  <div key={service.id} className="border rounded-lg shadow-sm hover:shadow-md transition-shadow overflow-hidden">
+                    {/* Estructura diferente para móvil y escritorio */}
+                    <div className="flex flex-col md:flex-col">
+                      {/* Imagen adaptada para diferentes tamaños */}
+                      {service.imagen_url ? (
+                        <>
+                          {/* Imagen grande en escritorio, oculta en móvil */}
+                          <div className="hidden md:block relative w-full h-48">
+                            <Image 
+                              src={service.imagen_url} 
+                              alt={service.nombre} 
+                              fill
+                              className="object-cover"
+                            />
+                          </div>
+                          {/* Imagen pequeña en móvil, oculta en escritorio */}
+                          <div className="md:hidden flex p-4">
+                            <div className="relative h-20 w-20 rounded overflow-hidden mr-3 flex-shrink-0">
                               <Image 
                                 src={service.imagen_url} 
                                 alt={service.nombre} 
-                                width={96} 
-                                height={64} 
+                                width={80} 
+                                height={80} 
                                 className="absolute inset-0 w-full h-full object-cover"
                               />
                             </div>
-                          )}
-                        </td>
-                        <td className="py-2 px-4 border-b text-text-dark">{service.nombre}</td>
-                        <td className="py-2 px-4 border-b text-text-dark">{service.precio}€</td>
-                        <td className="py-2 px-4 border-b text-text-dark">{service.descripcion}</td>
-                        <td className="py-2 px-4 border-b">
-                          <div className="flex space-x-2">
-                            <button
-                              onClick={() => handleEditService(service)}
-                              className="text-blue-600 hover:text-blue-800 font-medium"
-                            >
-                              Modifier
-                            </button>
-                            <button
-                              onClick={() => handleDeleteService(service.id)}
-                              className="text-red-600 hover:text-red-800 font-medium"
-                            >
-                              Supprimer
-                            </button>
+                            <div>
+                              <h3 className="font-bold text-lg">{service.nombre}</h3>
+                              <p className="text-primary font-semibold">{service.precio}€</p>
+                            </div>
                           </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-              
-              {/* Vista de tarjetas para pantallas pequeñas */}
-              <div className="md:hidden space-y-4">
-                {services.map((service) => (
-                  <div key={service.id} className="border rounded-lg p-4 shadow-sm">
-                    <div className="flex items-center mb-3">
-                      {service.imagen_url && (
-                        <div className="relative h-20 w-20 rounded overflow-hidden mr-3 flex-shrink-0">
-                          <Image 
-                            src={service.imagen_url} 
-                            alt={service.nombre} 
-                            width={80} 
-                            height={80} 
-                            className="absolute inset-0 w-full h-full object-cover"
-                          />
+                        </>
+                      ) : (
+                        <div className="p-4">
+                          <h3 className="font-bold text-lg">{service.nombre}</h3>
+                          <p className="text-primary font-semibold">{service.precio}€</p>
                         </div>
                       )}
-                      <div>
-                        <h3 className="font-bold text-lg">{service.nombre}</h3>
-                        <p className="text-primary font-semibold">{service.precio}€</p>
+                      
+                      {/* Información del servicio - versión escritorio */}
+                      {service.imagen_url && (
+                        <div className="hidden md:block p-4 pb-2">
+                          <h3 className="font-bold text-lg">{service.nombre}</h3>
+                          <p className="text-primary font-semibold">{service.precio}€</p>
+                        </div>
+                      )}
+                      
+                      {/* Descripción del servicio */}
+                      <div className="px-4 pb-4">
+                        <p className="text-sm text-gray-600">{service.descripcion}</p>
                       </div>
-                    </div>
-                    
-                    <p className="text-sm text-gray-600 mb-3">{service.descripcion}</p>
-                    
-                    <div className="flex space-x-2 pt-2 border-t">
-                      <button
-                        onClick={() => handleEditService(service)}
-                        className="flex-1 text-center py-1 rounded bg-blue-100 text-blue-700 font-medium text-sm"
-                      >
-                        Modifier
-                      </button>
-                      <button
-                        onClick={() => handleDeleteService(service.id)}
-                        className="flex-1 text-center py-1 rounded bg-red-100 text-red-700 font-medium text-sm"
-                      >
-                        Supprimer
-                      </button>
+                      
+                      <div className="flex space-x-2 p-4 mt-auto border-t">
+                        <button
+                          onClick={() => handleEditService(service)}
+                          className="flex-1 text-center py-1 rounded bg-blue-100 text-blue-700 font-medium text-sm hover:bg-blue-200 transition-colors"
+                        >
+                          Modifier
+                        </button>
+                        <button
+                          onClick={() => handleDeleteService(service.id)}
+                          className="flex-1 text-center py-1 rounded bg-red-100 text-red-700 font-medium text-sm hover:bg-red-200 transition-colors"
+                        >
+                          Supprimer
+                        </button>
+                      </div>
                     </div>
                   </div>
                 ))}

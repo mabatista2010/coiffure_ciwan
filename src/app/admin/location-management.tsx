@@ -631,107 +631,90 @@ export default function LocationManagement() {
         <div className="p-6">
           <h2 className="text-xl font-bold text-secondary mb-4">Liste des Centres</h2>
           
-          {/* Vista de tabla para pantallas grandes */}
-          <div className="hidden md:block overflow-x-auto">
-            <table className="min-w-full bg-white">
-              <thead>
-                <tr>
-                  <th className="py-2 px-4 border-b text-left text-text-dark">Nom</th>
-                  <th className="py-2 px-4 border-b text-left text-text-dark">Adresse</th>
-                  <th className="py-2 px-4 border-b text-left text-text-dark">Téléphone</th>
-                  <th className="py-2 px-4 border-b text-left text-text-dark">Email</th>
-                  <th className="py-2 px-4 border-b text-left text-text-dark">Image</th>
-                  <th className="py-2 px-4 border-b text-left text-text-dark">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {locations.map((location) => (
-                  <tr key={location.id}>
-                    <td className="py-2 px-4 border-b text-text-dark">{location.name}</td>
-                    <td className="py-2 px-4 border-b text-text-dark">{location.address}</td>
-                    <td className="py-2 px-4 border-b text-text-dark">{location.phone}</td>
-                    <td className="py-2 px-4 border-b text-text-dark">{location.email}</td>
-                    <td className="py-2 px-4 border-b">
-                      {location.image && (
-                        <div className="relative h-16 w-16 rounded overflow-hidden">
+          {/* Vista de tarjetas para todas las pantallas */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {locations.map((location) => (
+              <div key={location.id} className="border rounded-lg shadow-sm hover:shadow-md transition-shadow overflow-hidden">
+                {/* Estructura diferente para móvil y escritorio */}
+                <div className="flex flex-col md:flex-col">
+                  {/* Imagen adaptada para diferentes tamaños */}
+                  {location.image ? (
+                    <>
+                      {/* Imagen grande en escritorio, oculta en móvil */}
+                      <div className="hidden md:block relative w-full h-48">
+                        <Image 
+                          src={location.image} 
+                          alt={location.name} 
+                          fill
+                          className="object-cover"
+                        />
+                      </div>
+                      {/* Imagen pequeña en móvil, oculta en escritorio */}
+                      <div className="md:hidden flex p-4">
+                        <div className="relative h-20 w-20 rounded overflow-hidden mr-3 flex-shrink-0">
                           <Image 
                             src={location.image} 
                             alt={location.name} 
-                            width={64} 
-                            height={64} 
+                            width={80} 
+                            height={80} 
                             className="absolute inset-0 w-full h-full object-cover"
                           />
                         </div>
-                      )}
-                    </td>
-                    <td className="py-2 px-4 border-b">
-                      <button
-                        onClick={() => handleEditLocation(location)}
-                        className="text-blue-600 hover:text-blue-800 font-medium mr-2"
-                      >
-                        Modifier
-                      </button>
-                      <button
-                        onClick={() => handleDeleteLocation(location.id)}
-                        className="text-red-600 hover:text-red-800 font-medium"
-                      >
-                        Supprimer
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          
-          {/* Vista de tarjetas para pantallas pequeñas */}
-          <div className="md:hidden space-y-4">
-            {locations.map((location) => (
-              <div key={location.id} className="border rounded-lg p-4 shadow-sm">
-                <div className="flex">
-                  {location.image && (
-                    <div className="relative h-20 w-20 rounded overflow-hidden mr-3 flex-shrink-0">
-                      <Image 
-                        src={location.image} 
-                        alt={location.name} 
-                        width={80} 
-                        height={80} 
-                        className="absolute inset-0 w-full h-full object-cover"
-                      />
+                        <div>
+                          <h3 className="font-bold text-lg text-text-dark">{location.name}</h3>
+                          <p className="text-sm text-gray-600 mb-1">{location.address}</p>
+                        </div>
+                      </div>
+                    </>
+                  ) : (
+                    <div className="p-4">
+                      <h3 className="font-bold text-lg text-text-dark">{location.name}</h3>
+                      <p className="text-sm text-gray-600 mb-1">{location.address}</p>
                     </div>
                   )}
-                  <div>
-                    <h3 className="font-bold text-lg text-text-dark">{location.name}</h3>
-                    <p className="text-sm text-gray-600 mb-1">{location.address}</p>
+                  
+                  {/* Información del centro - versión escritorio */}
+                  {location.image && (
+                    <div className="hidden md:block p-4 pb-2">
+                      <h3 className="font-bold text-lg text-text-dark">{location.name}</h3>
+                      <p className="text-sm text-gray-600 mb-1">{location.address}</p>
+                    </div>
+                  )}
+                  
+                  {/* Información de contacto y descripción */}
+                  <div className="px-4 space-y-1">
+                    {location.phone && (
+                      <p className="text-sm">
+                        <span className="font-medium">Téléphone:</span> {location.phone}
+                      </p>
+                    )}
+                    {location.email && (
+                      <p className="text-sm">
+                        <span className="font-medium">Email:</span> {location.email}
+                      </p>
+                    )}
+                    {location.description && (
+                      <p className="text-sm mt-2">
+                        <span className="font-medium">Description:</span> 
+                        <span className="block mt-1 text-gray-700">{location.description.substring(0, 100)}{location.description.length > 100 ? '...' : ''}</span>
+                      </p>
+                    )}
                   </div>
-                </div>
-                
-                <div className="mt-3 space-y-1">
-                  {location.phone && (
-                    <p className="text-sm">
-                      <span className="font-medium">Téléphone:</span> {location.phone}
-                    </p>
-                  )}
-                  {location.email && (
-                    <p className="text-sm">
-                      <span className="font-medium">Email:</span> {location.email}
-                    </p>
-                  )}
-                </div>
-                
-                <div className="flex space-x-2 pt-3 mt-3 border-t">
-                  <button
-                    onClick={() => handleEditLocation(location)}
-                    className="flex-1 text-center py-1 rounded bg-blue-100 text-blue-700 font-medium text-sm"
-                  >
-                    Modifier
-                  </button>
-                  <button
-                    onClick={() => handleDeleteLocation(location.id)}
-                    className="flex-1 text-center py-1 rounded bg-red-100 text-red-700 font-medium text-sm"
-                  >
-                    Supprimer
-                  </button>
+                  
+                  <div className="flex space-x-2 p-4 mt-auto border-t">
+                    <button
+                      onClick={() => handleEditLocation(location)}
+                      className="flex-1 text-center py-1 rounded bg-blue-100 text-blue-700 font-medium text-sm hover:bg-blue-200 transition-colors"
+                    >
+                      Modifier
+                    </button>
+                    <button
+                      onClick={() => handleDeleteLocation(location.id)}
+                      className="flex-1 text-center py-1 rounded bg-red-100 text-red-700 font-medium text-sm hover:bg-red-200 transition-colors"
+                    >
+                      Supprimer
+                    </button>
+                  </div>
                 </div>
               </div>
             ))}
