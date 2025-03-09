@@ -81,6 +81,10 @@ Lors du développement de nouvelles fonctionnalités ou de la modification de fo
 - **Inputs de Date Améliorés** : Remplacement des sélecteurs de date natifs par des champs personnalisés avec icônes de calendrier distinctives et couleur primaire pour améliorer la visibilité et l'interaction
 - **Visualisation Responsive des Graphiques** : Adaptation des graphiques de tendances et statistiques pour une visualisation optimale sur tous les appareils, avec un système d'affichage adaptatif selon la taille de l'écran
 - **Fermeture Automatique des Menus** : Implémentation d'un système de fermeture automatique des menus déroulants après sélection pour une navigation plus fluide sur mobile
+- **Correction de l'Ordre Chronologique des Graphiques** : Amélioration des graphiques de tendances pour afficher les mois en ordre chronologique correct (de plus ancien à plus récent) et formater les étiquettes de façon appropriée
+- **Affichage Adaptatif des Étiquettes** : Optimisation de l'affichage des étiquettes de mois dans les graphiques avec format complet sur desktop et simplifié sur mobile pour une meilleure lisibilité
+- **Amélioration des Périodes Personnalisées** : Renforcement de la précision et de la lisibilité des périodes de dates sélectionnées dans les interfaces de statistiques
+
 
 ## Structure de l'Application
 
@@ -157,6 +161,11 @@ Le système de réservation suit un flux en 6 étapes :
   - **Visualisation Dynamique** : Représentation graphique des données qui s'adapte au période sélectionnée, avec affichage optimisé des tendances
   - **Sélecteurs Optimisés** : Champs de date avec icônes distinctives et fermeture automatique des menus après sélection pour une navigation fluide
   - **Adaptation Mobile** : Interface déroulante sur mobile pour économiser l'espace et améliorer l'expérience utilisateur
+  - **Ordre Chronologique Corrigé** : Affichage des données dans un ordre chronologique correct, du plus ancien au plus récent, pour une analyse pertinente des tendances
+  - **Formatage Intelligent des Étiquettes** : Système adaptatif qui ajuste le format des étiquettes de mois selon l'espace disponible et le nombre de périodes affichées
+  - **Optimisation pour Périodes Longues** : Support amélioré pour les filtres sur de longues périodes avec affichage compact sur mobile et complet sur desktop
+  - **Fond Contrasté pour Graphiques** : Utilisation de fonds légèrement plus sombres pour les sections de graphiques afin d'améliorer la lisibilité des données
+  - **Détection Contextuelle de Périodes Vides** : Affichage de messages explicites lorsqu'aucune réservation n'est trouvée dans la période sélectionnée
 - **Calendrier Intuitif** : Interface de calendrier améliorée avec code couleur pour visualiser rapidement la disponibilité
   - **Filtrage Contextuel** : Affichage des réservations spécifiques à l'estilista sélectionné dans le calendrier
   - **Indicateurs Visuels** : Affichage de points indiquant les jours avec réservations
@@ -287,4 +296,9 @@ Le système de réservation suit un flux en 6 étapes :
 - **Prévisualisation des Images** : Toujours initialiser les états de prévisualisation d'images lors du chargement des données depuis la base de données
 - **États de Chargement** : Afficher des indicateurs visuels lors des opérations asynchrones pour améliorer l'expérience utilisateur
 - **Classes Responsives** : Utiliser les classes flex-col/flex-row avec sm: pour garantir une adaptation correcte sur tous les dispositifs
-- **Indicateurs d'Erreur** : Afficher les messages d'erreur de manière visible pour informer l'utilisateur des problèmes éventuels 
+- **Indicateurs d'Erreur** : Afficher les messages d'erreur de manière visible pour informer l'utilisateur des problèmes éventuels
+- **Respect des Règles du Linter** : Traiter les avertissements ESLint comme des erreurs bloquantes et les résoudre avant de fusionner le code, particulièrement pour les variables constantes vs. modifiables (prefer-const)
+- **Manipulation des Dates** : Utiliser des approches explicites pour la manipulation des dates, en privilégiant des structures claires pour les opérations d'incrémentation et de comparaison
+- **Variables Modifiables** : Déclarer avec `let` toute variable qui sera modifiée dans son cycle de vie, même si la référence de l'objet reste la même
+- **Ordre Chronologique** : Dans les visualisations de données temporelles, toujours présenter les données dans un ordre chronologique cohérent pour faciliter l'analyse
+- **Étiquetage des Périodes** : Adapter le niveau de détail des étiquettes temporelles en fonction du contexte d'affichage (detailed pour desktop, simplifié pour mobile) 

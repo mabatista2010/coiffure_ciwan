@@ -1,10 +1,10 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Image from 'next/image';
 import { supabase } from '@/lib/supabase';
 import AdminNav from '@/components/AdminNav';
-import { FaCalendarCheck, FaEuroSign, FaUserTie, FaCut, FaChartLine } from 'react-icons/fa';
+import { FaCalendarCheck, FaEuroSign, FaUserTie, FaCut, FaChartLine, FaCalendarAlt } from 'react-icons/fa';
 
 // Función para manejar URLs de imágenes
 const getImageUrl = (path: string | null): string => {
@@ -28,6 +28,20 @@ const getImageUrl = (path: string | null): string => {
     // De lo contrario, tratar como ruta local
     return path.startsWith('/') ? path : `/${path}`;
   }
+};
+
+// Función para formatear el mes/año en formato legible
+const formatMonthYear = (monthYearStr: string): string => {
+  const [month, year] = monthYearStr.split('/');
+  const monthNames = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Jun', 'Jul', 'Aoû', 'Sep', 'Oct', 'Nov', 'Déc'];
+  return `${monthNames[parseInt(month) - 1]} ${year}`;
+};
+
+// Función para obtener solo el nombre del mes
+const getMonthName = (monthYearStr: string): string => {
+  const month = monthYearStr.split('/')[0];
+  const monthNames = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Jun', 'Jul', 'Aoû', 'Sep', 'Oct', 'Nov', 'Déc'];
+  return monthNames[parseInt(month) - 1];
 };
 
 // Tipos para los datos
@@ -67,6 +81,12 @@ const getDayName = (dayIndex: number): string => {
   return days[dayIndex];
 };
 
+interface DateRange {
+  startDate: Date;
+  endDate: Date;
+  label: string;
+}
+
 export default function LocationStatsPage() {
   const [locations, setLocations] = useState<Location[]>([]);
   const [selectedLocation, setSelectedLocation] = useState<string | null>(null);
@@ -74,6 +94,15 @@ export default function LocationStatsPage() {
   const [stats, setStats] = useState<LocationStats | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+  const [dateRangeType, setDateRangeType] = useState<'semana' | 'semana_anterior' | 'mes' | 'mes_anterior' | 'año' | 'año_anterior' | 'personalizado'>('mes');
+  const [customStartDate, setCustomStartDate] = useState<string>('');
+  const [customEndDate, setCustomEndDate] = useState<string>('');
+  const [dateRange, setDateRange] = useState<DateRange>({
+    startDate: new Date(),
+    endDate: new Date(),
+    label: 'Mois actuel'
+  });
+  const detailsRef = useRef<HTMLDetailsElement>(null);
 
   // Cargar la lista de centros
   useEffect(() => {
@@ -131,11 +160,13 @@ export default function LocationStatsPage() {
     async function loadLocationStats() {
       setLoading(true);
       try {
-        // 1. Total de reservas y conteo por estado
+        // 1. Total de reservas y conteo por estado dentro del rango de fechas
         const { data: bookingsData, error: bookingsError } = await supabase
           .from('bookings')
           .select('id, status, service_id, booking_date')
-          .eq('location_id', selectedLocation);
+          .eq('location_id', selectedLocation)
+          .gte('booking_date', dateRange.startDate.toISOString())
+          .lte('booking_date', dateRange.endDate.toISOString());
 
         if (bookingsError) throw bookingsError;
 
@@ -146,7 +177,7 @@ export default function LocationStatsPage() {
 
         if (servicesError) throw servicesError;
 
-        // 3. Obtener reservas con detalles de servicio y estilista
+        // 3. Obtener reservas con detalles de servicio y estilista dentro del rango de fechas
         const { data: bookingsWithDetails, error: bookingsWithDetailsError } = await supabase
           .from('bookings')
           .select(`
@@ -158,7 +189,9 @@ export default function LocationStatsPage() {
             stylists:stylist_id (name),
             booking_date
           `)
-          .eq('location_id', selectedLocation);
+          .eq('location_id', selectedLocation)
+          .gte('booking_date', dateRange.startDate.toISOString())
+          .lte('booking_date', dateRange.endDate.toISOString());
 
         if (bookingsWithDetailsError) throw bookingsWithDetailsError;
 
@@ -208,24 +241,31 @@ export default function LocationStatsPage() {
           .sort((a, b) => b.count - a.count)
           .slice(0, 5);
 
-        // Calcular reservas por mes (últimos 6 meses)
+        // Calcular reservas por mes para el período seleccionado
         const monthsMap: Record<string, number> = {};
-        const today = new Date();
+        const startDate = new Date(dateRange.startDate);
+        const endDate = new Date(dateRange.endDate);
         
-        // Inicializar los últimos 6 meses
-        for (let i = 0; i < 6; i++) {
-          const d = new Date(today);
-          d.setMonth(d.getMonth() - i);
-          const monthYear = `${d.getMonth() + 1}/${d.getFullYear()}`;
+        // Inicializar todos los meses en el rango
+        let year = startDate.getFullYear();
+        let month = startDate.getMonth();
+        
+        while (new Date(year, month, 1) <= endDate) {
+          const monthYear = `${month + 1}/${year}`;
           monthsMap[monthYear] = 0;
+          
+          // Avanzar al siguiente mes
+          month++;
+          if (month === 12) {
+            month = 0;
+            year++;
+          }
         }
         
         bookingsWithDetails?.forEach(booking => {
           if (booking.booking_date) {
             const date = new Date(booking.booking_date);
             const monthYear = `${date.getMonth() + 1}/${date.getFullYear()}`;
-            
-            // Solo contar si está en los últimos 6 meses
             if (monthsMap[monthYear] !== undefined) {
               monthsMap[monthYear] = (monthsMap[monthYear] || 0) + 1;
             }
@@ -237,7 +277,7 @@ export default function LocationStatsPage() {
           .sort((a, b) => {
             const [aMonth, aYear] = a.month.split('/').map(Number);
             const [bMonth, bYear] = b.month.split('/').map(Number);
-            return (bYear * 12 + bMonth) - (aYear * 12 + aMonth);
+            return (aYear * 12 + aMonth) - (bYear * 12 + bMonth); // Orden cronológico ascendente
           });
 
         // Calcular promedio de reservas por día
@@ -280,7 +320,102 @@ export default function LocationStatsPage() {
     }
 
     loadLocationStats();
-  }, [selectedLocation]);
+  }, [selectedLocation, dateRange]);
+
+  // Efecto para actualizar el rango de fechas cuando cambia el tipo
+  useEffect(() => {
+    const today = new Date();
+    let startDate: Date;
+    let endDate: Date;
+    let label: string;
+
+    switch (dateRangeType) {
+      case 'semana':
+        // Semana actual
+        startDate = new Date(today);
+        startDate.setDate(today.getDate() - today.getDay() + 1); // Lunes
+        endDate = new Date(today);
+        endDate.setDate(startDate.getDate() + 6); // Domingo
+        endDate.setHours(23, 59, 59, 999);
+        label = 'Semaine actuelle';
+        break;
+
+      case 'semana_anterior':
+        // Semana anterior
+        startDate = new Date(today);
+        startDate.setDate(today.getDate() - today.getDay() - 6); // Lunes anterior
+        endDate = new Date(today);
+        endDate.setDate(startDate.getDate() + 6); // Domingo anterior
+        endDate.setHours(23, 59, 59, 999);
+        label = 'Semaine précédente';
+        break;
+
+      case 'mes':
+        // Mes actual
+        startDate = new Date(today.getFullYear(), today.getMonth(), 1);
+        endDate = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+        endDate.setHours(23, 59, 59, 999);
+        label = 'Mois actuel';
+        break;
+
+      case 'mes_anterior':
+        // Mes anterior
+        startDate = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+        endDate = new Date(today.getFullYear(), today.getMonth(), 0);
+        endDate.setHours(23, 59, 59, 999);
+        label = 'Mois précédent';
+        break;
+        
+      case 'año':
+        startDate = new Date(today.getFullYear(), 0, 1);
+        endDate = new Date(today.getFullYear(), 11, 31);
+        endDate.setHours(23, 59, 59, 999);
+        label = 'Année actuelle';
+        break;
+
+      case 'año_anterior':
+        // Año anterior
+        startDate = new Date(today.getFullYear() - 1, 0, 1);
+        endDate = new Date(today.getFullYear() - 1, 11, 31);
+        endDate.setHours(23, 59, 59, 999);
+        label = 'Année précédente';
+        break;
+        
+      case 'personalizado':
+        // Usar las fechas personalizadas o fechas por defecto
+        if (customStartDate && customEndDate) {
+          startDate = new Date(customStartDate);
+          endDate = new Date(customEndDate);
+          endDate.setHours(23, 59, 59, 999);
+          label = `${startDate.toLocaleDateString('fr-FR')} - ${endDate.toLocaleDateString('fr-FR')}`;
+        } else {
+          // Si no hay fechas personalizadas, usar el mes actual
+          startDate = new Date(today.getFullYear(), today.getMonth(), 1);
+          endDate = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+          endDate.setHours(23, 59, 59, 999);
+          label = 'Periodo personalizado';
+        }
+        break;
+        
+      default:
+        startDate = new Date(today.getFullYear(), today.getMonth(), 1);
+        endDate = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+        endDate.setHours(23, 59, 59, 999);
+        label = 'Mois actuel';
+    }
+
+    setDateRange({ startDate, endDate, label });
+  }, [dateRangeType, customStartDate, customEndDate]);
+
+  // Función para cambiar el tipo de rango de fechas y cerrar el menú desplegable si es necesario
+  const handleDateRangeTypeChange = (newType: typeof dateRangeType) => {
+    setDateRangeType(newType);
+    
+    // Si no es personalizado, cerrar el menú desplegable
+    if (newType !== 'personalizado' && detailsRef.current) {
+      detailsRef.current.open = false;
+    }
+  };
 
   // Función para formatear números como moneda (EUR)
   const formatCurrency = (amount: number) => {
@@ -336,6 +471,216 @@ export default function LocationStatsPage() {
                 />
               </div>
               <h2 className="text-xl font-bold text-primary mt-2">{selectedLocationData.name}</h2>
+            </div>
+          </div>
+        )}
+        
+        {/* Filtros temporales */}
+        {selectedLocationData && (
+          <div className="mb-8 bg-secondary rounded-lg p-4 md:p-6 shadow-lg">
+            <div className="flex items-center mb-4">
+              <FaCalendarAlt className="text-primary text-2xl mr-3" />
+              <h3 className="text-xl font-semibold text-light">Filtrer par période</h3>
+            </div>
+            
+            {/* Diseño para móvil (desplegable) */}
+            <div className="block md:hidden">
+              <div className="bg-dark rounded-lg mb-4 p-2">
+                <details ref={detailsRef} className="text-center">
+                  <summary className="list-none focus:outline-none cursor-pointer">
+                    <span className="flex items-center justify-between">
+                      <span className="text-primary font-semibold flex items-center">
+                        <FaCalendarAlt className="text-primary text-lg mr-2" />
+                        {dateRange.label}
+                      </span>
+                      <span className="text-primary">▼</span>
+                    </span>
+                  </summary>
+                  <div className="mt-3 flex flex-col space-y-2">
+                    <button
+                      className={`px-4 py-2 rounded ${dateRangeType === 'semana' ? 'bg-primary text-dark' : 'bg-dark text-light border border-primary'}`}
+                      onClick={() => handleDateRangeTypeChange('semana')}
+                    >
+                      Semaine actuelle
+                    </button>
+                    <button
+                      className={`px-4 py-2 rounded ${dateRangeType === 'semana_anterior' ? 'bg-primary text-dark' : 'bg-dark text-light border border-primary'}`}
+                      onClick={() => handleDateRangeTypeChange('semana_anterior')}
+                    >
+                      Semaine précédente
+                    </button>
+                    <button
+                      className={`px-4 py-2 rounded ${dateRangeType === 'mes' ? 'bg-primary text-dark' : 'bg-dark text-light border border-primary'}`}
+                      onClick={() => handleDateRangeTypeChange('mes')}
+                    >
+                      Mois actuel
+                    </button>
+                    <button
+                      className={`px-4 py-2 rounded ${dateRangeType === 'mes_anterior' ? 'bg-primary text-dark' : 'bg-dark text-light border border-primary'}`}
+                      onClick={() => handleDateRangeTypeChange('mes_anterior')}
+                    >
+                      Mois précédent
+                    </button>
+                    <button
+                      className={`px-4 py-2 rounded ${dateRangeType === 'año' ? 'bg-primary text-dark' : 'bg-dark text-light border border-primary'}`}
+                      onClick={() => handleDateRangeTypeChange('año')}
+                    >
+                      Année actuelle
+                    </button>
+                    <button
+                      className={`px-4 py-2 rounded ${dateRangeType === 'año_anterior' ? 'bg-primary text-dark' : 'bg-dark text-light border border-primary'}`}
+                      onClick={() => handleDateRangeTypeChange('año_anterior')}
+                    >
+                      Année précédente
+                    </button>
+                    <button
+                      className={`px-4 py-2 rounded ${dateRangeType === 'personalizado' ? 'bg-primary text-dark' : 'bg-dark text-light border border-primary'}`}
+                      onClick={() => handleDateRangeTypeChange('personalizado')}
+                    >
+                      Personnalisé
+                    </button>
+                  </div>
+                </details>
+              </div>
+              
+              {dateRangeType === 'personalizado' && (
+                <div className="grid grid-cols-1 gap-3 mt-4">
+                  <div>
+                    <label htmlFor="mobile-start-date" className="block text-light mb-1 text-sm">Date de début:</label>
+                    <div className="relative">
+                      <input
+                        id="mobile-start-date"
+                        type="date"
+                        value={customStartDate}
+                        onChange={(e) => setCustomStartDate(e.target.value)}
+                        className="w-full p-2 rounded bg-dark text-light border border-primary text-sm appearance-none pl-10"
+                      />
+                      <div className="absolute left-3 top-1/2 transform -translate-y-1/2 pointer-events-none">
+                        <FaCalendarAlt className="text-primary text-lg" />
+                      </div>
+                    </div>
+                  </div>
+                  <div>
+                    <label htmlFor="mobile-end-date" className="block text-light mb-1 text-sm">Date de fin:</label>
+                    <div className="relative">
+                      <input
+                        id="mobile-end-date"
+                        type="date"
+                        value={customEndDate}
+                        onChange={(e) => setCustomEndDate(e.target.value)}
+                        className="w-full p-2 rounded bg-dark text-light border border-primary text-sm appearance-none pl-10"
+                      />
+                      <div className="absolute left-3 top-1/2 transform -translate-y-1/2 pointer-events-none">
+                        <FaCalendarAlt className="text-primary text-lg" />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+              
+              <div className="text-center mt-3">
+                <p className="text-light text-sm mb-1">Période sélectionnée:</p>
+                <div className="bg-dark text-primary px-3 py-1 rounded-lg font-semibold inline-block">
+                  {dateRange.startDate.toLocaleDateString('fr-FR')} - {dateRange.endDate.toLocaleDateString('fr-FR')}
+                </div>
+              </div>
+            </div>
+            
+            {/* Diseño para escritorio (original) */}
+            <div className="hidden md:block">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <div className="flex flex-wrap gap-2 mb-4">
+                    <button
+                      className={`px-4 py-2 rounded ${dateRangeType === 'semana' ? 'bg-primary text-dark' : 'bg-dark text-light hover:bg-dark/80'}`}
+                      onClick={() => handleDateRangeTypeChange('semana')}
+                    >
+                      Semaine actuelle
+                    </button>
+                    <button
+                      className={`px-4 py-2 rounded ${dateRangeType === 'semana_anterior' ? 'bg-primary text-dark' : 'bg-dark text-light hover:bg-dark/80'}`}
+                      onClick={() => handleDateRangeTypeChange('semana_anterior')}
+                    >
+                      Semaine précédente
+                    </button>
+                    <button
+                      className={`px-4 py-2 rounded ${dateRangeType === 'mes' ? 'bg-primary text-dark' : 'bg-dark text-light hover:bg-dark/80'}`}
+                      onClick={() => handleDateRangeTypeChange('mes')}
+                    >
+                      Mois actuel
+                    </button>
+                    <button
+                      className={`px-4 py-2 rounded ${dateRangeType === 'mes_anterior' ? 'bg-primary text-dark' : 'bg-dark text-light hover:bg-dark/80'}`}
+                      onClick={() => handleDateRangeTypeChange('mes_anterior')}
+                    >
+                      Mois précédent
+                    </button>
+                    <button
+                      className={`px-4 py-2 rounded ${dateRangeType === 'año' ? 'bg-primary text-dark' : 'bg-dark text-light hover:bg-dark/80'}`}
+                      onClick={() => handleDateRangeTypeChange('año')}
+                    >
+                      Année actuelle
+                    </button>
+                    <button
+                      className={`px-4 py-2 rounded ${dateRangeType === 'año_anterior' ? 'bg-primary text-dark' : 'bg-dark text-light hover:bg-dark/80'}`}
+                      onClick={() => handleDateRangeTypeChange('año_anterior')}
+                    >
+                      Année précédente
+                    </button>
+                    <button
+                      className={`px-4 py-2 rounded ${dateRangeType === 'personalizado' ? 'bg-primary text-dark' : 'bg-dark text-light hover:bg-dark/80'}`}
+                      onClick={() => handleDateRangeTypeChange('personalizado')}
+                    >
+                      Personnalisé
+                    </button>
+                  </div>
+                  
+                  {dateRangeType === 'personalizado' && (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
+                      <div>
+                        <label htmlFor="start-date" className="block text-light mb-1">Date de début:</label>
+                        <div className="relative">
+                          <input
+                            id="start-date"
+                            type="date"
+                            value={customStartDate}
+                            onChange={(e) => setCustomStartDate(e.target.value)}
+                            className="w-full p-2 rounded bg-dark text-light border border-primary appearance-none pl-10"
+                          />
+                          <div className="absolute left-3 top-1/2 transform -translate-y-1/2 pointer-events-none">
+                            <FaCalendarAlt className="text-primary text-lg" />
+                          </div>
+                        </div>
+                      </div>
+                      <div>
+                        <label htmlFor="end-date" className="block text-light mb-1">Date de fin:</label>
+                        <div className="relative">
+                          <input
+                            id="end-date"
+                            type="date"
+                            value={customEndDate}
+                            onChange={(e) => setCustomEndDate(e.target.value)}
+                            className="w-full p-2 rounded bg-dark text-light border border-primary appearance-none pl-10"
+                          />
+                          <div className="absolute left-3 top-1/2 transform -translate-y-1/2 pointer-events-none">
+                            <FaCalendarAlt className="text-primary text-lg" />
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+                
+                <div className="flex flex-col justify-center items-center md:items-end">
+                  <p className="text-light mb-2">Période sélectionnée:</p>
+                  <div className="bg-dark text-primary px-4 py-2 rounded-lg font-semibold">
+                    {dateRange.label}
+                  </div>
+                  <p className="text-light text-sm mt-2">
+                    {dateRange.startDate.toLocaleDateString('fr-FR')} - {dateRange.endDate.toLocaleDateString('fr-FR')}
+                  </p>
+                </div>
+              </div>
             </div>
           </div>
         )}
@@ -454,15 +799,15 @@ export default function LocationStatsPage() {
             </div>
             
             {/* Días más ocupados */}
-            <div className="bg-secondary rounded-lg p-6 shadow-lg">
-              <div className="flex items-center mb-4">
-                <FaChartLine className="text-primary text-2xl mr-3" />
+            <div className="bg-secondary rounded-lg p-4 md:p-6 shadow-lg">
+              <div className="flex flex-col md:flex-row md:items-center mb-4">
+                <FaChartLine className="text-primary text-2xl mb-2 md:mb-0 md:mr-3" />
                 <h3 className="text-xl font-semibold text-light">Jours les Plus Occupés</h3>
               </div>
               
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <p className="text-light mb-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
+                <div className="bg-dark/30 p-3 md:p-4 rounded-lg">
+                  <p className="text-light mb-4 text-center md:text-left">
                     Moyenne de réservations par jour: <span className="text-primary font-bold">{stats.averageBookingsPerDay.toFixed(1)}</span>
                   </p>
                   
@@ -475,7 +820,7 @@ export default function LocationStatsPage() {
                         </div>
                         <div className="w-full bg-dark rounded-full h-2.5">
                           <div 
-                            className="bg-primary h-2.5 rounded-full" 
+                            className="bg-primary h-2.5 rounded-full transition-all duration-300"
                             style={{ width: `${(day.count / (stats.busyDays[0]?.count || 1)) * 100}%` }}
                           ></div>
                         </div>
@@ -485,26 +830,46 @@ export default function LocationStatsPage() {
                 </div>
                 
                 {/* Gráfico de tendencia de reservas por mes */}
-                <div>
-                  <h4 className="text-light mb-4">Tendance des Réservations (6 derniers mois)</h4>
-                  <div className="h-48 flex items-end justify-between space-x-2">
-                    {stats.bookingsByMonth.map((item, index) => {
-                      const maxCount = Math.max(...stats.bookingsByMonth.map(i => i.count));
-                      const height = maxCount > 0 ? (item.count / maxCount) * 100 : 0;
-                      
-                      return (
-                        <div key={index} className="flex flex-col items-center flex-1">
-                          <div 
-                            className="w-full bg-primary rounded-t"
-                            style={{ height: `${height}%` }}
-                          ></div>
-                          <div className="text-xs text-light mt-2 transform -rotate-45 origin-top-left">
-                            {item.month}
+                <div className="bg-dark/30 p-3 md:p-4 rounded-lg">
+                  <h4 className="text-light mb-4 text-center md:text-left">
+                    Tendance des Réservations
+                    <span className="block md:inline mt-1 md:mt-0 md:ml-2 text-sm md:text-base">
+                      {stats.bookingsByMonth.length > 0 ? 
+                        `(${formatMonthYear(stats.bookingsByMonth[0].month)} - ${formatMonthYear(stats.bookingsByMonth[stats.bookingsByMonth.length - 1].month)})` : 
+                        '(Aucune donnée)'}
+                    </span>
+                  </h4>
+                  
+                  {stats.bookingsByMonth.length > 0 ? (
+                    <div className="h-48 md:h-64 flex items-end justify-between space-x-1 md:space-x-2 overflow-x-auto pb-2">
+                      {stats.bookingsByMonth.map((item, index) => {
+                        const maxCount = Math.max(...stats.bookingsByMonth.map(i => i.count));
+                        const height = maxCount > 0 ? (item.count / maxCount) * 100 : 0;
+                        
+                        return (
+                          <div key={index} className="flex flex-col items-center min-w-[40px] md:min-w-0 md:flex-1">
+                            <div 
+                              className="w-full bg-primary rounded-t transition-all duration-300 hover:bg-primary/80"
+                              style={{ height: `${height}%` }}
+                            ></div>
+                            <div className="text-xs text-light mt-2 transform -rotate-45 origin-top-left whitespace-nowrap">
+                              <span className="block md:hidden">
+                                {stats.bookingsByMonth.length > 6 ? getMonthName(item.month) : formatMonthYear(item.month)}
+                              </span>
+                              <span className="hidden md:block">{formatMonthYear(item.month)}</span>
+                            </div>
+                            <div className="text-xs text-primary font-semibold mt-1">
+                              {item.count}
+                            </div>
                           </div>
-                        </div>
-                      );
-                    })}
-                  </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <div className="flex justify-center items-center h-32 text-light">
+                      Aucune réservation trouvée pour cette période
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
