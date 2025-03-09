@@ -2,9 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import { supabase, Booking, Location, Service, Stylist } from '@/lib/supabase';
-import Navbar from '@/components/Navbar';
-import Footer from '@/components/Footer';
-import { FaCalendarAlt, FaMapMarkerAlt, FaChevronLeft, FaChevronRight, FaCalendarDay } from 'react-icons/fa';
+import AdminNav from '@/components/AdminNav';
+import { FaCalendarAlt, FaCalendarDay } from 'react-icons/fa';
 import { useRouter } from 'next/navigation';
 
 type BookingWithDetails = Booking & {
@@ -309,15 +308,15 @@ export default function AdminBookingsPage() {
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'pending':
-        return 'bg-yellow-100 text-yellow-800 border-yellow-300';
+        return 'bg-primary bg-opacity-20 text-light border-primary border-opacity-40';
       case 'confirmed':
-        return 'bg-green-100 text-green-800 border-green-300';
+        return 'bg-primary bg-opacity-30 text-light border-primary border-opacity-50';
       case 'cancelled':
-        return 'bg-red-100 text-red-800 border-red-300';
+        return 'bg-coral bg-opacity-20 text-coral border-coral border-opacity-40';
       case 'completed':
-        return 'bg-blue-100 text-blue-800 border-blue-300';
+        return 'bg-secondary bg-opacity-30 text-light border-secondary border-opacity-50';
       default:
-        return 'bg-gray-100 text-gray-800 border-gray-300';
+        return 'bg-secondary bg-opacity-20 text-light border-secondary border-opacity-40';
     }
   };
 
@@ -412,383 +411,359 @@ export default function AdminBookingsPage() {
   }, [closedDays, partiallyBookedDays, fullyBookedDays]);
 
   return (
-    <main className="min-h-screen flex flex-col bg-gray-50">
-      <Navbar />
-      <div className="flex-grow pt-24 pb-12">
-        <div className="container mx-auto px-4">
-          <div className="mb-8">
-            <h1 className="text-3xl font-bold text-gray-800 mb-2">Panneau d&apos;Administration des Réservations</h1>
-            <p className="text-gray-600">Gérez les réservations de tous les centres</p>
-          </div>
-
-          {/* Filtres */}
-          <div className="bg-white rounded-lg shadow-md p-4 mb-6">
-            <div className="flex flex-col md:flex-row gap-4 items-end">
-              {!showCalendarView && (
-              <div className="w-full md:w-1/3">
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  <FaCalendarAlt className="inline mr-2" /> Date
-                </label>
-                  <div className="flex items-center">
-                    <button
-                      onClick={backToCalendar}
-                      className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary flex items-center justify-between"
-                    >
-                      <span>
-                        {new Date(selectedDate).toLocaleDateString('fr-FR', {
-                          weekday: 'short',
-                          day: 'numeric',
-                          month: 'short',
-                          year: 'numeric'
-                        })}
-                      </span>
-                      <FaCalendarAlt />
-                    </button>
-                  </div>
-              </div>
-              )}
-
-              {/* Selector de centro */}
-              <div className="w-full md:w-1/3">
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  <FaMapMarkerAlt className="inline mr-2" /> Centre
-                </label>
-                <select
-                  value={selectedLocation}
-                  onChange={(e) => setSelectedLocation(e.target.value)}
-                  className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
-                >
-                  <option value="all">Tous les centres</option>
-                  {locations.map(location => (
-                    <option key={location.id} value={location.id}>
-                      {location.name}
-                    </option>
-                  ))}
-                </select>
+    <div className="min-h-screen flex flex-col bg-dark">
+      <AdminNav />
+      
+      <main className="flex-grow container mx-auto px-4 py-8">
+        <h1 className="text-3xl font-bold mb-6 text-primary">Gestion des Réservations</h1>
+        
+        {/* Contenido principal */}
+        <div className="bg-secondary rounded-lg shadow-lg p-4 md:p-6">
+          {/* Filtros */}
+          <div className="bg-dark rounded-lg shadow-md p-4 mb-6">
+            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+              <div className="flex flex-col md:flex-row gap-4 items-start md:items-center">
+                <div>
+                  <label htmlFor="location-select" className="block text-sm font-medium text-light mb-1">
+                    Centre
+                  </label>
+                  <select
+                    id="location-select"
+                    className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-primary focus:outline-none focus:ring-primary focus:border-primary sm:text-sm rounded-md bg-dark text-light"
+                    value={selectedLocation}
+                    onChange={(e) => setSelectedLocation(e.target.value)}
+                  >
+                    <option value="all">Tous les centres</option>
+                    {locations.map((location) => (
+                      <option key={location.id} value={location.id}>
+                        {location.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                
+                <div>
+                  <label htmlFor="date-select" className="block text-sm font-medium text-light mb-1">
+                    Date
+                  </label>
+                  <input
+                    type="date"
+                    id="date-select"
+                    className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-primary focus:outline-none focus:ring-primary focus:border-primary sm:text-sm rounded-md bg-dark text-light"
+                    value={selectedDate}
+                    onChange={(e) => setSelectedDate(e.target.value)}
+                  />
+                </div>
               </div>
               
-              {/* Botón para añadir nueva reserva */}
-              <button 
-                onClick={() => router.push('/admin/reservations/nueva')}
-                className="w-full md:w-auto bg-primary text-secondary px-4 py-2 rounded-md font-semibold hover:bg-opacity-90 transition">
-                + Nouvelle Réservation
-              </button>
+              <div className="flex items-center flex-wrap gap-2">
+                <button
+                  onClick={backToCalendar}
+                  className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-secondary bg-primary hover:bg-opacity-90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary"
+                >
+                  <FaCalendarAlt className="mr-2" />
+                  Calendrier
+                </button>
+                
+                <button
+                  onClick={goToToday}
+                  className="inline-flex items-center px-4 py-2 border border-primary text-sm font-medium rounded-md shadow-sm text-light bg-dark hover:bg-opacity-80 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary"
+                >
+                  <FaCalendarDay className="mr-2" />
+                  Aujourd&apos;hui
+                </button>
+                
+                <button
+                  onClick={() => router.push('/admin/reservations/nueva')}
+                  className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-coral hover:bg-opacity-90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-coral"
+                >
+                  + Nouvelle Réservation
+                </button>
+              </div>
             </div>
           </div>
 
+          {/* Vista de calendario o lista de reservas */}
           {showCalendarView ? (
-            /* Vista de Calendario */
-            <div className="bg-white rounded-lg shadow-md p-6">
-              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-2">
-                <h3 className="text-xl font-semibold text-gray-800">Calendrier des Réservations</h3>
-                <div className="flex items-center space-x-2">
-                  <button 
-                    onClick={goToToday}
-                    className="px-3 py-2 rounded-md bg-primary text-secondary text-sm font-medium flex items-center justify-center mr-2 transition-all hover:shadow-md hover:bg-opacity-90 active:scale-95"
-                    aria-label="Aujourd&apos;hui"
-                    title="Voir les réservations d'aujourd'hui"
-                  >
-                    <FaCalendarDay className="mr-1" /> Aujourd&apos;hui
-                  </button>
+            <div className="bg-dark rounded-lg shadow-md p-4">
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-xl font-semibold text-primary">Calendrier</h2>
+                <div className="flex space-x-2">
                   <button 
                     onClick={prevMonth}
-                    className="p-2 rounded-md bg-gray-100 hover:bg-gray-200 flex items-center justify-center"
+                    className="p-2 rounded-md bg-secondary hover:bg-opacity-80 flex items-center justify-center text-light"
                     aria-label="Mois précédent"
                   >
-                    <FaChevronLeft />
+                    &larr;
                   </button>
-                  <span className="font-medium text-gray-700 min-w-[140px] text-center">
+                  <span className="font-medium text-light min-w-[140px] text-center">
                     {currentMonth.toLocaleString('fr-FR', { month: 'long', year: 'numeric' })}
                   </span>
                   <button 
                     onClick={nextMonth}
-                    className="p-2 rounded-md bg-gray-100 hover:bg-gray-200 flex items-center justify-center"
+                    className="p-2 rounded-md bg-secondary hover:bg-opacity-80 flex items-center justify-center text-light"
                     aria-label="Mois suivant"
                   >
-                    <FaChevronRight />
+                    &rarr;
                   </button>
                 </div>
               </div>
               
-              {loadingAvailability ? (
-                <div className="flex flex-col items-center justify-center py-12">
-                  <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary mb-4"></div>
-                  <p className="text-gray-500">Chargement des disponibilités...</p>
-                </div>
-              ) : (
-                <>
-                  <div className="grid grid-cols-7 gap-1 sm:gap-2 mb-2">
-                    {['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'].map(day => (
-                      <div key={day} className="text-center font-medium text-gray-500 py-1 sm:py-2 text-xs sm:text-sm">
-                        {day}
-                      </div>
-                    ))}
+              <div className="relative">
+                {loadingAvailability && (
+                  <div className="absolute inset-0 bg-dark bg-opacity-70 z-10 flex items-center justify-center rounded">
+                    <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-primary"></div>
                   </div>
-                  
-                  <div className="grid grid-cols-7 gap-1 sm:gap-2">
-                    {generateCalendarData().map((day, index) => {
-                      // Verificar si este día tiene reservas y su estado
-                      const dateStr = day ? 
-                        `${currentMonth.getFullYear()}-${String(currentMonth.getMonth() + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}` : 
-                        '';
-                      
-                      // Determinar el color según la disponibilidad
-                      let bgColor = 'bg-green-100'; // Por defecto, verde (disponible)
-                      let hoverColor = 'hover:bg-green-200';
-                      let textColor = 'text-green-800';
-                      let dotColor = 'bg-green-500';
-                      
-                      // Rojo para días cerrados
-                      if (day && closedDays.includes(dateStr)) {
-                        bgColor = 'bg-red-100';
-                        hoverColor = 'hover:bg-red-200';
-                        textColor = 'text-red-800';
-                        dotColor = 'bg-red-500';
-                      } 
-                      // Rojo también para días completamente ocupados
-                      else if (day && fullyBookedDays.includes(dateStr)) {
-                        bgColor = 'bg-red-100';
-                        hoverColor = 'hover:bg-red-200';
-                        textColor = 'text-red-800';
-                        dotColor = 'bg-red-500';
-                      }
-                      // Amarillo para días parcialmente ocupados
-                      else if (day && partiallyBookedDays.includes(dateStr)) {
-                        bgColor = 'bg-yellow-100';
-                        hoverColor = 'hover:bg-yellow-200';
-                        textColor = 'text-yellow-800';
-                        dotColor = 'bg-yellow-500';
-                      }
-                      
-                      const hasBookings = day && daysWithBookings.includes(dateStr);
-                      const isToday = day && new Date().getDate() === day && 
-                                     new Date().getMonth() === currentMonth.getMonth() && 
-                                     new Date().getFullYear() === currentMonth.getFullYear();
-                      
-                      return (
-                        <button
-                          key={index}
-                          onClick={() => day && selectDay(day)}
-                          disabled={!day}
-                          className={`
-                            h-10 sm:h-14 flex flex-col items-center justify-center rounded-md transition-colors text-sm sm:text-base
-                            ${!day ? 'bg-transparent' : `${bgColor} ${hoverColor} cursor-pointer ${textColor}`}
-                            ${isToday ? 'border-2 border-primary' : ''}
-                            ${hasBookings ? 'font-semibold' : ''}
-                          `}
-                        >
-                          {day}
-                          {hasBookings && (
-                            <div className={`w-2 h-2 rounded-full ${dotColor} mt-1 animate-pulse`}></div>
-                          )}
-                        </button>
-                      );
-                    })}
-                  </div>
-                  
-                  <div className="mt-6 text-center text-sm">
-                    <p className="text-gray-500 mb-2">
-                      Cliquez sur une date pour voir les réservations
-                    </p>
-                    <div className="flex flex-wrap items-center justify-center gap-3 mt-2">
-                      <div className="flex items-center text-xs text-gray-700">
-                        <div className="w-3 h-3 rounded-full bg-green-500 mr-1"></div>
-                        <span>Disponible</span>
-                      </div>
-                      <div className="flex items-center text-xs text-gray-700">
-                        <div className="w-3 h-3 rounded-full bg-yellow-500 mr-1"></div>
-                        <span>Partiellement réservé</span>
-                      </div>
-                      <div className="flex items-center text-xs text-gray-700">
-                        <div className="w-3 h-3 rounded-full bg-red-500 mr-1"></div>
-                        <span>Fermé ou complet</span>
-                      </div>
-                    </div>
-                  </div>
-                </>
-              )}
-            </div>
-          ) : (
-            /* Vista de Reservas */
-            loading ? (
-            <div className="flex justify-center py-12">
-              <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
-            </div>
-          ) : error ? (
-            <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-6">
-              <strong className="font-bold">Erreur:</strong>
-              <span className="block sm:inline"> {error}</span>
-            </div>
-          ) : bookings.length === 0 ? (
-              <div className="bg-gray-100 border border-gray-300 text-gray-700 px-6 py-10 rounded-lg">
-                <div className="flex flex-col items-center">
-                  <FaCalendarAlt className="text-4xl mb-4 text-gray-400" />
-                  <h2 className="text-xl font-semibold mb-2 text-center">Pas de réservations pour le {new Date(selectedDate).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })}</h2>
-                  <p className="text-center mb-6">Il n&apos;y a pas de réservations pour cette date et ce centre.</p>
-                  <button 
-                    onClick={backToCalendar}
-                    className="bg-primary text-secondary px-4 py-2 rounded-md font-medium hover:bg-opacity-90 transition"
-                  >
-                    Retour au calendrier
-                  </button>
-                </div>
-            </div>
-          ) : (
-            <div className="bg-white rounded-lg shadow-md overflow-hidden">
-                <div className="p-4 bg-gray-50 border-b border-gray-200">
-                  <h2 className="text-lg font-semibold">
-                    Réservations pour le {new Date(selectedDate).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })}
-                    {selectedLocation !== 'all' && locations.find(loc => loc.id === selectedLocation) && ` - ${locations.find(loc => loc.id === selectedLocation)?.name}`}
-                  </h2>
-                  <button 
-                    onClick={backToCalendar}
-                    className="text-primary hover:underline mt-1 flex items-center text-sm"
-                  >
-                    <FaCalendarAlt className="mr-1" /> Retour au calendrier
-                  </button>
-                </div>
+                )}
               
-              {/* Tabla para pantallas medianas y grandes */}
-              <div className="hidden md:block overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gray-50">
-                    <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Heure
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Client
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Service
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Styliste
-                      </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Centre
-                        </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Statut
-                      </th>
-                      <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Actions
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
-                    {bookings.map((booking) => (
-                        <tr key={booking.id}>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="text-sm font-medium text-gray-900">{formatTime(booking.start_time)} - {formatTime(booking.end_time)}</div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm font-medium text-gray-900">{booking.customer_name}</div>
-                          <div className="text-sm text-gray-500">{booking.customer_phone}</div>
-                            {booking.customer_email && <div className="text-sm text-gray-500">{booking.customer_email}</div>}
-                        </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="text-sm font-medium text-gray-900">{booking.service?.nombre}</div>
-                            <div className="text-sm text-gray-500">{booking.service?.precio}€</div>
-                        </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="text-sm font-medium text-gray-900">{booking.stylist?.name}</div>
-                        </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="text-sm font-medium text-gray-900">{booking.location?.name}</div>
-                          </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                            <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusColor(booking.status)}`}>
-                            {booking.status === 'pending' && 'En attente'}
-                              {booking.status === 'confirmed' && 'Confirmé'}
-                              {booking.status === 'cancelled' && 'Annulé'}
-                              {booking.status === 'completed' && 'Terminé'}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                            <select
-                              value={booking.status}
-                              onChange={(e) => handleStatusChange(booking.id, e.target.value as 'pending' | 'confirmed' | 'cancelled' | 'completed')}
-                              className="bg-white border border-gray-300 text-gray-700 text-sm rounded-lg focus:ring-primary focus:border-primary block p-1"
-                            >
-                              <option value="pending">En attente</option>
-                              <option value="confirmed">Confirmer</option>
-                              <option value="cancelled">Annuler</option>
-                              <option value="completed">Terminer</option>
-                            </select>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-
-              {/* Tarjetas para dispositivos móviles */}
-              <div className="md:hidden">
-                <div className="grid grid-cols-1 gap-4 p-4">
-                  {bookings.map((booking) => (
-                    <div key={booking.id} className="bg-white rounded-lg shadow border border-gray-100 overflow-hidden">
-                      <div className="px-4 py-3 bg-gray-50 border-b border-gray-100 flex justify-between items-center">
-                        <div className="font-medium text-gray-900">{formatTime(booking.start_time)} - {formatTime(booking.end_time)}</div>
-                        <span className={`px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(booking.status)}`}>
-                          {booking.status === 'pending' && 'En attente'}
-                          {booking.status === 'confirmed' && 'Confirmé'}
-                          {booking.status === 'cancelled' && 'Annulé'}
-                          {booking.status === 'completed' && 'Terminé'}
-                        </span>
-                      </div>
-                      
-                      <div className="p-4 space-y-3">
-                        <div className="flex justify-between items-start border-b border-gray-100 pb-2">
-                          <div>
-                            <div className="text-xs uppercase text-gray-500 font-medium">Client</div>
-                            <div className="font-medium">{booking.customer_name}</div>
-                            <div className="text-sm text-gray-500">{booking.customer_phone}</div>
-                            {booking.customer_email && <div className="text-sm text-gray-500">{booking.customer_email}</div>}
-                          </div>
-                          <div className="text-right">
-                            <div className="text-xs uppercase text-gray-500 font-medium">Service</div>
-                            <div className="font-medium">{booking.service?.nombre}</div>
-                            <div className="text-sm text-gray-500">{booking.service?.precio}€</div>
-                          </div>
-                        </div>
-                        
-                        <div className="flex justify-between items-start">
-                          <div>
-                            <div className="text-xs uppercase text-gray-500 font-medium">Styliste</div>
-                            <div className="font-medium">{booking.stylist?.name}</div>
-                          </div>
-                          <div className="text-right">
-                            <div className="text-xs uppercase text-gray-500 font-medium">Centre</div>
-                            <div className="font-medium">{booking.location?.name}</div>
-                          </div>
-                        </div>
-                        
-                        <div className="pt-3 border-t border-gray-100">
-                          <label className="text-xs uppercase text-gray-500 font-medium block mb-1">Changer le statut</label>
-                          <select
-                            value={booking.status}
-                            onChange={(e) => handleStatusChange(booking.id, e.target.value as 'pending' | 'confirmed' | 'cancelled' | 'completed')}
-                            className="w-full bg-white border border-gray-300 text-gray-700 text-sm rounded-lg focus:ring-primary focus:border-primary block p-2"
-                          >
-                            <option value="pending">En attente</option>
-                            <option value="confirmed">Confirmer</option>
-                            <option value="cancelled">Annuler</option>
-                            <option value="completed">Terminer</option>
-                          </select>
-                        </div>
-                      </div>
+                <div className="grid grid-cols-7 gap-1 sm:gap-2 mb-2">
+                  {['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'].map((day) => (
+                    <div key={day} className="text-center font-medium text-light py-2 text-xs sm:text-sm">
+                      {day}
                     </div>
                   ))}
                 </div>
+                
+                <div className="grid grid-cols-7 gap-1 sm:gap-2">
+                  {generateCalendarData().map((day, index) => {
+                    const dateStr = day ? 
+                      `${currentMonth.getFullYear()}-${String(currentMonth.getMonth() + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}` : 
+                      '';
+                    
+                    // Determinar el color según la disponibilidad
+                    let bgColor = 'bg-green-100'; // Por defecto, verde (disponible)
+                    let hoverColor = 'hover:bg-green-200';
+                    let textColor = 'text-green-800';
+                    let dotColor = 'bg-green-500';
+                    
+                    // Rojo para días cerrados
+                    if (day && closedDays.includes(dateStr)) {
+                      bgColor = 'bg-red-100';
+                      hoverColor = 'hover:bg-red-200';
+                      textColor = 'text-red-800';
+                      dotColor = 'bg-red-500';
+                    } 
+                    // Rojo también para días completamente ocupados
+                    else if (day && fullyBookedDays.includes(dateStr)) {
+                      bgColor = 'bg-red-100';
+                      hoverColor = 'hover:bg-red-200';
+                      textColor = 'text-red-800';
+                      dotColor = 'bg-red-500';
+                    }
+                    // Amarillo para días parcialmente ocupados
+                    else if (day && partiallyBookedDays.includes(dateStr)) {
+                      bgColor = 'bg-yellow-100';
+                      hoverColor = 'hover:bg-yellow-200';
+                      textColor = 'text-yellow-800';
+                      dotColor = 'bg-yellow-500';
+                    }
+                    
+                    const hasBookings = day && daysWithBookings.includes(dateStr);
+                    const isToday = day && new Date().getDate() === day && 
+                                 new Date().getMonth() === currentMonth.getMonth() && 
+                                 new Date().getFullYear() === currentMonth.getFullYear();
+                    
+                    return (
+                      <button
+                        key={index}
+                        onClick={() => day && selectDay(day)}
+                        disabled={!day}
+                        className={`
+                          h-10 sm:h-12 flex flex-col items-center justify-center rounded-md transition-colors text-xs sm:text-sm
+                          ${!day ? 'bg-transparent' : `${bgColor} ${hoverColor} cursor-pointer ${textColor}`}
+                          ${isToday ? 'ring-2 ring-primary ring-opacity-70' : ''}
+                          ${day && selectedDate === dateStr ? 'ring-2 ring-primary ring-opacity-100 font-bold' : ''}
+                        `}
+                      >
+                        {day && (
+                          <>
+                            <span>{day}</span>
+                            {hasBookings && (
+                              <span className="h-1 w-1 sm:h-1.5 sm:w-1.5 rounded-full mt-0.5" style={{backgroundColor: dotColor}}></span>
+                            )}
+                          </>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
-
             </div>
-            )
+          ) : (
+            <div>
+              <h2 className="text-xl font-semibold text-primary mb-4">
+                Réservations pour le {new Intl.DateTimeFormat('fr-FR', { dateStyle: 'full' }).format(new Date(selectedDate))}
+              </h2>
+              
+              {loading ? (
+                <div className="flex justify-center items-center py-12">
+                  <div className="animate-spin-custom rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
+                </div>
+              ) : error ? (
+                <div className="bg-coral bg-opacity-20 border border-coral text-white px-4 py-3 rounded relative" role="alert">
+                  <strong className="font-bold">Erreur!</strong>
+                  <span className="block sm:inline"> {error}</span>
+                </div>
+              ) : bookings.length === 0 ? (
+                <div className="text-center py-12 bg-dark rounded-lg">
+                  <p className="text-light text-lg">Aucune réservation trouvée pour cette date</p>
+                </div>
+              ) : (
+                <div>
+                  {/* Vista de escritorio */}
+                  <div className="hidden md:block overflow-x-auto">
+                    <table className="min-w-full divide-y divide-gray-700">
+                      <thead className="bg-dark">
+                        <tr>
+                          <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-primary uppercase tracking-wider">
+                            Horaire
+                          </th>
+                          <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-primary uppercase tracking-wider">
+                            Client
+                          </th>
+                          <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-primary uppercase tracking-wider">
+                            Service
+                          </th>
+                          <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-primary uppercase tracking-wider">
+                            Styliste
+                          </th>
+                          <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-primary uppercase tracking-wider">
+                            Centre
+                          </th>
+                          <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-primary uppercase tracking-wider">
+                            Statut
+                          </th>
+                          <th scope="col" className="relative px-6 py-3">
+                            <span className="sr-only">Actions</span>
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody className="bg-dark divide-y divide-gray-700">
+                        {bookings.map((booking) => (
+                          <tr key={booking.id} className="hover:bg-secondary hover:bg-opacity-20 transition-colors duration-150">
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <div className="text-sm text-light font-bold text-primary">
+                                {formatTime(booking.start_time)} - {formatTime(booking.end_time)}
+                              </div>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <div className="text-sm font-medium text-light">{booking.customer_name}</div>
+                              <div className="text-sm text-light opacity-70">{booking.customer_phone}</div>
+                              {booking.customer_email && <div className="text-sm text-light opacity-70">{booking.customer_email}</div>}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <div className="text-sm text-light">{booking.service?.nombre || 'Service inconnu'}</div>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <div className="text-sm text-light">{booking.stylist?.name || 'Styliste inconnu'}</div>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <div className="text-sm text-light">{booking.location?.name || 'Centre inconnu'}</div>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <select
+                                value={booking.status}
+                                onChange={(e) => handleStatusChange(booking.id, e.target.value as 'pending' | 'confirmed' | 'cancelled' | 'completed')}
+                                className={`text-sm rounded-full px-3 py-1 font-medium ${getStatusColor(booking.status)}`}
+                              >
+                                <option value="pending">En attente</option>
+                                <option value="confirmed">Confirmé</option>
+                                <option value="completed">Terminé</option>
+                                <option value="cancelled">Annulé</option>
+                              </select>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                              <button
+                                className="text-primary hover:opacity-80 mr-4 transition-opacity duration-200"
+                                onClick={() => {
+                                  // Implementar edición
+                                  console.log('Editar reserva', booking.id);
+                                }}
+                              >
+                                Modifier
+                              </button>
+                              <button
+                                className="text-coral hover:opacity-80 transition-opacity duration-200"
+                                onClick={() => handleStatusChange(booking.id, 'cancelled')}
+                              >
+                                Annuler
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {/* Vista móvil para reservas */}
+                  <div className="md:hidden mt-4 space-y-4">
+                    {bookings.map((booking) => (
+                      <div key={booking.id} className="bg-secondary rounded-lg shadow-md p-4">
+                        <div className="flex justify-between items-start mb-2">
+                          <div>
+                            <div className="font-medium text-light">{booking.customer_name}</div>
+                            <div className="text-sm text-light opacity-70">{booking.customer_phone}</div>
+                            {booking.customer_email && <div className="text-sm text-light opacity-70">{booking.customer_email}</div>}
+                          </div>
+                          <select
+                            value={booking.status}
+                            onChange={(e) => handleStatusChange(booking.id, e.target.value as 'pending' | 'confirmed' | 'cancelled' | 'completed')}
+                            className={`text-sm rounded-full px-3 py-1 font-medium ${getStatusColor(booking.status)}`}
+                          >
+                            <option value="pending">En attente</option>
+                            <option value="confirmed">Confirmé</option>
+                            <option value="completed">Terminé</option>
+                            <option value="cancelled">Annulé</option>
+                          </select>
+                        </div>
+                        
+                        <div className="mt-3 p-2 bg-dark bg-opacity-30 rounded-lg">
+                          <div className="text-primary font-bold text-center">
+                            {formatTime(booking.start_time)} - {formatTime(booking.end_time)}
+                          </div>
+                        </div>
+                        
+                        <div className="grid grid-cols-2 gap-2 text-sm mt-3">
+                          <div>
+                            <span className="text-light opacity-70">Service:</span>
+                            <div className="text-light">{booking.service?.nombre || 'Service inconnu'}</div>
+                          </div>
+                          <div>
+                            <span className="text-light opacity-70">Styliste:</span>
+                            <div className="text-light">{booking.stylist?.name || 'Styliste inconnu'}</div>
+                          </div>
+                          <div>
+                            <span className="text-light opacity-70">Centre:</span>
+                            <div className="text-light">{booking.location?.name || 'Centre inconnu'}</div>
+                          </div>
+                        </div>
+                        
+                        <div className="mt-3 flex justify-end space-x-3">
+                          <button
+                            className="text-primary hover:opacity-80 text-sm font-medium transition-opacity duration-200"
+                            onClick={() => {
+                              // Implementar edición
+                              console.log('Editar reserva', booking.id);
+                            }}
+                          >
+                            Modifier
+                          </button>
+                          <button
+                            className="text-coral hover:opacity-80 text-sm font-medium transition-opacity duration-200"
+                            onClick={() => handleStatusChange(booking.id, 'cancelled')}
+                          >
+                            Annuler
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
           )}
         </div>
-      </div>
-      <Footer />
-    </main>
+      </main>
+    </div>
   );
 } 

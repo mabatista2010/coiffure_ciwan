@@ -11,6 +11,7 @@ L'objectif principal de l'application est de :
 1. Fournir une présence en ligne professionnelle pour le salon de coiffure Coiffure Ciwan
 2. Permettre aux clients de faire des réservations en ligne en sélectionnant le centre, le service, le coiffeur, la date et l'heure
 3. Offrir aux administrateurs un tableau de bord pour gérer les réservations, les services, les coiffeurs et le contenu du site
+4. Fournir un système de CRM pour le suivi des clients et l'analyse de leurs habitudes
 
 ## Langue de l'Application
 
@@ -61,6 +62,14 @@ Lors du développement de nouvelles fonctionnalités ou de la modification de fo
 - **Maintenance** : Ajout de commentaires explicatifs pour faciliter le développement futur
 - **Gestion des Centres** : Ajout d'une interface complète pour gérer les centres dans le tableau de bord administratif
 - **Sécurité Renforcée** : Mise en place d'un système d'authentification centralisé pour toutes les routes administratives
+- **Système CRM** : Implémentation d'un système de gestion de la relation client pour suivre les habitudes des clients
+- **Navigation Améliorée** : Refonte de la navigation du panel d'administration avec un composant AdminNav centralisé
+- **Cohérence Visuelle** : Application des styles définis dans theme.css à toutes les interfaces administratives
+- **Affichage des Images des Estilistas et Centres** : Amélioration des pages de statistiques avec l'affichage des images correspondantes pour une meilleure identification
+- **Interface CRM en Cartes** : Conversion de la liste de clients en un design de cartes visuellement attrayant pour une meilleure expérience utilisateur
+- **Design Responsive Unifié** : Application d'un design responsive cohérent à toutes les sections administratives, y compris les réservations et le calendrier
+- **Navigation Administrative Enrichie** : Ajout d'un accès direct au panel de configuration pour la gestion des estilistas, centres et autres éléments
+- **Thème Sombre Cohérent** : Application d'un thème sombre uniforme à toutes les interfaces d'administration pour améliorer la lisibilité et réduire la fatigue visuelle
 
 ## Structure de l'Application
 
@@ -76,7 +85,10 @@ Lors du développement de nouvelles fonctionnalités ou de la modification de fo
 - `/equipo` : Page de présentation de l'équipe d'estilistas
 - `/reservation` : Système de réservation pour les clients
 - `/admin` : Tableau de bord d'administration
-- `/admin/reservations` : Gestion des réservations (Page française)
+- `/admin/reservations` : Gestion des réservations
+- `/admin/crm` : Gestion de la relation client et suivi des clients
+- `/admin/stylist-management` : Gestion des estilistas
+- `/admin/location-management` : Gestion des centres
 
 ## Fonctionnalités Implémentées
 
@@ -105,6 +117,7 @@ Le système de réservation suit un flux en 6 étapes :
 
 ### Tableau de Bord d'Administration
 - **Interface en Français** : L'interface a été entièrement traduite en français
+- **Navigation Unifiée** : Barre de navigation administrative centralisée avec accès à toutes les sections
 - **Gestion des Réservations** : Voir, créer, modifier et annuler des réservations
 - **Filtrage par Date et Centre** : Filtrer les réservations par date et centre
 - **Changement de Statut** : Marquer les réservations comme confirmées, annulées ou terminées
@@ -116,6 +129,17 @@ Le système de réservation suit un flux en 6 étapes :
 - **Gestion Complète des Centres** : Interface dédiée pour ajouter, modifier et supprimer des centres avec toutes leurs informations (nom, adresse, téléphone, email, description, image et horaires d'ouverture multiples)
 - **Configuration des Horaires des Centres** : Possibilité de définir plusieurs plages horaires par jour pour chaque centre (par exemple, matin et après-midi)
 - **Prévisualisation des Images** : Fonctionnalité améliorée pour prévisualiser les images avant leur téléversement dans toutes les sections (services, galerie, configuration)
+- **Système CRM Clients** : Interface pour suivre les clients, leurs visites et leurs préférences
+  - **Liste des Clients** : Vue d'ensemble de tous les clients avec filtrage et tri
+  - **Profils Détaillés** : Informations complètes sur chaque client, incluant historique des visites et préférences
+  - **Statistiques par Client** : Nombre de visites, dépenses totales, centres et estilistas préférés
+  - **Historique des Réservations** : Liste complète des réservations passées par client
+  - **Interface Visuelle** : Présentation des clients en format carte pour une meilleure expérience utilisateur
+- **Statistiques Visuelles** : Tableaux de bord avec informations visuelles pour les estilistas et centres
+  - **Affichage des Images** : Visualisation des photos des estilistas et centres dans leurs pages de statistiques
+  - **Interface Responsive** : Design adapté à tous les dispositifs, y compris mobiles et tablettes
+- **Calendrier Intuitif** : Interface de calendrier améliorée avec code couleur pour visualiser rapidement la disponibilité
+- **Design Sombre** : Thème sombre cohérent pour toutes les interfaces d'administration qui améliore la lisibilité et réduit la fatigue visuelle
 
 ### Système de Styles Centralisé
 - **Variables CSS** : Définition centralisée de toutes les couleurs et propriétés visuelles dans `/src/styles/theme.css`
@@ -190,6 +214,8 @@ Le système de réservation suit un flux en 6 étapes :
 - **Système d'Évaluation par Centre** : Permettre aux clients d'évaluer leur expérience
 - **Vue Calendrier Avancée** : Pour le tableau de bord d'administration
 - **Gestion du Temps Libre** : Blocage des horaires pour les coiffeurs
+- **Expansion du CRM** : Ajout de fonctionnalités avancées comme la segmentation des clients et les campagnes marketing
+- **Rapports et Analyses** : Tableaux de bord statistiques pour analyser les performances par centre, estilista et service
 
 ## Déploiement
 - **Vercel** : Plateforme recommandée pour le déploiement de l'application
@@ -222,4 +248,9 @@ Le système de réservation suit un flux en 6 étapes :
 - **Qualité du Code** : Éviter l'utilisation de `any` et veiller à utiliser des types explicites
 - **Performance Images** : Toujours utiliser le composant `<Image>` de Next.js pour les images 
 - **Gestion des Centres** : Tous les champs doivent être remplis correctement pour assurer le bon fonctionnement du système de réservation
-- **Sécurité du Panel Admin** : Toutes les pages et sous-routes sous `/admin/*` doivent être protégées par l'authentification centralisée du layout 
+- **Sécurité du Panel Admin** : Toutes les pages et sous-routes sous `/admin/*` doivent être protégées par l'authentification centralisée du layout
+- **Données CRM** : Les données du CRM sont générées à partir des réservations existantes, organisées par email client
+- **Navigation Admin** : Utiliser le composant AdminNav pour maintenir une navigation cohérente dans toutes les sections administratives
+- **Gestion des URLs d'Images** : Utiliser la fonction getImageUrl pour gérer correctement les différents formats d'URLs d'images (locales, Supabase Storage, URLs complètes)
+- **Images de Substitution** : Prévoir toujours des images de substitution (fallback) en cas d'erreur de chargement des images
+- **Cohérence du Thème Sombre** : Maintenir la cohérence du thème sombre dans toutes les sections administratives, en utilisant les classes bg-dark, bg-secondary, text-light et text-primary 

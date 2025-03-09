@@ -118,7 +118,7 @@ export default function Hero() {
       <div className="relative z-1 h-full container mx-auto px-6">
         <AnimatePresence>
           {isLoaded && (
-            <div className="flex h-full md:items-center items-end md:justify-start justify-center pb-2 md:pb-0">
+            <div className="flex h-full md:items-center items-end md:justify-start justify-center pb-20 md:pb-0">
               <motion.div
                 variants={containerVariants}
                 initial="hidden"

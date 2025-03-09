@@ -87,11 +87,29 @@ export type Booking = {
   end_time: string;
   status: 'pending' | 'confirmed' | 'cancelled' | 'completed';
   notes?: string;
-  created_at?: string;
+  created_at: string;
 };
 
 // Tipo para la disponibilidad (usado en la API)
 export type AvailabilitySlot = {
   time: string;
   available: boolean;
+};
+
+// Tipo para el CRM de clientes
+export type ClientCRM = {
+  email: string;
+  name: string;
+  phone: string;
+  total_visits: number;
+  last_visit_date: string;
+  first_visit_date: string;
+  total_spent: number;
+  favorite_location?: Location;
+  favorite_stylist?: Stylist;
+  favorite_service?: Service;
+  visits_by_location: Record<string, number>;
+  visits_by_stylist: Record<string, number>;
+  visits_by_service: Record<string, number>;
+  bookings: Booking[];
 }; 

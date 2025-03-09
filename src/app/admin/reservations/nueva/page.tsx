@@ -2,9 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import { supabase, Location, Stylist, AvailabilitySlot, Service, StylistService } from '@/lib/supabase';
-import Navbar from '@/components/Navbar';
-import Footer from '@/components/Footer';
-import { FaUser, FaMapMarkerAlt, FaCalendarDay, FaArrowLeft, FaCheck, FaCut, FaPhone, FaFilter, FaSyncAlt } from 'react-icons/fa';
+import AdminNav from '@/components/AdminNav';
+import { FaUser, FaMapMarkerAlt, FaCalendarDay, FaArrowLeft, FaCheck, FaFilter, FaSyncAlt } from 'react-icons/fa';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 
@@ -544,7 +543,7 @@ export default function NuevaReservacion() {
             booking_date: selectedDate,
             start_time: selectedTime,
             end_time: endTime,
-            status: 'confirmed', // Par défaut, les réservations manuelles sont créées comme confirmées
+            status: 'confirmed', // Par défaut, les réservations manuelles son créées como confirmées
             notes: notes,
           }
         ])
@@ -725,40 +724,39 @@ export default function NuevaReservacion() {
   // Renderizaciones condicionales basadas en el estado
   if (isLoading) {
     return (
-      <div className="flex flex-col min-h-screen">
-        <Navbar />
+      <div className="flex flex-col min-h-screen bg-dark">
+        <AdminNav />
         <div className="flex-grow container mx-auto px-4 py-12 flex items-center justify-center">
           <div className="text-center">
             <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary mx-auto mb-4"></div>
-            <p className="text-lg">Chargement du système de réservation...</p>
+            <p className="text-lg text-light">Chargement du système de réservation...</p>
           </div>
         </div>
-        <Footer />
       </div>
     );
   }
 
   return (
-    <main className="min-h-screen flex flex-col bg-gray-50">
-      <Navbar />
+    <main className="min-h-screen flex flex-col bg-dark">
+      <AdminNav />
       <div className="flex-grow pt-24 pb-12">
         <div className="container mx-auto px-4">
           <div className="mb-8 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
             <div>
-              <h1 className="text-3xl font-bold text-gray-800 mb-2">Nouvelle Réservation</h1>
-              <p className="text-gray-600">Créez un nouveau rendez-vous en sélectionnant un styliste, un centre et une date</p>
+              <h1 className="text-3xl font-bold text-primary mb-2">Nouvelle Réservation</h1>
+              <p className="text-light">Créez un nouveau rendez-vous en sélectionnant un styliste, un centre et une date</p>
             </div>
             <div className="flex w-full md:w-auto gap-3 mt-2 md:mt-0">
               <button 
                 onClick={resetAllFilters}
-                className="flex-1 md:flex-initial flex items-center justify-center bg-gray-200 hover:bg-gray-300 text-gray-800 px-4 py-2 rounded-md transition-colors"
+                className="flex-1 md:flex-initial flex items-center justify-center bg-secondary hover:bg-opacity-80 text-light px-4 py-2 rounded-md transition-colors"
                 title="Réinitialiser les filtres"
               >
                 <FaSyncAlt className="mr-2" /> <span className="whitespace-nowrap">Réinitialiser</span>
               </button>
               <button 
                 onClick={() => router.push('/admin/reservations')}
-                className="flex-1 md:flex-initial flex items-center justify-center bg-gray-200 hover:bg-gray-300 text-gray-800 px-4 py-2 rounded-md transition-colors"
+                className="flex-1 md:flex-initial flex items-center justify-center bg-secondary hover:bg-opacity-80 text-light px-4 py-2 rounded-md transition-colors"
               >
                 <FaArrowLeft className="mr-2" /> <span className="whitespace-nowrap">Retour</span>
               </button>
@@ -766,18 +764,18 @@ export default function NuevaReservacion() {
           </div>
 
           {/* Filtres supérieurs */}
-          <div className="bg-white rounded-lg shadow-md p-4 md:p-6 mb-6">
+          <div className="bg-secondary rounded-lg shadow-md p-4 md:p-6 mb-6">
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {/* Selector de Styliste */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-light mb-1">
                   <FaUser className="inline mr-2" /> Styliste
                 </label>
                 <select
                   value={selectedStylist}
                   onChange={(e) => setSelectedStylist(e.target.value)}
-                  className={`w-full p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-primary ${
-                    stylists.length === 0 ? 'bg-gray-100 text-gray-500' : 'border-gray-300'
+                  className={`w-full p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-primary bg-dark text-light ${
+                    stylists.length === 0 ? 'border-coral' : 'border-primary'
                   }`}
                   disabled={stylists.length === 0}
                 >
@@ -789,26 +787,26 @@ export default function NuevaReservacion() {
                   ))}
                 </select>
                 {stylists.length === 0 && (
-                  <p className="text-xs text-red-500 mt-1">
-                    Aucun styliste disponible avec les filtres actuels
+                  <p className="text-xs text-coral mt-1">
+                    Aucun styliste disponible con los filtros actuales
                   </p>
                 )}
               </div>
               
               {/* Selector de Centre */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-light mb-1">
                   <FaMapMarkerAlt className="inline mr-2" /> Centre
                 </label>
                 <select
                   value={selectedLocation}
                   onChange={(e) => setSelectedLocation(e.target.value)}
-                  className={`w-full p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-primary ${
-                    locations.length === 0 ? 'bg-gray-100 text-gray-500' : 'border-gray-300'
+                  className={`w-full p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-primary bg-dark text-light ${
+                    locations.length === 0 ? 'border-coral' : 'border-primary'
                   }`}
                   disabled={locations.length === 0}
                 >
-                  <option value="">Sélectionnez un centre</option>
+                  <option value="">Sélectionnez un centro</option>
                   {locations.map(location => (
                     <option key={location.id} value={location.id}>
                       {location.name}
@@ -816,26 +814,26 @@ export default function NuevaReservacion() {
                   ))}
                 </select>
                 {locations.length === 0 && (
-                  <p className="text-xs text-red-500 mt-1">
-                    Aucun centre disponible avec les filtres actuels
+                  <p className="text-xs text-coral mt-1">
+                    Aucun centro disponible con los filtros actuales
                   </p>
                 )}
               </div>
               
               {/* Selector de Service */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  <FaCalendarDay className="inline mr-2" /> Service
+                <label className="block text-sm font-medium text-light mb-1">
+                  <FaCalendarDay className="inline mr-2" /> Servicio
                 </label>
                 <select
                   value={selectedService}
                   onChange={(e) => setSelectedService(e.target.value)}
-                  className={`w-full p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-primary ${
-                    services.length === 0 ? 'bg-gray-100 text-gray-500' : 'border-gray-300'
+                  className={`w-full p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-primary bg-dark text-light ${
+                    services.length === 0 ? 'border-coral' : 'border-primary'
                   }`}
                   disabled={services.length === 0}
                 >
-                  <option value="">Sélectionnez un service</option>
+                  <option value="">Sélectionnez un servicio</option>
                   {services.map(service => (
                     <option key={service.id} value={service.id.toString()}>
                       {service.nombre} - {service.precio}€
@@ -843,8 +841,8 @@ export default function NuevaReservacion() {
                   ))}
                 </select>
                 {services.length === 0 && (
-                  <p className="text-xs text-red-500 mt-1">
-                    Aucun service disponible avec les filtres actuels
+                  <p className="text-xs text-coral mt-1">
+                    Aucun servicio disponible con los filtros actuales
                   </p>
                 )}
               </div>
@@ -855,10 +853,10 @@ export default function NuevaReservacion() {
                 <div className="flex items-start gap-2">
                   <FaFilter className="text-blue-500 mt-0.5 flex-shrink-0" />
                   <div>
-                    <strong>Filtres actifs:</strong> Les options des sélecteurs sont filtrées en fonction de vos sélections.
+                    <strong>Filtros activos:</strong> Las opciones de los selectores se filtran en función de sus selecciones.
                     {(stylists.length === 0 || locations.length === 0 || services.length === 0) && (
                       <p className="mt-1 text-red-600">
-                        Certaines options ne sont pas disponibles avec votre configuration actuelle. Vous pouvez réinitialiser les filtres en utilisant le bouton &quot;Réinitialiser&quot;.
+                        Algunas opciones no están disponibles con la configuración actual. Puede restablecer los filtros usando el botón &ldquo;Restablecer&rdquo;.
                       </p>
                     )}
                   </div>
@@ -867,220 +865,221 @@ export default function NuevaReservacion() {
             )}
           </div>
 
-          {/* Información de estilista y centro */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-4 mb-6">
-            {/* Detalles del Estilista */}
-            <div className="bg-white rounded-lg shadow-md p-4 h-full sm:col-span-1 lg:col-span-3">
-              <h3 className="text-xl font-semibold mb-4 text-gray-800 flex items-center">
-                <FaUser className="mr-2 text-primary" /> Styliste Sélectionné
-              </h3>
-              {stylistDetail ? (
-                <div className="flex flex-col items-center">
-                  <div className="w-24 h-24 sm:w-32 sm:h-32 rounded-full overflow-hidden mb-4 bg-gray-200 border-4 border-primary border-opacity-20">
-                    {stylistDetail.profile_img ? (
-                      <Image 
-                        src={stylistDetail.profile_img} 
-                        alt={stylistDetail.name}
-                        width={128}
-                        height={128}
-                        className="w-full h-full object-cover" 
-                      />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center bg-gray-200 text-gray-500">
-                        <FaUser size={40} />
-                      </div>
-                    )}
+          {/* Contenedor principal del grid */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+            {/* Columna 1: Calendario */}
+            <div className="bg-secondary rounded-lg shadow-md overflow-hidden">
+              <div className="p-4 border-b border-dark">
+                <div className="flex justify-between items-center">
+                  <h2 className="text-lg font-semibold text-primary">Calendario</h2>
+                  <div className="flex space-x-2">
+                    <button 
+                      onClick={prevMonth}
+                      className="p-2 rounded-md bg-dark hover:bg-opacity-80 flex items-center justify-center text-light"
+                      aria-label="Mois précédent"
+                    >
+                      &larr;
+                    </button>
+                    <span className="font-medium text-light min-w-[140px] text-center">
+                      {currentMonth.toLocaleString('fr-FR', { month: 'long', year: 'numeric' })}
+                    </span>
+                    <button 
+                      onClick={nextMonth}
+                      className="p-2 rounded-md bg-dark hover:bg-opacity-80 flex items-center justify-center text-light"
+                      aria-label="Mois suivant"
+                    >
+                      &rarr;
+                    </button>
                   </div>
-                  <h4 className="text-lg font-medium text-gray-800">{stylistDetail.name}</h4>
-                  {stylistDetail.bio && (
-                    <p className="mt-2 text-sm text-gray-600 text-center line-clamp-3">
-                      {stylistDetail.bio}
-                    </p>
-                  )}
-                  {stylistDetail.specialties && stylistDetail.specialties.length > 0 && (
-                    <div className="mt-3 flex flex-wrap justify-center gap-1">
-                      {stylistDetail.specialties.map((specialty, index) => (
-                        <span 
-                          key={index}
-                          className="inline-block bg-primary bg-opacity-10 text-primary text-xs px-2 py-1 rounded-full"
-                        >
-                          {specialty}
-                        </span>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <div className="h-full flex flex-col items-center justify-center text-gray-400 py-8 sm:py-12">
-                  <FaUser size={40} className="mb-3" />
-                  <p>Sélectionnez un styliste</p>
-                </div>
-              )}
-            </div>
-            
-            {/* Detalles del Centro */}
-            <div className="bg-white rounded-lg shadow-md p-4 h-full sm:col-span-1 lg:col-span-3">
-              <h3 className="text-xl font-semibold mb-4 text-gray-800 flex items-center">
-                <FaMapMarkerAlt className="mr-2 text-primary" /> Centre Sélectionné
-              </h3>
-              {locationDetail ? (
-                <div className="flex flex-col items-center">
-                  <div className="w-24 h-24 sm:w-32 sm:h-32 rounded-md overflow-hidden mb-4 bg-gray-200 border-4 border-primary border-opacity-20">
-                    {locationDetail.image ? (
-                      <Image
-                        src={locationDetail.image}
-                        alt={locationDetail.name}
-                        width={128}
-                        height={128}
-                        className="w-full h-full object-cover"
-                      />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center bg-gray-200 text-gray-500">
-                        <FaMapMarkerAlt size={40} />
-                      </div>
-                    )}
-                  </div>
-                  <h4 className="text-lg font-medium text-gray-800">{locationDetail.name}</h4>
-                  <div className="mt-2 flex flex-col items-center">
-                    <p className="text-sm text-gray-600 text-center flex items-center gap-1">
-                      <FaMapMarkerAlt className="text-gray-400 flex-shrink-0" size={12} />
-                      {locationDetail.address}
-                    </p>
-                    <p className="text-sm text-gray-600 flex items-center gap-1 mt-1">
-                      <FaPhone className="text-gray-400 flex-shrink-0" size={12} />
-                      {locationDetail.phone}
-                    </p>
-                  </div>
-                </div>
-              ) : (
-                <div className="h-full flex flex-col items-center justify-center text-gray-400 py-8 sm:py-12">
-                  <FaMapMarkerAlt size={40} className="mb-3" />
-                  <p>Sélectionnez un centre</p>
-                </div>
-              )}
-            </div>
-            
-            {/* Calendario */}
-            <div className="bg-white rounded-lg shadow-md p-4 h-full sm:col-span-2 lg:col-span-6">
-              <div className="flex justify-between items-center mb-4">
-                <h3 className="text-xl font-semibold text-gray-800">Calendrier</h3>
-                <div className="flex space-x-2">
-                  <button 
-                    onClick={prevMonth}
-                    className="p-2 rounded-md bg-gray-100 hover:bg-gray-200 flex items-center justify-center"
-                    aria-label="Mois précédent"
-                  >
-                    &larr;
-                  </button>
-                  <span className="font-medium text-gray-700 min-w-[140px] text-center">
-                    {currentMonth.toLocaleString('fr-FR', { month: 'long', year: 'numeric' })}
-                  </span>
-                  <button 
-                    onClick={nextMonth}
-                    className="p-2 rounded-md bg-gray-100 hover:bg-gray-200 flex items-center justify-center"
-                    aria-label="Mois suivant"
-                  >
-                    &rarr;
-                  </button>
                 </div>
               </div>
               
-              {loadingAvailability ? (
-                <div className="flex flex-col items-center justify-center py-12">
-                  <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary mb-4"></div>
-                  <p className="text-gray-500">Chargement des disponibilités...</p>
+              <div className="p-4">
+                {loadingAvailability && (
+                  <div className="absolute inset-0 bg-dark bg-opacity-50 flex items-center justify-center z-10">
+                    <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-primary"></div>
+                  </div>
+                )}
+                <div className="grid grid-cols-7 gap-1 sm:gap-2 mb-2">
+                  {['L', 'M', 'M', 'J', 'V', 'S', 'D'].map((day, idx) => (
+                    <div key={idx} className="text-center font-medium text-light py-2 text-xs">
+                      {day}
+                    </div>
+                  ))}
                 </div>
-              ) : (
-                <>
-                  <div className="grid grid-cols-7 gap-2 mb-2">
-                    {['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'].map(day => (
-                      <div key={day} className="text-center font-medium text-gray-500 py-2">
-                        {day}
+                
+                <div className="grid grid-cols-7 gap-1 sm:gap-2">
+                  {generateCalendarData().map((day, index) => {
+                    if (!day) {
+                      return <div key={index} className="h-10 sm:h-12"></div>;
+                    }
+                    
+                    const dateStr = `${currentMonth.getFullYear()}-${String(currentMonth.getMonth() + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+                    const isToday = new Date().toDateString() === new Date(dateStr).toDateString();
+                    const isSelected = selectedDate === dateStr;
+                    const isClosed = closedDays.includes(dateStr);
+                    const isFullyBooked = fullyBookedDays.includes(dateStr);
+                    const isPartiallyBooked = partiallyBookedDays.includes(dateStr);
+                    
+                    let buttonClasses = 'text-center h-10 sm:h-12 flex flex-col items-center justify-center rounded-md text-xs sm:text-sm transition-colors duration-200';
+                    let dotColor = 'bg-primary';
+                    
+                    if (isClosed) {
+                      buttonClasses += ' bg-red-100 cursor-not-allowed text-red-800 opacity-60';
+                      dotColor = 'bg-red-500';
+                    } else if (isFullyBooked) {
+                      buttonClasses += ' bg-red-100 text-red-800 hover:bg-red-200 cursor-pointer';
+                      dotColor = 'bg-red-500';
+                    } else if (isPartiallyBooked) {
+                      buttonClasses += ' bg-yellow-100 text-yellow-800 hover:bg-yellow-200 cursor-pointer';
+                      dotColor = 'bg-yellow-500';
+                    } else {
+                      buttonClasses += ' bg-green-100 text-green-800 hover:bg-green-200 cursor-pointer';
+                      dotColor = 'bg-green-500';
+                    }
+                    
+                    if (isSelected) {
+                      buttonClasses += ' ring-2 ring-primary ring-opacity-100 font-bold';
+                    } else if (isToday) {
+                      buttonClasses += ' ring-2 ring-primary ring-opacity-70';
+                    }
+                    
+                    // Determinar si hay reservas este día
+                    const hasBookings = daysWithBookings.includes(dateStr);
+                    
+                    return (
+                      <button
+                        key={index}
+                        onClick={() => isClosed ? null : selectDate(day)}
+                        disabled={isClosed}
+                        className={buttonClasses}
+                      >
+                        <span>{day}</span>
+                        {hasBookings && (
+                          <span className="h-1 w-1 sm:h-1.5 sm:w-1.5 rounded-full mt-0.5" style={{backgroundColor: dotColor}}></span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+                
+                <div className="mt-4 text-xs text-light">
+                  <div className="flex items-center mb-1">
+                    <span className="h-3 w-3 rounded-full bg-green-500 mr-2"></span>
+                    <span>Disponible</span>
+                  </div>
+                  <div className="flex items-center mb-1">
+                    <span className="h-3 w-3 rounded-full bg-yellow-500 mr-2"></span>
+                    <span>Partiellement réservé</span>
+                  </div>
+                  <div className="flex items-center mb-1">
+                    <span className="h-3 w-3 rounded-full bg-red-500 mr-2"></span>
+                    <span>Complet/Fermé</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            {/* Columna 2: Detalles del Estilista y Centro */}
+            <div className="space-y-6">
+              {/* Detalles del Estilista */}
+              {stylistDetail && (
+                <div className="bg-secondary rounded-lg shadow-md overflow-hidden">
+                  <div className="p-4 border-b border-dark">
+                    <h2 className="text-lg font-semibold text-primary">Styliste</h2>
+                  </div>
+                  <div className="p-4">
+                    <div className="flex items-center mb-4">
+                      <div className="relative w-16 h-16 mr-4 rounded-full overflow-hidden bg-dark">
+                        {stylistDetail.profile_img ? (
+                          <Image
+                            src={stylistDetail.profile_img}
+                            alt={stylistDetail.name}
+                            layout="fill"
+                            objectFit="cover"
+                            onError={(e) => {
+                              // Fallback en caso de error
+                              e.currentTarget.src = 'https://via.placeholder.com/150?text=Styliste';
+                            }}
+                          />
+                        ) : (
+                          <div className="flex items-center justify-center w-full h-full bg-dark text-light">
+                            <FaUser size={24} />
+                          </div>
+                        )}
+                      </div>
+                      <div>
+                        <h3 className="text-lg font-semibold text-light">{stylistDetail.name}</h3>
+                        <p className="text-sm text-light opacity-70">
+                          {stylistDetail.specialties && stylistDetail.specialties.length > 0 
+                            ? stylistDetail.specialties.join(', ') 
+                            : 'Styliste profesional'}
+                        </p>
+                      </div>
+                    </div>
+                    <p className="text-light text-sm mb-3">
+                      {stylistDetail.bio || 'Información sobre el styliste no disponible.'}
+                    </p>
+                    <div className="text-xs text-light opacity-70">
+                      <p>Email: No disponible</p>
+                      <p>Teléfono: No disponible</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+                            
+              {/* Detalles del Centro */}
+              {locationDetail && (
+                <div className="bg-secondary rounded-lg shadow-md overflow-hidden">
+                  <div className="p-4 border-b border-dark">
+                    <h2 className="text-lg font-semibold text-primary">Centro</h2>
+                  </div>
+                  <div className="p-4">
+                    <h3 className="text-lg font-semibold text-light mb-2">{locationDetail.name}</h3>
+                    <p className="text-light text-sm mb-3">
+                      <FaMapMarkerAlt className="inline-block mr-1" /> 
+                      {locationDetail.address || 'Dirección no disponible'}
+                    </p>
+                    <div className="text-xs text-light opacity-70">
+                      <p>Email: {locationDetail.email || 'No disponible'}</p>
+                      <p>Teléfono: {locationDetail.phone || 'No disponible'}</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+            
+            {/* Columna 3: Servicio seleccionado y próximos pasos */}
+            <div className="space-y-6">
+              {/* Servicio seleccionado */}
+              {selectedService && services.length > 0 && (
+                <div className="bg-secondary rounded-lg shadow-md overflow-hidden">
+                  <div className="p-4 border-b border-dark">
+                    <h2 className="text-lg font-semibold text-primary">Servicio seleccionado</h2>
+                  </div>
+                  <div className="p-4">
+                    {services.filter(s => s.id.toString() === selectedService).map(service => (
+                      <div key={service.id} className="mb-4">
+                        <h3 className="text-lg font-semibold text-light">{service.nombre}</h3>
+                        <div className="flex justify-between items-center my-2">
+                          <span className="text-light text-sm">Duración estimada:</span>
+                          <span className="bg-dark text-light text-xs px-2 py-1 rounded">
+                            {service.duration} min
+                          </span>
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <span className="text-light text-sm">Precio:</span>
+                          <span className="text-primary font-bold">
+                            {service.precio.toFixed(2)} €
+                          </span>
+                        </div>
+                        <p className="text-light text-sm mt-3">
+                          {service.descripcion || 'Sin descripción disponible.'}
+                        </p>
                       </div>
                     ))}
                   </div>
-                  
-                  <div className="grid grid-cols-7 gap-2">
-                    {generateCalendarData().map((day, index) => {
-                      // Verificar si este día tiene reservas y su estado
-                      const dateStr = day ? 
-                        `${currentMonth.getFullYear()}-${String(currentMonth.getMonth() + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}` : 
-                        '';
-                      
-                      // Determinar el color según la disponibilidad
-                      let bgColor = 'bg-green-100'; // Por defecto, verde (disponible)
-                      let hoverColor = 'hover:bg-green-200';
-                      let textColor = 'text-green-800';
-                      let dotColor = 'bg-green-500';
-                      
-                      // Rojo para días cerrados
-                      if (day && closedDays.includes(dateStr)) {
-                        bgColor = 'bg-red-100';
-                        hoverColor = 'hover:bg-red-200';
-                        textColor = 'text-red-800';
-                        dotColor = 'bg-red-500';
-                      } 
-                      // Rojo también para días completamente ocupados
-                      else if (day && fullyBookedDays.includes(dateStr)) {
-                        bgColor = 'bg-red-100';
-                        hoverColor = 'hover:bg-red-200';
-                        textColor = 'text-red-800';
-                        dotColor = 'bg-red-500';
-                      }
-                      // Amarillo para días parcialmente ocupados
-                      else if (day && partiallyBookedDays.includes(dateStr)) {
-                        bgColor = 'bg-yellow-100';
-                        hoverColor = 'hover:bg-yellow-200';
-                        textColor = 'text-yellow-800';
-                        dotColor = 'bg-yellow-500';
-                      }
-                      
-                      const hasBookings = day && daysWithBookings.includes(dateStr);
-                      const isToday = day && new Date().getDate() === day && 
-                                     new Date().getMonth() === currentMonth.getMonth() && 
-                                     new Date().getFullYear() === currentMonth.getFullYear();
-                      
-                      return (
-                        <button
-                          key={index}
-                          onClick={() => day && selectDate(day)}
-                          disabled={!day}
-                          className={`
-                            h-12 flex flex-col items-center justify-center rounded-md transition-colors text-sm sm:text-base
-                            ${!day ? 'bg-transparent' : `${bgColor} ${hoverColor} cursor-pointer ${textColor}`}
-                            ${isToday ? 'border-2 border-primary' : ''}
-                            ${hasBookings ? 'font-semibold' : ''}
-                          `}
-                        >
-                          {day}
-                          {hasBookings && (
-                            <div className={`w-2 h-2 rounded-full ${dotColor} mt-1 animate-pulse`}></div>
-                          )}
-                        </button>
-                      );
-                    })}
-                  </div>
-                  
-                  <div className="mt-4 text-center text-sm">
-                    <p className="text-gray-500 mb-2">
-                      Sélectionnez une date pour voir les heures disponibles
-                    </p>
-                    <div className="flex flex-wrap items-center justify-center gap-3 mt-2">
-                      <div className="flex items-center text-xs text-gray-700">
-                        <div className="w-3 h-3 rounded-full bg-green-500 mr-1"></div>
-                        <span>Disponible</span>
-                      </div>
-                      <div className="flex items-center text-xs text-gray-700">
-                        <div className="w-3 h-3 rounded-full bg-yellow-500 mr-1"></div>
-                        <span>Partiellement réservé</span>
-                      </div>
-                      <div className="flex items-center text-xs text-gray-700">
-                        <div className="w-3 h-3 rounded-full bg-red-500 mr-1"></div>
-                        <span>Fermé ou complet</span>
-                      </div>
-                    </div>
-                  </div>
-                </>
+                </div>
               )}
             </div>
           </div>
@@ -1088,33 +1087,35 @@ export default function NuevaReservacion() {
       </div>
       
       {/* Modal pour sélectionner une heure */}
-      {showTimeModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-xl shadow-lg max-w-md w-full p-6">
-            <h3 className="text-xl font-bold mb-4 text-gray-800">
-              Horaires disponibles pour {new Date(selectedDate!).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })}
+      {showTimeModal && selectedDate && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-secondary rounded-xl shadow-lg max-w-md w-full p-6">
+            <h3 className="text-xl font-bold mb-4 text-primary">
+              Horarios disponibles para {new Date(selectedDate!).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })}
             </h3>
             
             {loadingSlots ? (
-              <div className="py-8 flex justify-center">
-                <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-primary"></div>
+              <div className="py-8 flex flex-col items-center justify-center">
+                <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-primary mb-2"></div>
+                <p className="text-light">Cargando horarios disponibles...</p>
               </div>
             ) : availableSlots.length === 0 ? (
-              <div className="py-8 text-center text-gray-600">
-                Aucun horaire disponible pour cette date
+              <div className="py-8 text-center text-light">
+                Ningún horario disponible para esta fecha
               </div>
             ) : (
-              <div className="grid grid-cols-3 gap-3 mb-6">
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 my-4">
                 {availableSlots.map((slot, index) => (
                   <button
                     key={index}
+                    onClick={() => bookAppointment(slot.time)}
                     disabled={!slot.available}
-                    onClick={() => slot.available && bookAppointment(slot.time)}
-                    className={`py-2 px-3 rounded text-center transition-colors ${
-                      slot.available
-                        ? 'bg-gray-100 hover:bg-primary hover:text-secondary text-gray-800'
-                        : 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                    }`}
+                    className={`
+                      py-2 px-3 rounded-md text-sm font-medium transition-colors
+                      ${slot.available 
+                        ? 'bg-dark hover:bg-opacity-80 text-light' 
+                        : 'bg-opacity-20 bg-gray-500 text-gray-400 cursor-not-allowed'}
+                    `}
                   >
                     {slot.time}
                   </button>
@@ -1122,12 +1123,12 @@ export default function NuevaReservacion() {
               </div>
             )}
             
-            <div className="flex justify-end">
+            <div className="flex justify-end mt-4">
               <button
                 onClick={() => setShowTimeModal(false)}
-                className="px-4 py-2 bg-gray-200 hover:bg-gray-300 rounded-md text-gray-800"
+                className="px-4 py-2 bg-dark hover:bg-opacity-80 rounded-md text-light"
               >
-                Fermer
+                Cerrar
               </button>
             </div>
           </div>
@@ -1135,191 +1136,137 @@ export default function NuevaReservacion() {
       )}
 
       {/* Modal pour les données du client */}
-      {showCustomerModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-xl shadow-lg max-w-lg w-full p-6">
-            {bookingSuccess ? (
-              <div className="text-center py-8">
-                <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <FaCheck className="text-green-500 text-2xl" />
-                </div>
-                <h3 className="text-xl font-bold mb-2 text-gray-800">Réservation créée avec succès!</h3>
-                <p className="text-gray-600 mb-4">La réservation a été enregistrée correctement.</p>
-              </div>
-            ) : (
-              <>
-                <h3 className="text-xl font-bold mb-4 text-gray-800">
-                  Compléter la réservation
-                </h3>
-                
-                <div className="bg-gray-100 p-4 rounded-md mb-4">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {/* Informations sur le Styliste */}
-                    <div>
-                      <div className="flex items-start gap-3 mb-3">
-                        {stylistDetail?.profile_img ? (
-                          <div className="w-12 h-12 rounded-full overflow-hidden flex-shrink-0">
-                            <Image
-                              src={stylistDetail.profile_img}
-                              alt={stylistDetail.name}
-                              width={48}
-                              height={48}
-                              className="w-full h-full object-cover"
-                            />
-                          </div>
-                        ) : (
-                          <div className="w-12 h-12 rounded-full bg-gray-200 flex items-center justify-center flex-shrink-0">
-                            <FaUser className="text-gray-400" />
-                          </div>
-                        )}
-                        <div>
-                          <div className="font-medium">{stylistDetail?.name}</div>
-                          <div className="text-sm text-gray-500">Styliste</div>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Informations sur le Centre */}
-                    <div>
-                      <div className="flex items-start gap-3 mb-3">
-                        {locationDetail?.image ? (
-                          <div className="w-12 h-12 rounded-md overflow-hidden flex-shrink-0">
-                            <Image
-                              src={locationDetail.image}
-                              alt={locationDetail.name}
-                              width={48}
-                              height={48}
-                              className="w-full h-full object-cover"
-                            />
-                          </div>
-                        ) : (
-                          <div className="w-12 h-12 rounded-md bg-gray-200 flex items-center justify-center flex-shrink-0">
-                            <FaMapMarkerAlt className="text-gray-400" />
-                          </div>
-                        )}
-                        <div>
-                          <div className="font-medium">{locationDetail?.name}</div>
-                          <div className="text-sm text-gray-500">Centre</div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Ligne séparatrice */}
-                  <div className="border-t border-gray-300 my-3"></div>
-
-                  {/* Informations sur le Service et Date/Heure */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    {/* Informations sur le Service */}
-                    <div className="flex items-center gap-2">
-                      <div className="w-8 h-8 rounded-full bg-primary bg-opacity-20 flex items-center justify-center flex-shrink-0">
-                        <FaCut className="text-primary" />
-                      </div>
-                      <div>
-                        <div className="text-sm text-gray-500">Service</div>
-                        <div>{services.find(s => s.id.toString() === selectedService)?.nombre}</div>
-                      </div>
-                    </div>
-
-                    {/* Informations sur la Date */}
-                    <div className="flex items-center gap-2">
-                      <div className="w-8 h-8 rounded-full bg-primary bg-opacity-20 flex items-center justify-center flex-shrink-0">
-                        <FaCalendarDay className="text-primary" />
-                      </div>
-                      <div>
-                        <div className="text-sm text-gray-500">Date et heure</div>
-                        <div>{new Date(selectedDate!).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' })} • {selectedTime}</div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-                
-                <div className="mb-4">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Nom du client*
+      {showCustomerModal && selectedTime && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-secondary rounded-xl shadow-lg max-w-md w-full p-6">
+            <h3 className="text-xl font-bold mb-2 text-primary">Información del cliente</h3>
+            <p className="text-light text-sm mb-4">
+              Por favor, ingrese los datos del cliente para completar la reserva
+            </p>
+            
+            <form onSubmit={(e) => { e.preventDefault(); completeBooking(); }}>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-light mb-1">
+                    Nombre completo*
                   </label>
                   <input
                     type="text"
                     value={customerName}
                     onChange={(e) => setCustomerName(e.target.value)}
-                    className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+                    className="w-full p-2 border border-primary rounded-md bg-dark text-light focus:outline-none focus:ring-2 focus:ring-primary"
                     required
                   />
                 </div>
                 
-                <div className="mb-4">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Email du client
+                <div>
+                  <label className="block text-sm font-medium text-light mb-1">
+                    Email
                   </label>
                   <input
                     type="email"
                     value={customerEmail}
                     onChange={(e) => setCustomerEmail(e.target.value)}
-                    className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+                    className="w-full p-2 border border-primary rounded-md bg-dark text-light focus:outline-none focus:ring-2 focus:ring-primary"
                   />
                 </div>
                 
-                <div className="mb-4">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Téléphone du client*
+                <div>
+                  <label className="block text-sm font-medium text-light mb-1">
+                    Teléfono*
                   </label>
                   <input
                     type="tel"
                     value={customerPhone}
                     onChange={(e) => setCustomerPhone(e.target.value)}
-                    className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+                    className="w-full p-2 border border-primary rounded-md bg-dark text-light focus:outline-none focus:ring-2 focus:ring-primary"
                     required
                   />
                 </div>
                 
                 <div className="mb-6">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Notes supplémentaires
+                  <label className="block text-sm font-medium text-light mb-1">
+                    Notas adicionales
                   </label>
                   <textarea
                     value={notes}
                     onChange={(e) => setNotes(e.target.value)}
-                    className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary resize-none"
                     rows={3}
-                  />
+                    className="w-full p-2 border border-primary rounded-md bg-dark text-light focus:outline-none focus:ring-2 focus:ring-primary"
+                  ></textarea>
                 </div>
-                
-                {bookingError && (
-                  <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
-                    {bookingError}
-                  </div>
-                )}
-                
-                <div className="flex justify-end gap-3">
-                  <button
-                    onClick={() => setShowCustomerModal(false)}
-                    className="px-4 py-2 bg-gray-200 hover:bg-gray-300 rounded-md text-gray-800"
-                    disabled={bookingInProgress}
-                  >
-                    Annuler
-                  </button>
-                  <button
-                    onClick={completeBooking}
-                    className="px-4 py-2 bg-primary text-secondary rounded-md font-medium hover:bg-opacity-90 transition flex items-center"
-                    disabled={bookingInProgress}
-                  >
-                    {bookingInProgress ? (
-                      <>
-                        <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-secondary mr-2"></div>
-                        Traitement...
-                      </>
-                    ) : (
-                      'Confirmer la Réservation'
-                    )}
-                  </button>
-                </div>
-              </>
-            )}
+              </div>
+              
+              <div className="flex justify-between mt-6">
+                <button
+                  type="button"
+                  onClick={() => setShowCustomerModal(false)}
+                  className="px-4 py-2 border border-primary bg-dark text-light rounded-md hover:bg-opacity-80"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 bg-primary text-light rounded-md hover:bg-opacity-90"
+                  disabled={bookingInProgress}
+                >
+                  {bookingInProgress ? (
+                    <>
+                      <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full inline-block mr-2 align-middle"></div>
+                      Procesando...
+                    </>
+                  ) : (
+                    'Confirmar Reserva'
+                  )}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
-      
-      <Footer />
+
+      {bookingSuccess && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-secondary rounded-xl shadow-lg max-w-md w-full p-6 text-center">
+            <div className="w-16 h-16 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto mb-4">
+              <FaCheck size={32} />
+            </div>
+            <h3 className="text-xl font-bold mb-2 text-primary">¡Reserva confirmada!</h3>
+            <p className="text-light mb-6">
+              La reserva ha sido creada correctamente
+            </p>
+            <button
+              onClick={() => {
+                setBookingSuccess(false);
+                router.push('/admin/reservations');
+              }}
+              className="px-6 py-2 bg-primary text-light font-medium rounded-md"
+            >
+              Volver al calendario
+            </button>
+          </div>
+        </div>
+      )}
+
+      {bookingError && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-secondary rounded-xl shadow-lg max-w-md w-full p-6 text-center">
+            <div className="w-16 h-16 bg-red-100 text-red-600 rounded-full flex items-center justify-center mx-auto mb-4">
+              <FaUser size={32} />
+            </div>
+            <h3 className="text-xl font-bold mb-2 text-primary">Error</h3>
+            <p className="text-light mb-6">
+              {bookingError}
+            </p>
+            <button
+              onClick={() => setBookingError(null)}
+              className="px-6 py-2 bg-coral text-white font-medium rounded-md"
+            >
+              Intentar de nuevo
+            </button>
+          </div>
+        </div>
+      )}
     </main>
   );
 } 
