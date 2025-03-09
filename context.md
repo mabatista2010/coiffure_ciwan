@@ -76,6 +76,11 @@ Lors du développement de nouvelles fonctionnalités ou de la modification de fo
 - **Correction de la Visualisation des Images de Configuration** : Résolution du problème de prévisualisation des images dans la configuration du hero, permettant une meilleure gestion des images de la page d'accueil
 - **Formulaires Responsifs et Cohérents** : Uniformisation de tous les formulaires dans le panel administratif avec des styles responsifs et cohérents sur tous les dispositifs
 - **Gestion Optimisée des États de Chargement** : Ajout d'indicateurs visuels pendant le chargement et les opérations d'enregistrement dans tous les formulaires administratifs
+- **Filtrage Dynamique des Statistiques par Période** : Implémentation d'un système avancé de filtrage des statistiques par période (semaine actuelle/précédente, mois actuel/précédent, année actuelle/précédente et période personnalisée) pour les pages de statistiques des estilistas et centres
+- **Interface Mobile Optimisée pour les Filtres** : Création d'une interface mobile améliorée avec menu déroulant pour les filtres de date, offrant une meilleure expérience utilisateur sur les appareils mobiles
+- **Inputs de Date Améliorés** : Remplacement des sélecteurs de date natifs par des champs personnalisés avec icônes de calendrier distinctives et couleur primaire pour améliorer la visibilité et l'interaction
+- **Visualisation Responsive des Graphiques** : Adaptation des graphiques de tendances et statistiques pour une visualisation optimale sur tous les appareils, avec un système d'affichage adaptatif selon la taille de l'écran
+- **Fermeture Automatique des Menus** : Implémentation d'un système de fermeture automatique des menus déroulants après sélection pour une navigation plus fluide sur mobile
 
 ## Structure de l'Application
 
@@ -148,6 +153,10 @@ Le système de réservation suit un flux en 6 étapes :
 - **Statistiques Visuelles** : Tableaux de bord avec informations visuelles pour les estilistas et centres
   - **Affichage des Images** : Visualisation des photos des estilistas et centres dans leurs pages de statistiques
   - **Interface Responsive** : Design adapté à tous les dispositifs, y compris mobiles et tablettes
+  - **Filtrage par Période** : Système avancé de sélection de périodes (semaine, mois, année, personnalisé) avec interface adaptative pour mobile et desktop
+  - **Visualisation Dynamique** : Représentation graphique des données qui s'adapte au période sélectionnée, avec affichage optimisé des tendances
+  - **Sélecteurs Optimisés** : Champs de date avec icônes distinctives et fermeture automatique des menus après sélection pour une navigation fluide
+  - **Adaptation Mobile** : Interface déroulante sur mobile pour économiser l'espace et améliorer l'expérience utilisateur
 - **Calendrier Intuitif** : Interface de calendrier améliorée avec code couleur pour visualiser rapidement la disponibilité
   - **Filtrage Contextuel** : Affichage des réservations spécifiques à l'estilista sélectionné dans le calendrier
   - **Indicateurs Visuels** : Affichage de points indiquant les jours avec réservations
