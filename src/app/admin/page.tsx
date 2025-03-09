@@ -140,12 +140,14 @@ export default function AdminPage() {
         const heroDesktop = configData.find(c => c.clave === 'hero_image_desktop');
         const heroMobile = configData.find(c => c.clave === 'hero_image_mobile');
         
-        if (heroDesktop) {
-          setHeroDesktopImage(heroDesktop.valor || '');
+        if (heroDesktop && heroDesktop.valor) {
+          setHeroDesktopImage(heroDesktop.valor);
+          setHeroDesktopPreview(heroDesktop.valor);
         }
         
-        if (heroMobile) {
-          setHeroMobileImage(heroMobile.valor || '');
+        if (heroMobile && heroMobile.valor) {
+          setHeroMobileImage(heroMobile.valor);
+          setHeroMobilePreview(heroMobile.valor);
         }
       }
       
@@ -492,13 +494,30 @@ export default function AdminPage() {
       
       if (error) throw error;
       
+      // Actualizar los estados locales según la clave
+      if (clave === 'hero_image_desktop') {
+        setHeroDesktopImage(valor);
+        setHeroDesktopPreview(valor);
+        if (heroDesktopInputRef.current) {
+          heroDesktopInputRef.current.value = '';
+        }
+        setHeroDesktopFile(null);
+      } else if (clave === 'hero_image_mobile') {
+        setHeroMobileImage(valor);
+        setHeroMobilePreview(valor);
+        if (heroMobileInputRef.current) {
+          heroMobileInputRef.current.value = '';
+        }
+        setHeroMobileFile(null);
+      }
+      
       // Recharger les données
       loadData();
+      setIsUploading(false);
       
     } catch (error: Error | unknown) {
       console.error('Erreur complète:', error);
       setErrorMessage(error instanceof Error ? error.message : String(error));
-    } finally {
       setIsUploading(false);
     }
   };
