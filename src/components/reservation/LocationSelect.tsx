@@ -49,7 +49,7 @@ export default function LocationSelect({ selectedService, onLocationSelect, onBa
         transition={{ duration: 0.5 }}
         className="text-center mb-8"
       >
-        <h2 className="text-3xl md:text-4xl font-bold mb-4 text-primary">
+        <h2 className="text-3xl md:text-4xl font-bold mb-4 text-secondary">
           Sélection du Centre
         </h2>
         <p className="text-lg text-text-medium">
@@ -60,7 +60,7 @@ export default function LocationSelect({ selectedService, onLocationSelect, onBa
       <div className="mb-6">
         <button 
           onClick={onBack}
-          className="flex items-center text-primary hover:underline"
+          className="flex items-center text-accent hover:underline"
         >
           &larr; Retour à la sélection des services
         </button>

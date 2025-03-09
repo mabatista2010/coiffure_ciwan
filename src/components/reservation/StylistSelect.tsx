@@ -101,7 +101,7 @@ export default function StylistSelect({
         transition={{ duration: 0.5 }}
         className="text-center mb-8"
       >
-        <h2 className="text-3xl md:text-4xl font-bold mb-4 text-primary">
+        <h2 className="text-3xl md:text-4xl font-bold mb-4 text-secondary">
           Sélection du Styliste
         </h2>
         <p className="text-lg text-text-medium">
@@ -112,7 +112,7 @@ export default function StylistSelect({
       <div className="mb-6">
         <button 
           onClick={onBack}
-          className="flex items-center text-primary hover:underline"
+          className="flex items-center text-accetn hover:underline"
         >
           &larr; Retour à la sélection du centre
         </button>

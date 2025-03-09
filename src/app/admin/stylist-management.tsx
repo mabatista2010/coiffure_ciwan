@@ -67,6 +67,7 @@ export default function StylistManagement({ services, locations, onUpdate }: Sty
         active: boolean;
         start: string;
         end: string;
+        useCustomHours: boolean;
       }
     }
   }>({});
@@ -203,107 +204,99 @@ export default function StylistManagement({ services, locations, onUpdate }: Sty
 
   // Inicializar horarios cuando se selecciona un centro
   const handleLocationChange = async (locationId: string, isSelected: boolean) => {
-    let updatedLocationIds;
+    let updatedLocationIds = [...newStylist.locationIds];
     
     if (isSelected) {
-      // Añadir centro
-      updatedLocationIds = [...newStylist.locationIds, locationId];
+      // Agregar centro
+      updatedLocationIds.push(locationId);
       
-      // Cargar los horarios del centro
-      try {
-        const { data, error } = await supabase
-          .from('location_hours')
-          .select('*')
-          .eq('location_id', locationId)
-          .order('day_of_week')
-          .order('slot_number');
+      // Inicializar horarios por defecto para esta ubicación
+      setWorkingHours(prev => {
+        const updated = { ...prev };
+        updated[locationId] = {};
         
-        if (error) throw error;
-        
-        // Preparar estructura de horarios
-        const centerHours: {
-          [dayOfWeek: number]: {
-            active: boolean;
-            start: string;
-            end: string;
-          }
-        } = {};
-        
-        // Por defecto, inicializar todos los días como inactivos
         weekdays.forEach(day => {
-          centerHours[day.id] = {
-            active: false,
+          updated[locationId][day.id] = {
+            active: true,
             start: defaultHours.start,
-            end: defaultHours.end
+            end: defaultHours.end,
+            useCustomHours: false // Por defecto, usar horarios del centro
           };
         });
         
-        // Guardar todos los slots de horarios para procesarlos después
-        const hourSlots: {
-          locationId: string;
-          dayOfWeek: number;
-          slots: Array<{ 
-            start: string; 
-            end: string; 
-            active: boolean;
-          }>;
-        }[] = [];
-        
-        // Si existen horarios para el centro, marcar esos días como activos
-        if (data && data.length > 0) {
-          // Agrupar horarios por día
-          const hoursByDay: { [day: number]: Array<{ start: string; end: string; }> } = {};
+        return updated;
+      });
+      
+      try {
+        // Obtener horarios del centro seleccionado
+        const { data: locationHoursData, error } = await supabase
+          .from('location_hours')
+          .select('*')
+          .eq('location_id', locationId);
           
-          data.forEach(hour => {
+        if (error) throw error;
+        
+        if (locationHoursData && locationHoursData.length > 0) {
+          // Ordenar los datos por día de la semana y hora de inicio
+          const hoursByDay: { [key: string]: Array<{ start: string, end: string, active: boolean }> } = {};
+          
+          // Procesar y organizar los horarios del centro por día
+          locationHoursData.forEach(hour => {
             const day = hour.day_of_week;
             if (!hoursByDay[day]) {
               hoursByDay[day] = [];
             }
             
             hoursByDay[day].push({
-              start: hour.start_time.substring(0, 5), // Convertir "09:00:00" a "09:00"
-              end: hour.end_time.substring(0, 5)
+              start: hour.start_time.slice(0, 5), // Formato HH:MM
+              end: hour.end_time.slice(0, 5),
+              active: true // Por defecto, todos los slots están activos
             });
           });
           
-          // Preparar los slots para cada día
-          Object.keys(hoursByDay).forEach(dayStr => {
+          // Crear objetos de horarios por centro y día para guardar en el estado
+          const hourSlots: Array<{
+            locationId: string;
+            dayOfWeek: number;
+            slots: Array<{ start: string; end: string; active: boolean }>;
+          }> = [];
+          
+          for (const dayStr in hoursByDay) {
             const day = parseInt(dayStr);
             if (hoursByDay[day] && hoursByDay[day].length > 0) {
-              // Usar el primer horario para la visualización en la interfaz
-              centerHours[day] = {
-                active: true,
-                start: hoursByDay[day][0].start,
-                end: hoursByDay[day][0].end
-              };
-              
-              // Guardar todos los slots para este día con active=true por defecto
               hourSlots.push({
                 locationId,
                 dayOfWeek: day,
-                slots: hoursByDay[day].map(slot => ({
-                  ...slot,
-                  active: true // Por defecto, todos los slots están activos
-                }))
+                slots: hoursByDay[day]
               });
             }
+          }
+          
+          // Guardamos los slots en un estado global para usarlos cuando se guarde el estilista
+          setLocationHourSlots(prev => {
+            const updated = [...prev];
+            // Eliminar los slots existentes para esta ubicación
+            const filtered = updated.filter(item => item.locationId !== locationId);
+            // Añadir los nuevos slots
+            return [...filtered, ...hourSlots];
           });
         }
-        
+
         // Actualizar los horarios en la interfaz
         setWorkingHours(prev => {
           const updated = { ...prev };
-          updated[locationId] = centerHours;
+          updated[locationId] = {};
+          
+          weekdays.forEach(day => {
+            updated[locationId][day.id] = {
+              active: true,
+              start: defaultHours.start,
+              end: defaultHours.end,
+              useCustomHours: false
+            };
+          });
+          
           return updated;
-        });
-        
-        // Guardamos los slots en un estado global para usarlos cuando se guarde el estilista
-        setLocationHourSlots(prev => {
-          const updated = [...prev];
-          // Eliminar los slots existentes para esta ubicación
-          const filtered = updated.filter(item => item.locationId !== locationId);
-          // Añadir los nuevos slots
-          return [...filtered, ...hourSlots];
         });
       } catch (error) {
         console.error('Error al cargar horarios del centro:', error);
@@ -317,7 +310,8 @@ export default function StylistManagement({ services, locations, onUpdate }: Sty
             updated[locationId][day.id] = {
               active: true, // Por defecto, activo para todos los días
               start: defaultHours.start,
-              end: defaultHours.end
+              end: defaultHours.end,
+              useCustomHours: false
             };
           });
           
@@ -398,7 +392,7 @@ export default function StylistManagement({ services, locations, onUpdate }: Sty
   };
 
   // Actualizar el handler del checkbox del día para manejar múltiples slots
-  const updateWorkingHour = (locationId: string, dayOfWeek: number, field: 'active' | 'start' | 'end', value: boolean | string) => {
+  const updateWorkingHour = (locationId: string, dayOfWeek: number, field: 'active' | 'start' | 'end' | 'useCustomHours', value: boolean | string) => {
     setWorkingHours(prev => {
       const updated = { ...prev };
       
@@ -410,7 +404,8 @@ export default function StylistManagement({ services, locations, onUpdate }: Sty
         updated[locationId][dayOfWeek] = {
           active: true,
           start: defaultHours.start,
-          end: defaultHours.end
+          end: defaultHours.end,
+          useCustomHours: false
         };
       }
       
@@ -503,129 +498,156 @@ export default function StylistManagement({ services, locations, onUpdate }: Sty
       // Resetear los slots de horarios guardados
       setLocationHourSlots([]);
       
-      // Inicializar estructura para horarios
-      const hoursMap: {
-        [locationId: string]: {
-          [dayOfWeek: number]: {
-            active: boolean;
-            start: string;
-            end: string;
+      // Inicializar horarios para cada ubicación y día de la semana
+      if (stylist.location_ids && stylist.location_ids.length > 0) {
+        // Configurar objeto de trabajo con ubicaciones y días de la semana
+        const initialWorkingHours: {
+          [locationId: string]: {
+            [dayOfWeek: number]: {
+              active: boolean;
+              start: string;
+              end: string;
+              useCustomHours: boolean;
+            }
           }
-        }
-      } = {};
-      
-      // Inicializar para todos los centros seleccionados
-      if (stylist.location_ids) {
-        for (const locationId of stylist.location_ids) {
-          hoursMap[locationId] = {};
+        } = {};
+        stylist.location_ids.forEach(locationId => {
+          initialWorkingHours[locationId] = {};
           weekdays.forEach(day => {
-            hoursMap[locationId][day.id] = {
+            initialWorkingHours[locationId][day.id] = {
               active: false,
               start: defaultHours.start,
-              end: defaultHours.end
+              end: defaultHours.end,
+              useCustomHours: false // Por defecto, usar horarios del centro
             };
           });
-        }
-      }
-      
-      // Cargar horarios de trabajo del estilista
-      const { data: stylistHours, error: stylistHoursError } = await supabase
-        .from('working_hours')
-        .select('*')
-        .eq('stylist_id', stylistId);
-      
-      // Crear un mapa para verificar qué horarios del centro están activos para el estilista
-      const activeHoursMap = new Map();
-      
-      if (stylistHoursError) {
-        console.error('Error al cargar horarios del estilista:', stylistHoursError);
-      } else if (stylistHours && stylistHours.length > 0) {
-        // Procesar los horarios del estilista
-        for (const hour of stylistHours) {
-          if (hoursMap[hour.location_id] && hour.day_of_week >= 0 && hour.day_of_week <= 6) {
-            // Activar el día si encontramos al menos un horario
-            hoursMap[hour.location_id][hour.day_of_week].active = true;
+        });
+        
+        setWorkingHours(initialWorkingHours);
+        
+        // Limpiar slots de horarios previos
+        setLocationHourSlots([]);
+        
+        // Cargar horarios de trabajo existentes para cada ubicación
+        try {
+          const { data: stylistWorkingHours, error } = await supabase
+            .from('working_hours')
+            .select('*')
+            .eq('stylist_id', stylistId);
             
-            // Tomamos el primer horario para mostrar en la interfaz principal
-            if (!hoursMap[hour.location_id][hour.day_of_week].start.includes(':')) {
-              hoursMap[hour.location_id][hour.day_of_week] = {
-                active: true,
-                start: hour.start_time.substring(0, 5),
-                end: hour.end_time.substring(0, 5)
-              };
-            }
+          if (error) throw error;
+          
+          if (stylistWorkingHours) {
+            // Mapa para seguimiento de horarios activos
+            const activeHoursMap = new Map();
             
-            // Guardar este horario como activo en nuestro mapa de verificación
-            const key = `${hour.location_id}-${hour.day_of_week}-${hour.start_time.substring(0, 5)}-${hour.end_time.substring(0, 5)}`;
-            activeHoursMap.set(key, true);
-          }
-        }
-      }
-      
-      // Establecer los horarios para la interfaz
-      setWorkingHours(hoursMap);
-      
-      // También cargar los slots de horarios para cada centro
-      if (stylist.location_ids && stylist.location_ids.length > 0) {
-        // Para cada centro, cargar sus horarios
-        for (const locationId of stylist.location_ids) {
-          try {
-            const { data, error } = await supabase
-              .from('location_hours')
-              .select('*')
-              .eq('location_id', locationId)
-              .order('day_of_week')
-              .order('slot_number');
-            
-            if (error) throw error;
-            
-            if (data && data.length > 0) {
-              // Agrupar horarios por día
-              const hoursByDay: { [day: number]: Array<{ start: string; end: string; }> } = {};
+            // Procesar los horarios de cada ubicación
+            for (const locationId of stylist.location_ids) {
+              // Filtrar los horarios por ubicación
+              const locationHours = stylistWorkingHours.filter(h => h.location_id === locationId);
               
-              data.forEach(hour => {
-                const day = hour.day_of_week;
-                if (!hoursByDay[day]) {
-                  hoursByDay[day] = [];
+              // Actualizar los días activos en horarios de trabajo
+              locationHours.forEach(hour => {
+                // Marcar como activo en el estado de la interfaz
+                if (initialWorkingHours[locationId] && initialWorkingHours[locationId][hour.day_of_week]) {
+                  initialWorkingHours[locationId][hour.day_of_week].active = true;
+
+                  // Detectar si usaba horarios personalizados
+                  // Si solo hay un horario para este día y no coincide con ningún slot del centro,
+                  // probablemente sea un horario personalizado
+                  const dayHours = locationHours.filter(h => 
+                    h.location_id === locationId && h.day_of_week === hour.day_of_week
+                  );
+
+                  if (dayHours.length === 1) {
+                    const startTime = hour.start_time.slice(0, 5);
+                    const endTime = hour.end_time.slice(0, 5);
+                    
+                    initialWorkingHours[locationId][hour.day_of_week].start = startTime;
+                    initialWorkingHours[locationId][hour.day_of_week].end = endTime;
+                    
+                    // Marcar clave para horarios activos del estilista
+                    const key = `${locationId}-${hour.day_of_week}-${startTime}-${endTime}`;
+                    activeHoursMap.set(key, true);
+                  }
                 }
-                
-                hoursByDay[day].push({
-                  start: hour.start_time.substring(0, 5),
-                  end: hour.end_time.substring(0, 5)
-                });
               });
               
-              // Crear y guardar los slots para cada día
-              Object.keys(hoursByDay).forEach(dayStr => {
-                const day = parseInt(dayStr);
-                if (hoursByDay[day] && hoursByDay[day].length > 0) {
-                  // Crear los slots con su estado activo/inactivo
-                  const slots = hoursByDay[day].map(slot => {
-                    // Verificar si este slot está activo para el estilista
-                    const key = `${locationId}-${day}-${slot.start}-${slot.end}`;
-                    const isActive = activeHoursMap.has(key);
-                    
-                    return {
-                      ...slot,
-                      active: isActive // Establecer como activo solo si lo encontramos en los horarios del estilista
-                    };
+              // Determinar si usaba horarios personalizados para cada día
+              weekdays.forEach(day => {
+                const dayHours = locationHours.filter(h => 
+                  h.location_id === locationId && h.day_of_week === day.id
+                );
+                
+                // Si solo hay un horario para este día y está activo, verificar si coincide con alguno de los slots del centro
+                if (dayHours.length === 1 && initialWorkingHours[locationId][day.id].active) {
+                  // Cargar los horarios del centro para este día
+                  initialWorkingHours[locationId][day.id].useCustomHours = true;
+                }
+              });
+              
+              // Cargar los horarios del centro para poder mostrar los slots
+              try {
+                const { data: locationHoursData, error } = await supabase
+                  .from('location_hours')
+                  .select('*')
+                  .eq('location_id', locationId);
+                  
+                if (error) throw error;
+                
+                if (locationHoursData && locationHoursData.length > 0) {
+                  // Organizar por día de la semana
+                  const hoursByDay: { [day: string]: Array<{ start: string; end: string; active: boolean }> } = {};
+                  locationHoursData.forEach(hour => {
+                    const day = hour.day_of_week;
+                    if (!hoursByDay[day]) {
+                      hoursByDay[day] = [];
+                    }
+                    hoursByDay[day].push({
+                      start: hour.start_time.slice(0, 5),
+                      end: hour.end_time.slice(0, 5),
+                      active: false // Se actualizará a continuación
+                    });
                   });
                   
-                  // Guardar slots para este día y centro
-                  setLocationHourSlots(prev => [
-                    ...prev,
-                    {
-                      locationId,
-                      dayOfWeek: day,
-                      slots: slots
+                  // Para cada día con horarios en el centro
+                  for (const dayStr in hoursByDay) {
+                    const day = parseInt(dayStr);
+                    if (hoursByDay[day] && hoursByDay[day].length > 0) {
+                      // Crear los slots con su estado activo/inactivo
+                      const slots = hoursByDay[day].map((slot: { start: string; end: string }) => {
+                        // Verificar si este slot está activo para el estilista
+                        const key = `${locationId}-${day}-${slot.start}-${slot.end}`;
+                        const isActive = activeHoursMap.has(key);
+                        
+                        return {
+                          ...slot,
+                          active: isActive // Establecer como activo solo si lo encontramos en los horarios del estilista
+                        };
+                      });
+                      
+                      // Guardar slots para este día y centro
+                      setLocationHourSlots(prev => [
+                        ...prev,
+                        {
+                          locationId,
+                          dayOfWeek: day,
+                          slots: slots
+                        }
+                      ]);
                     }
-                  ]);
+                  }
                 }
-              });
+              } catch (error) {
+                console.error(`Error al cargar horarios del centro ${locationId}:`, error);
+              }
             }
-          } catch (error) {
-            console.error(`Error al cargar horarios del centro ${locationId}:`, error);
           }
+          
+          // Actualizar el estado con los horarios configurados
+          setWorkingHours(initialWorkingHours);
+        } catch (error) {
+          console.error('Error al cargar horarios de trabajo:', error);
         }
       }
       
@@ -810,29 +832,52 @@ export default function StylistManagement({ services, locations, onUpdate }: Sty
             const hourData = workingHours[locationId][day];
             
             if (hourData.active) {
-              // Buscar si tenemos slots guardados para este día y ubicación
-              const locationSlots = locationHourSlots.find(
-                item => item.locationId === locationId && item.dayOfWeek === day
-              );
-              
-              if (locationSlots && locationSlots.slots.length > 0) {
-                // Filtrar solo los slots activos
-                const activeSlots = locationSlots.slots.filter(slot => slot.active);
+              // Verificar si se usan horarios personalizados
+              if (hourData.useCustomHours) {
+                // Usar el horario personalizado definido en los campos de la interfaz
+                newWorkingHours.push({
+                  id: uuidv4(),
+                  stylist_id: stylistId,
+                  location_id: locationId,
+                  day_of_week: day,
+                  start_time: `${hourData.start}:00`,
+                  end_time: `${hourData.end}:00`
+                });
+              } else {
+                // Usar los horarios del centro según los slots seleccionados
+                const locationSlots = locationHourSlots.find(
+                  item => item.locationId === locationId && item.dayOfWeek === day
+                );
                 
-                if (activeSlots.length > 0) {
-                  // Crear un registro para cada slot activo
-                  activeSlots.forEach(slot => {
+                if (locationSlots && locationSlots.slots.length > 0) {
+                  // Filtrar solo los slots activos
+                  const activeSlots = locationSlots.slots.filter(slot => slot.active);
+                  
+                  if (activeSlots.length > 0) {
+                    // Crear un registro para cada slot activo
+                    activeSlots.forEach(slot => {
+                      newWorkingHours.push({
+                        id: uuidv4(),
+                        stylist_id: stylistId,
+                        location_id: locationId,
+                        day_of_week: day,
+                        start_time: `${slot.start}:00`,
+                        end_time: `${slot.end}:00`
+                      });
+                    });
+                  } else {
+                    // Si no hay slots activos pero el día está activo, usar el horario de la interfaz
                     newWorkingHours.push({
                       id: uuidv4(),
                       stylist_id: stylistId,
                       location_id: locationId,
                       day_of_week: day,
-                      start_time: `${slot.start}:00`,
-                      end_time: `${slot.end}:00`
+                      start_time: `${hourData.start}:00`,
+                      end_time: `${hourData.end}:00`
                     });
-                  });
+                  }
                 } else {
-                  // Si no hay slots activos pero el día está activo, usar el horario de la interfaz
+                  // Si no hay slots guardados, usar el horario de la interfaz
                   newWorkingHours.push({
                     id: uuidv4(),
                     stylist_id: stylistId,
@@ -842,16 +887,6 @@ export default function StylistManagement({ services, locations, onUpdate }: Sty
                     end_time: `${hourData.end}:00`
                   });
                 }
-              } else {
-                // Si no hay slots guardados, usar el horario de la interfaz
-                newWorkingHours.push({
-                  id: uuidv4(),
-                  stylist_id: stylistId,
-                  location_id: locationId,
-                  day_of_week: day,
-                  start_time: `${hourData.start}:00`,
-                  end_time: `${hourData.end}:00`
-                });
               }
             }
           }
@@ -1010,12 +1045,14 @@ export default function StylistManagement({ services, locations, onUpdate }: Sty
               
               <div className="mb-4 p-3 rounded bg-yellow-50 border-l-4 border-yellow-400">
                 <p className="text-sm text-gray-700">
-                  Los horarios del estilista se adaptan automáticamente a los horarios definidos para cada centro. 
-                  Si un centro tiene múltiples franjas horarias para un día, el estilista estará disponible en todas ellas.
+                  Para cada día y centro, puedes elegir entre usar los horarios predefinidos del centro 
+                  o configurar un horario personalizado para el estilista. 
                 </p>
                 <p className="text-sm mt-1 text-gray-700">
-                  Para cada día, puedes activar o desactivar la disponibilidad. Si un día está activo, 
-                  todos los horarios del centro para ese día se asignarán al estilista.
+                  - <strong>Modo Horarios del Centro</strong>: Selecciona las franjas horarias específicas del centro donde trabaja el estilista.
+                </p>
+                <p className="text-sm mt-1 text-gray-700">
+                  - <strong>Modo Horarios Personalizados</strong>: Define un horario único para el estilista, independiente de los horarios del centro.
                 </p>
               </div>
               
@@ -1032,85 +1069,123 @@ export default function StylistManagement({ services, locations, onUpdate }: Sty
                         </h4>
                         <div className="space-y-2">
                           {weekdays.map(day => (
-                            <div key={`${locationId}-${day.id}`} className="flex flex-wrap items-center gap-3">
-                              <div className="flex items-center w-32">
-                                <input
-                                  type="checkbox"
-                                  id={`active-${locationId}-${day.id}`}
-                                  checked={workingHours[locationId]?.[day.id]?.active || false}
-                                  onChange={(e) => updateWorkingHour(locationId, day.id, 'active', e.target.checked)}
-                                  className="mr-2"
-                                />
-                                <label htmlFor={`active-${locationId}-${day.id}`} className="text-gray-700">
-                                  {day.name}
-                                </label>
-                              </div>
-                              
-                              {workingHours[locationId]?.[day.id]?.active && (
-                                <div className="flex items-center space-x-2 flex-wrap">
-                                  <div className="flex items-center">
-                                    <span className="text-gray-700 mr-2">De</span>
-                                    <input
-                                      type="time"
-                                      className="px-2 py-1 border rounded"
-                                      value={workingHours[locationId]?.[day.id]?.start || defaultHours.start}
-                                      onChange={(e) => updateWorkingHour(locationId, day.id, 'start', e.target.value)}
-                                      disabled={!workingHours[locationId]?.[day.id]?.active}
-                                    />
-                                  </div>
-                                  <div className="flex items-center">
-                                    <span className="text-gray-700 mr-2">a</span>
-                                    <input
-                                      type="time"
-                                      className="px-2 py-1 border rounded"
-                                      value={workingHours[locationId]?.[day.id]?.end || defaultHours.end}
-                                      onChange={(e) => updateWorkingHour(locationId, day.id, 'end', e.target.value)}
-                                      disabled={!workingHours[locationId]?.[day.id]?.active}
-                                    />
-                                  </div>
+                            <div key={`${locationId}-${day.id}`} className="border-b border-gray-200 pb-3 mb-3">
+                              <div className="flex flex-wrap items-center gap-3">
+                                <div className="flex items-center w-32">
+                                  <input
+                                    type="checkbox"
+                                    id={`active-${locationId}-${day.id}`}
+                                    checked={workingHours[locationId]?.[day.id]?.active || false}
+                                    onChange={(e) => updateWorkingHour(locationId, day.id, 'active', e.target.checked)}
+                                    className="mr-2"
+                                  />
+                                  <label htmlFor={`active-${locationId}-${day.id}`} className="text-gray-700">
+                                    {day.name}
+                                  </label>
                                 </div>
-                              )}
-                              
-                              {/* Mostrar slots de horarios para seleccionar individualmente */}
-                              {workingHours[locationId]?.[day.id]?.active && 
-                                (() => {
-                                  // Buscar slots para este centro y día
-                                  const centerSlots = locationHourSlots.find(
-                                    item => item.locationId === locationId && item.dayOfWeek === day.id
-                                  );
-                                  
-                                  if (centerSlots && centerSlots.slots.length > 0) {
-                                    return (
-                                      <div className="mt-2 text-xs text-gray-700">
-                                        <p className="mb-1"><strong>Selecciona las franjas horarias:</strong></p>
-                                        <div className="pl-2 space-y-2">
-                                          {centerSlots.slots.map((slot, idx) => (
-                                            <div key={idx} className="flex items-center">
-                                              <input
-                                                type="checkbox"
-                                                id={`slot-${locationId}-${day.id}-${idx}`}
-                                                checked={slot.active}
-                                                onChange={() => toggleHourSlot(locationId, day.id, idx)}
-                                                className="mr-2"
-                                              />
-                                              <label 
-                                                htmlFor={`slot-${locationId}-${day.id}-${idx}`}
-                                                className={`${slot.active ? 'text-primary' : 'text-gray-400'}`}
-                                              >
-                                                {slot.start} - {slot.end}
-                                              </label>
-                                            </div>
-                                          ))}
-                                        </div>
-                                        <p className="mt-2 text-xs text-amber-700">
-                                          ℹ️ Solo se habilitarán las franjas horarias seleccionadas
-                                        </p>
+                                
+                                {workingHours[locationId]?.[day.id]?.active && (
+                                  <div className="w-full mt-2">
+                                    <div className="flex items-center mb-2">
+                                      <span className="mr-3 text-gray-700 text-sm">Modo de horario:</span>
+                                      <div className="flex items-center mr-4">
+                                        <input
+                                          type="radio"
+                                          id={`center-hours-${locationId}-${day.id}`}
+                                          name={`hours-mode-${locationId}-${day.id}`}
+                                          checked={!workingHours[locationId]?.[day.id]?.useCustomHours}
+                                          onChange={() => updateWorkingHour(locationId, day.id, 'useCustomHours', false)}
+                                          className="mr-1"
+                                        />
+                                        <label htmlFor={`center-hours-${locationId}-${day.id}`} className="text-gray-700 text-sm">
+                                          Horarios del Centro
+                                        </label>
                                       </div>
-                                    );
-                                  }
-                                  return null;
-                                })()
-                              }
+                                      <div className="flex items-center">
+                                        <input
+                                          type="radio"
+                                          id={`custom-hours-${locationId}-${day.id}`}
+                                          name={`hours-mode-${locationId}-${day.id}`}
+                                          checked={workingHours[locationId]?.[day.id]?.useCustomHours || false}
+                                          onChange={() => updateWorkingHour(locationId, day.id, 'useCustomHours', true)}
+                                          className="mr-1"
+                                        />
+                                        <label htmlFor={`custom-hours-${locationId}-${day.id}`} className="text-gray-700 text-sm">
+                                          Horarios Personalizados
+                                        </label>
+                                      </div>
+                                    </div>
+                                    
+                                    {/* Campos para horarios personalizados */}
+                                    {workingHours[locationId]?.[day.id]?.useCustomHours && (
+                                      <div className="flex items-center space-x-2 flex-wrap pl-3 py-2 bg-blue-50 rounded">
+                                        <div className="flex items-center">
+                                          <span className="text-gray-700 mr-2">De</span>
+                                          <input
+                                            type="time"
+                                            className="px-2 py-1 border rounded"
+                                            value={workingHours[locationId]?.[day.id]?.start || defaultHours.start}
+                                            onChange={(e) => updateWorkingHour(locationId, day.id, 'start', e.target.value)}
+                                            disabled={!workingHours[locationId]?.[day.id]?.active}
+                                          />
+                                        </div>
+                                        <div className="flex items-center">
+                                          <span className="text-gray-700 mr-2">a</span>
+                                          <input
+                                            type="time"
+                                            className="px-2 py-1 border rounded"
+                                            value={workingHours[locationId]?.[day.id]?.end || defaultHours.end}
+                                            onChange={(e) => updateWorkingHour(locationId, day.id, 'end', e.target.value)}
+                                            disabled={!workingHours[locationId]?.[day.id]?.active}
+                                          />
+                                        </div>
+                                      </div>
+                                    )}
+                                    
+                                    {/* Mostrar slots de horarios del centro solo si no usa horarios personalizados */}
+                                    {workingHours[locationId]?.[day.id]?.active && 
+                                      !workingHours[locationId]?.[day.id]?.useCustomHours &&
+                                      (() => {
+                                        // Buscar slots para este centro y día
+                                        const centerSlots = locationHourSlots.find(
+                                          item => item.locationId === locationId && item.dayOfWeek === day.id
+                                        );
+                                        
+                                        if (centerSlots && centerSlots.slots.length > 0) {
+                                          return (
+                                            <div className="mt-2 text-xs text-gray-700 pl-3 py-2 bg-amber-50 rounded">
+                                              <p className="mb-1"><strong>Selecciona las franjas horarias:</strong></p>
+                                              <div className="pl-2 space-y-2">
+                                                {centerSlots.slots.map((slot, idx) => (
+                                                  <div key={idx} className="flex items-center">
+                                                    <input
+                                                      type="checkbox"
+                                                      id={`slot-${locationId}-${day.id}-${idx}`}
+                                                      checked={slot.active}
+                                                      onChange={() => toggleHourSlot(locationId, day.id, idx)}
+                                                      className="mr-2"
+                                                    />
+                                                    <label 
+                                                      htmlFor={`slot-${locationId}-${day.id}-${idx}`}
+                                                      className={`${slot.active ? 'text-primary' : 'text-gray-400'}`}
+                                                    >
+                                                      {slot.start} - {slot.end}
+                                                    </label>
+                                                  </div>
+                                                ))}
+                                              </div>
+                                              <p className="mt-2 text-xs text-amber-700">
+                                                ℹ️ Solo se habilitarán las franjas horarias seleccionadas
+                                              </p>
+                                            </div>
+                                          );
+                                        }
+                                        return null;
+                                      })()
+                                    }
+                                  </div>
+                                )}
+                              </div>
                             </div>
                           ))}
                         </div>

@@ -201,7 +201,7 @@ export default function ReservationPage() {
               </span>
             </div>
             <div className="text-right">
-              <span className="text-xs font-semibold inline-block text-primary">
+              <span className="text-xs font-semibold inline-block text-secondary">
                 {Math.round((currentStage / 5) * 100)}%
               </span>
             </div>

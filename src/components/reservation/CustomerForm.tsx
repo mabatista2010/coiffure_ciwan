@@ -107,7 +107,7 @@ export default function CustomerForm({
         transition={{ duration: 0.5 }}
         className="text-center mb-8"
       >
-        <h2 className="text-3xl md:text-4xl font-bold mb-4 text-primary">
+        <h2 className="text-3xl md:text-4xl font-bold mb-4 text-secondary">
           Informations de Contact
         </h2>
         <p className="text-lg text-text-medium">
@@ -118,7 +118,7 @@ export default function CustomerForm({
       <div className="mb-6">
         <button 
           onClick={onBack}
-          className="flex items-center text-primary hover:underline"
+          className="flex items-center text-accent hover:underline"
         >
           &larr; Retour à la sélection de date et heure
         </button>
@@ -134,7 +134,7 @@ export default function CustomerForm({
             <div className="mb-4 pb-4 border-b">
               <h4 className="font-semibold text-gray-800">Service</h4>
               <p className="text-gray-700">{selectedService.nombre}</p>
-              <p className="text-primary font-semibold">{selectedService.precio}€</p>
+              <p className="text-secondary font-semibold">{selectedService.precio}€</p>
             </div>
             <div className="mb-4 pb-4 border-b">
               <h4 className="font-semibold text-gray-800">Centre</h4>
