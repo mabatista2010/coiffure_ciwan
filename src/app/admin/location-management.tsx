@@ -589,7 +589,7 @@ export default function LocationManagement() {
                 
                 <div className="p-3 rounded bg-dark border-l-4 border-primary mb-4">
                   <p className="text-sm text-light">
-                    <strong>Information importante:</strong> Configure les horaires d'ouverture pour chaque jour. Vous pouvez ajouter plusieurs plages horaires par jour (par exemple, matin et soir).
+                    <strong>Information importante:</strong> Configure les horaires d&apos;ouverture pour chaque jour. Vous pouvez ajouter plusieurs plages horaires par jour (par exemple, matin et soir).
                   </p>
                 </div>
                 

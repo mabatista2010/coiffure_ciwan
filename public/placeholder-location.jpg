@@ -1,1 +1,12 @@
- 
+Este archivo debería ser una imagen JPG.
+
+Para crear un marcador de posición para centros:
+1. Crea o descarga una imagen genérica de edificio o local
+2. Redimensiona la imagen a 640x360 píxeles (16:9 ratio)
+3. Guárdala como 'placeholder-location.jpg' en la carpeta 'public'
+
+Alternativamente, puedes usar un servicio como:
+- https://via.placeholder.com/640x360.jpg/212121/FFD700?text=Centre
+- https://placehold.co/640x360/212121/FFD700.png?text=Centre
+
+Esto generará una imagen rectangular con los colores del tema de la aplicación. 

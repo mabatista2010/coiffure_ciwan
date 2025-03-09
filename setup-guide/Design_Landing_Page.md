@@ -92,7 +92,7 @@ Este documento contiene las especificaciones detalladas para la landing page de 
 ## Referencias Visuales
 
 - **Enlaces a inspiración**: 
-  - [Estilo Black Panther UI](https://dribbble.com/shots/4150901-Barbershop)
+  - [Estilo Black Panther UI](https://hammerandnailsgrooming.com/)
   - [Diseño con degradados](https://dribbble.com/shots/17178828-Barbershop-Website-Design)
   - [Layouts modernos](https://dribbble.com/shots/15092789-Hair-Salon-Website-UI-UX-Design)
 

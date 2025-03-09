@@ -1,1 +1,12 @@
- 
+Este archivo debería ser una imagen JPG.
+
+Para crear un marcador de posición de perfil:
+1. Crea o descarga una imagen genérica de perfil (silueta de persona)
+2. Redimensiona la imagen a 400x400 píxeles
+3. Guárdala como 'placeholder-profile.jpg' en la carpeta 'public'
+
+Alternativamente, puedes usar un servicio como:
+- https://via.placeholder.com/400x400.jpg/212121/FFD700?text=Styliste
+- https://placehold.co/400x400/212121/FFD700.png?text=Styliste
+
+Esto generará una imagen cuadrada con los colores del tema de la aplicación. 

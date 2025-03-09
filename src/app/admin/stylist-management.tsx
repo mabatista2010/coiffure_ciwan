@@ -958,7 +958,7 @@ export default function StylistManagement({ services, locations, onUpdate }: Sty
             <p className="text-sm text-light">
               <strong>Information importante sur les horaires:</strong> Lorsque vous sélectionnez un centre, le système charge automatiquement 
               tous les horaires définis pour ce centre. Si le centre a plusieurs plages horaires pour un jour 
-              (par exemple, matin et après-midi), l'estiliste sera disponible dans toutes ces plages horaires si le jour est activé.
+              (par exemple, matin et après-midi), l&apos;estiliste sera disponible dans toutes ces plages horaires si le jour est activé.
             </p>
           </div>
           
@@ -1045,13 +1045,13 @@ export default function StylistManagement({ services, locations, onUpdate }: Sty
               <div className="mb-4 p-3 rounded bg-dark border-l-4 border-primary">
                 <p className="text-sm text-light">
                   Pour chaque jour et centre, vous pouvez choisir entre utiliser les horaires prédéfinis du centre 
-                  ou configurer un horaire personnalisé pour l'estiliste. 
+                  ou configurer un horaire personnalisé pour l&apos;estiliste. 
                 </p>
                 <p className="text-sm mt-1 text-light">
-                  - <strong>Modo Horaires du Centre</strong>: Sélectionnez les plages horaires spécifiques du centre où travaille l'estiliste.
+                  - <strong>Modo Horaires du Centre</strong>: Sélectionnez les plages horaires spécifiques du centre où travaille l&apos;estiliste.
                 </p>
                 <p className="text-sm mt-1 text-light">
-                  - <strong>Modo Horaires Personnalisés</strong>: Définissez un horaire unique pour l'estiliste, indépendant des horaires du centre.
+                  - <strong>Modo Horaires Personnalisés</strong>: Définissez un horaire unique pour l&apos;estiliste, indépendant des horaires du centre.
                 </p>
               </div>
               
@@ -1086,7 +1086,7 @@ export default function StylistManagement({ services, locations, onUpdate }: Sty
                                 {workingHours[locationId]?.[day.id]?.active && (
                                   <div className="w-full mt-2">
                                     <div className="flex flex-col sm:flex-row items-start sm:items-center mb-3 gap-2 sm:gap-4">
-                                      <span className="text-light text-sm font-medium">Mode de l'horaire:</span>
+                                      <span className="text-light text-sm font-medium">Mode de l&apos;horaire:</span>
                                       <div className="flex flex-col sm:flex-row gap-2 sm:gap-4 pl-0 w-full">
                                         <div className="flex items-center bg-dark bg-opacity-50 p-2 rounded border border-gray-700 w-full sm:w-auto">
                                           <input

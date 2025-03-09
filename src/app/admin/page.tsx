@@ -530,7 +530,7 @@ export default function AdminPage() {
           <div className="flex justify-between items-center py-3">
             {/* Logo / Título */}
             <Link href="/admin" className="text-xl font-bold text-primary z-50">
-              Panneau d'administration
+              Panneau administrative
             </Link>
             
             {/* Desktop Menu */}
@@ -1087,7 +1087,7 @@ export default function AdminPage() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   {/* Image de bureau */}
                   <div className="border border-primary rounded-lg p-4 bg-dark">
-                    <h3 className="font-bold text-light mb-2">Image pour l'ordinateur</h3>
+                    <h3 className="font-bold text-light mb-2">Image pour l&apos;ordinateur</h3>
                     <p className="text-gray-300 mb-4">Cette image sera affichée dans la version ordinateur avec un effet de dégradé de gauche à droite.</p>
                     
                     <div className="mb-4">
