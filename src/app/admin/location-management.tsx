@@ -470,7 +470,7 @@ export default function LocationManagement() {
           onClick={() => setShowAddForm(!showAddForm)}
           className="bg-secondary text-light px-6 py-2 rounded-md mb-6 hover:bg-dark hover:text-primary transition-colors border-2 border-primary font-bold"
         >
-          {showAddForm ? 'Cerrar formulario' : 'Agregar un Nuevo Centro'} 
+          {showAddForm ? 'Fermer le formulaire' : 'Ajouter un Nouveau Centre'} 
         </button>
       )}
       
@@ -564,7 +564,7 @@ export default function LocationManagement() {
                         />
                       </div>
                       <p className="text-sm mt-2 text-gray-400 text-center sm:text-left">
-                        Formato recomendado: JPEG o PNG, tamaño máximo 2MB
+                        Format recommandé: JPEG ou PNG, taille maximale 2MB
                       </p>
                     </div>
                     
@@ -589,7 +589,7 @@ export default function LocationManagement() {
                 
                 <div className="p-3 rounded bg-dark border-l-4 border-primary mb-4">
                   <p className="text-sm text-light">
-                    <strong>Información importante:</strong> Configure los horarios de apertura para cada día. Puede añadir múltiples franjas horarias por día (por ejemplo, mañana y tarde).
+                    <strong>Information importante:</strong> Configure les horaires d'ouverture pour chaque jour. Vous pouvez ajouter plusieurs plages horaires par jour (par exemple, matin et soir).
                   </p>
                 </div>
                 
@@ -639,7 +639,7 @@ export default function LocationManagement() {
                       onClick={() => addTimeSlot(day.id)}
                       className="px-3 py-1 mt-2 bg-dark text-light rounded hover:bg-gray-700 transition-colors border border-gray-600"
                     >
-                      + Añadir franja horaria
+                      + Ajouter une plage horaire
                     </button>
                   </div>
                 ))}
@@ -651,7 +651,7 @@ export default function LocationManagement() {
                   className="bg-primary px-6 py-2 rounded font-bold text-secondary hover:bg-yellow-400 transition-colors w-full sm:w-auto"
                   disabled={isUploading}
                 >
-                  {isUploading ? 'Chargement...' : (editingLocation ? 'Actualizar Centro' : 'Crear Centro')}
+                  {isUploading ? 'Téléchargement...' : (editingLocation ? 'Mise à jour du Centre' : 'Créer un Nouveau Centre')}
                 </button>
                 
                 <button
@@ -660,7 +660,7 @@ export default function LocationManagement() {
                   className="bg-gray-600 text-white px-6 py-2 rounded hover:bg-gray-700 transition-colors w-full sm:w-auto"
                   disabled={isUploading}
                 >
-                  Cancelar
+                  Annuler
                 </button>
               </div>
             </form>
@@ -672,7 +672,7 @@ export default function LocationManagement() {
       <div className="space-y-8">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {locations.length === 0 ? (
-            <p className="text-light">No hay centros registrados.</p>
+            <p className="text-light">Aucun centre enregistré.</p>
           ) : (
             locations.map(location => (
               <div 

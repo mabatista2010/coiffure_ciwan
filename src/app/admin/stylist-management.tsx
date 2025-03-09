@@ -902,7 +902,7 @@ export default function StylistManagement({ services, locations, onUpdate }: Sty
         .eq('stylist_id', id);
         
       if (servicesError) {
-        throw new Error(`Error al eliminar los servicios del estilista: ${servicesError.message}`);
+        throw new Error(`Erreur lors de la suppression des services de l'estiliste: ${servicesError.message}`);
       }
       
       // Eliminar estilista
@@ -912,7 +912,7 @@ export default function StylistManagement({ services, locations, onUpdate }: Sty
         .eq('id', id);
         
       if (error) {
-        throw new Error(`Error al eliminar el estilista: ${error.message}`);
+        throw new Error(`Erreur lors de la suppression de l'estiliste: ${error.message}`);
       }
       
       // Recargar datos
@@ -921,7 +921,7 @@ export default function StylistManagement({ services, locations, onUpdate }: Sty
         resetStylistForm();
       }
       
-      onUpdate(); // Notificar al componente padre que hubo cambios
+        onUpdate(); // Notificar al componente padre que hubo cambios
       
     } catch (error) {
       console.error('Error:', error);
@@ -943,7 +943,7 @@ export default function StylistManagement({ services, locations, onUpdate }: Sty
           onClick={() => setShowStylistForm(!showStylistForm)}
           className="bg-secondary text-light px-6 py-2 rounded-md mb-6 hover:bg-dark hover:text-primary transition-colors border-2 border-primary font-bold"
         >
-          {showStylistForm ? 'Cerrar formulario' : 'Agregar Nuevo Estilista'}
+          {showStylistForm ? 'Fermer le formulaire' : 'Ajouter un nouvel estiliste'}
         </button>
       )}
       
@@ -951,20 +951,20 @@ export default function StylistManagement({ services, locations, onUpdate }: Sty
       {showStylistForm && (
         <div className="bg-secondary p-6 rounded mb-6 border border-primary shadow-md">
           <h3 className="text-xl font-semibold mb-4 text-primary">
-            {editMode ? "Modificar Estilista" : "Agregar Nuevo Estilista"}
+            {editMode ? "Modifier l'estiliste" : "Ajouter un nouvel estiliste"}
           </h3>
           
           <div className="mb-4 p-3 rounded bg-dark border-l-4 border-primary">
             <p className="text-sm text-light">
-              <strong>Información importante sobre horarios:</strong> Cuando seleccionas un centro, el sistema carga automáticamente 
-              todos los horarios definidos para ese centro. Si el centro tiene múltiples franjas horarias para un día 
-              (por ejemplo, mañana y tarde), el estilista estará disponible en todas esas franjas si el día está activo.
+              <strong>Information importante sur les horaires:</strong> Lorsque vous sélectionnez un centre, le système charge automatiquement 
+              tous les horaires définis pour ce centre. Si le centre a plusieurs plages horaires pour un jour 
+              (par exemple, matin et après-midi), l'estiliste sera disponible dans toutes ces plages horaires si le jour est activé.
             </p>
           </div>
           
           <form onSubmit={handleStylistSubmit} className="space-y-4">
             <div>
-              <label className="block mb-1 text-light">Nombre:</label>
+              <label className="block mb-1 text-light">Nom:</label>
               <input
                 type="text"
                 value={newStylist.name}
@@ -975,7 +975,7 @@ export default function StylistManagement({ services, locations, onUpdate }: Sty
             </div>
             
             <div>
-              <label className="block mb-1 text-light">Biografía:</label>
+              <label className="block mb-1 text-light">Biographie:</label>
               <textarea
                 value={newStylist.bio}
                 onChange={(e) => setNewStylist({...newStylist, bio: e.target.value})}
@@ -985,7 +985,7 @@ export default function StylistManagement({ services, locations, onUpdate }: Sty
             </div>
             
             <div>
-              <label className="block mb-1 text-light">Centros donde trabaja:</label>
+              <label className="block mb-1 text-light">Centres où travaille:</label>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-2 p-3 rounded bg-dark border border-gray-600">
                 {locations.map(location => (
                   <div key={location.id} className="flex items-center text-light">
@@ -1005,7 +1005,7 @@ export default function StylistManagement({ services, locations, onUpdate }: Sty
             </div>
             
             <div>
-              <label className="block mb-1 text-light">Servicios ofrecidos:</label>
+              <label className="block mb-1 text-light">Services offerts:</label>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-2 p-3 rounded bg-dark border border-gray-600">
                 {services.map(service => (
                   <div key={service.id} className="flex items-center text-light">
@@ -1039,24 +1039,24 @@ export default function StylistManagement({ services, locations, onUpdate }: Sty
             {/* Horarios de trabajo - Restaurado con el nuevo estilo */}
             <div className="mb-6">
               <h3 className="text-lg font-semibold mb-2 text-primary">
-                Horarios de trabajo:
+                Horaires de travail:
               </h3>
               
               <div className="mb-4 p-3 rounded bg-dark border-l-4 border-primary">
                 <p className="text-sm text-light">
-                  Para cada día y centro, puedes elegir entre usar los horarios predefinidos del centro 
-                  o configurar un horario personalizado para el estilista. 
+                  Pour chaque jour et centre, vous pouvez choisir entre utiliser les horaires prédéfinis du centre 
+                  ou configurer un horaire personnalisé pour l'estiliste. 
                 </p>
                 <p className="text-sm mt-1 text-light">
-                  - <strong>Modo Horarios del Centro</strong>: Selecciona las franjas horarias específicas del centro donde trabaja el estilista.
+                  - <strong>Modo Horaires du Centre</strong>: Sélectionnez les plages horaires spécifiques du centre où travaille l'estiliste.
                 </p>
                 <p className="text-sm mt-1 text-light">
-                  - <strong>Modo Horarios Personalizados</strong>: Define un horario único para el estilista, independiente de los horarios del centro.
+                  - <strong>Modo Horaires Personnalisés</strong>: Définissez un horaire unique pour l'estiliste, indépendant des horaires du centre.
                 </p>
               </div>
               
               {newStylist.locationIds.length === 0 ? (
-                <p className="text-light">Selecciona al menos un centro para configurar los horarios.</p>
+                <p className="text-light">Sélectionnez au moins un centre pour configurer les horaires.</p>
               ) : (
                 <div className="space-y-4">
                   {newStylist.locationIds.map(locationId => {
@@ -1086,7 +1086,7 @@ export default function StylistManagement({ services, locations, onUpdate }: Sty
                                 {workingHours[locationId]?.[day.id]?.active && (
                                   <div className="w-full mt-2">
                                     <div className="flex flex-col sm:flex-row items-start sm:items-center mb-3 gap-2 sm:gap-4">
-                                      <span className="text-light text-sm font-medium">Modo de horario:</span>
+                                      <span className="text-light text-sm font-medium">Mode de l'horaire:</span>
                                       <div className="flex flex-col sm:flex-row gap-2 sm:gap-4 pl-0 w-full">
                                         <div className="flex items-center bg-dark bg-opacity-50 p-2 rounded border border-gray-700 w-full sm:w-auto">
                                           <input
@@ -1098,7 +1098,7 @@ export default function StylistManagement({ services, locations, onUpdate }: Sty
                                             className="mr-2 h-4 w-4 accent-primary"
                                           />
                                           <label htmlFor={`center-hours-${locationId}-${day.id}`} className="text-light text-sm hover:text-primary cursor-pointer whitespace-nowrap">
-                                            Horarios del Centro
+                                            Horaires du Centre
                                           </label>
                                         </div>
                                         <div className="flex items-center bg-dark bg-opacity-50 p-2 rounded border border-gray-700 w-full sm:w-auto">
@@ -1111,13 +1111,13 @@ export default function StylistManagement({ services, locations, onUpdate }: Sty
                                             className="mr-2 h-4 w-4 accent-primary"
                                           />
                                           <label htmlFor={`custom-hours-${locationId}-${day.id}`} className="text-light text-sm hover:text-primary cursor-pointer whitespace-nowrap">
-                                            Horarios Personalizados
+                                            Horaires Personnalisés
                                           </label>
                                         </div>
                                       </div>
                                     </div>
                                     
-                                    {/* Campos para horarios personalizados */}
+                                    {/* Champs pour les horaires personnalisés */}
                                     {workingHours[locationId]?.[day.id]?.useCustomHours && (
                                       <div className="flex flex-col sm:flex-row items-start sm:items-center space-y-2 sm:space-y-0 sm:space-x-2 p-3 bg-dark rounded border border-gray-700 w-full">
                                         <div className="flex items-center w-full sm:w-auto">
@@ -1155,7 +1155,7 @@ export default function StylistManagement({ services, locations, onUpdate }: Sty
                                         if (centerSlots && centerSlots.slots.length > 0) {
                                           return (
                                             <div className="mt-2 text-xs text-light py-2 px-2 sm:px-3 bg-dark rounded border border-gray-700 w-full max-w-full overflow-hidden">
-                                              <p className="mb-2 font-bold text-primary text-sm">Selecciona las franjas horarias:</p>
+                                              <p className="mb-2 font-bold text-primary text-sm">Sélectionnez les plages horaires:</p>
                                               <div className="w-full grid grid-cols-1 gap-2">
                                                 {centerSlots.slots.map((slot, idx) => (
                                                   <div key={idx} className={`flex items-center p-2 rounded border w-full ${slot.active ? 'bg-secondary bg-opacity-50 border-primary' : 'bg-dark border-gray-700'}`}>
@@ -1176,7 +1176,7 @@ export default function StylistManagement({ services, locations, onUpdate }: Sty
                                                 ))}
                                               </div>
                                               <p className="mt-3 text-xs text-yellow-300 italic">
-                                                ℹ️ Solo se habilitarán las franjas horarias seleccionadas
+                                                ℹ️ Seules les plages horaires sélectionnées seront activées
                                               </p>
                                             </div>
                                           );
@@ -1184,10 +1184,10 @@ export default function StylistManagement({ services, locations, onUpdate }: Sty
                                           return (
                                             <div className="mt-2 text-xs text-light py-2 px-2 sm:px-3 bg-dark rounded border border-gray-700 w-full">
                                               <p className="text-yellow-300 font-medium">
-                                                ⚠️ No hay franjas horarias definidas para este centro en este día.
+                                                ⚠️ Aucune plage horaire définie pour ce centre dans ce jour.
                                               </p>
                                               <p className="mt-1 text-light">
-                                                Por favor, configura los horarios del centro en la sección de gestión de centros.
+                                                Veuillez configurer les horaires du centre dans la section de gestion des centres.
                                               </p>
                                             </div>
                                           );
@@ -1209,7 +1209,7 @@ export default function StylistManagement({ services, locations, onUpdate }: Sty
             </div>
             
             <div>
-              <label className="block mb-1 text-light">Imagen de perfil:</label>
+              <label className="block mb-1 text-light">Image de profil:</label>
               <div className="flex flex-col sm:flex-row gap-4 w-full items-center">
                 <div className="w-full">
                   <div className="w-full flex justify-center sm:justify-start">
@@ -1221,7 +1221,7 @@ export default function StylistManagement({ services, locations, onUpdate }: Sty
                     />
                   </div>
                   <p className="text-sm mt-2 text-gray-400 text-center sm:text-left">
-                    Formato recomendado: JPEG o PNG, tamaño máximo 2MB
+                    Format recommandé: JPEG ou PNG, taille maximale 2MB
                   </p>
                 </div>
                 
@@ -1245,7 +1245,7 @@ export default function StylistManagement({ services, locations, onUpdate }: Sty
                 className="bg-primary px-6 py-2 rounded font-bold text-secondary hover:bg-yellow-400 transition-colors w-full sm:w-auto"
                 disabled={isUploading}
               >
-                {isUploading ? 'Cargando...' : (editMode ? "Actualizar Estilista" : "Crear Estilista")}
+                {isUploading ? 'Téléchargement...' : (editMode ? "Mise à jour de l'estiliste" : "Créer un nouvel estiliste")}
               </button>
               
               <button
@@ -1256,7 +1256,7 @@ export default function StylistManagement({ services, locations, onUpdate }: Sty
                 }}
                 className="bg-gray-600 text-white px-6 py-2 rounded hover:bg-gray-700 transition-colors w-full sm:w-auto"
               >
-                Cancelar
+                Annuler
               </button>
             </div>
           </form>
@@ -1267,7 +1267,7 @@ export default function StylistManagement({ services, locations, onUpdate }: Sty
       <div className="mb-6">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {stylists.length === 0 ? (
-            <p className="text-light">No hay estilistas registrados.</p>
+            <p className="text-light">Aucun estiliste enregistré.</p>
           ) : (
             stylists.map(stylist => (
               <div 
@@ -1305,14 +1305,14 @@ export default function StylistManagement({ services, locations, onUpdate }: Sty
                   )}
                   
                   <div className="mb-4">
-                    <h5 className="text-sm font-medium mb-2 text-primary">Centros:</h5>
+                    <h5 className="text-sm font-medium mb-2 text-primary">Centres:</h5>
                     <div className="flex flex-wrap gap-2">
                       {stylist.location_ids?.map(locId => (
                         <span 
                           key={locId} 
                           className="text-xs rounded-full px-3 py-1 bg-dark text-light"
                         >
-                          {locations.find(loc => loc.id === locId)?.name || 'Centro desconocido'}
+                          {locations.find(loc => loc.id === locId)?.name || 'Centre inconnu'}
                         </span>
                       ))}
                     </div>

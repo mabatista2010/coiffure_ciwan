@@ -87,7 +87,7 @@ export default function StylistStatsPage() {
     return {
       startDate: startOfMonth,
       endDate: endOfMonth,
-      label: 'Mes actual'
+      label: 'Mois actuel'
     };
   });
   const [customStartDate, setCustomStartDate] = useState<string>('');
@@ -162,7 +162,7 @@ export default function StylistStatsPage() {
         endDate.setDate(startDate.getDate() + 6);
         endDate.setHours(23, 59, 59, 999);
         
-        label = 'Semana actual';
+        label = 'Semaine actuelle';
         break;
 
       case 'semana_anterior':
@@ -182,14 +182,14 @@ export default function StylistStatsPage() {
         endDate.setDate(startDate.getDate() + 6);
         endDate.setHours(23, 59, 59, 999);
         
-        label = 'Semana anterior';
+        label = 'Semaine précédente';
         break;
         
       case 'mes':
         startDate = new Date(today.getFullYear(), today.getMonth(), 1);
         endDate = new Date(today.getFullYear(), today.getMonth() + 1, 0);
         endDate.setHours(23, 59, 59, 999);
-        label = 'Mes actual';
+        label = 'Mois actuel';
         break;
 
       case 'mes_anterior':
@@ -197,14 +197,14 @@ export default function StylistStatsPage() {
         startDate = new Date(today.getFullYear(), today.getMonth() - 1, 1);
         endDate = new Date(today.getFullYear(), today.getMonth(), 0);
         endDate.setHours(23, 59, 59, 999);
-        label = 'Mes anterior';
+        label = 'Mois précédent';
         break;
         
       case 'año':
         startDate = new Date(today.getFullYear(), 0, 1);
         endDate = new Date(today.getFullYear(), 11, 31);
         endDate.setHours(23, 59, 59, 999);
-        label = 'Año actual';
+        label = 'Année actuelle';
         break;
 
       case 'año_anterior':
@@ -212,7 +212,7 @@ export default function StylistStatsPage() {
         startDate = new Date(today.getFullYear() - 1, 0, 1);
         endDate = new Date(today.getFullYear() - 1, 11, 31);
         endDate.setHours(23, 59, 59, 999);
-        label = 'Año anterior';
+        label = 'Année précédente';
         break;
         
       case 'personalizado':
@@ -227,7 +227,7 @@ export default function StylistStatsPage() {
           startDate = new Date(today.getFullYear(), today.getMonth(), 1);
           endDate = new Date(today.getFullYear(), today.getMonth() + 1, 0);
           endDate.setHours(23, 59, 59, 999);
-          label = 'Periodo personalizado';
+          label = 'Période personnalisée';
         }
         break;
         
@@ -235,7 +235,7 @@ export default function StylistStatsPage() {
         startDate = new Date(today.getFullYear(), today.getMonth(), 1);
         endDate = new Date(today.getFullYear(), today.getMonth() + 1, 0);
         endDate.setHours(23, 59, 59, 999);
-        label = 'Mes actual';
+        label = 'Mois actuel';
     }
 
     setDateRange({ startDate, endDate, label });

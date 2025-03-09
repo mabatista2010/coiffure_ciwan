@@ -530,7 +530,7 @@ export default function AdminPage() {
           <div className="flex justify-between items-center py-3">
             {/* Logo / Título */}
             <Link href="/admin" className="text-xl font-bold text-primary z-50">
-              Panel Administrativo
+              Panneau d'administration
             </Link>
             
             {/* Desktop Menu */}
@@ -594,7 +594,7 @@ export default function AdminPage() {
                 href="/admin/reservations" 
                 className="px-3 py-2 rounded-md text-sm font-medium text-light hover:text-primary flex items-center transition-colors duration-200 cursor-pointer"
               >
-                <FaCogs className="mr-2" /> Calendrier
+                <FaCogs className="mr-2" /> Calendrier et statistiques
               </Link>
               
               <button 
@@ -700,7 +700,7 @@ export default function AdminPage() {
                   onClick={() => setIsOpen(false)}
                 >
                   <div className="flex items-center hover:pl-2 hover:text-primary transition-all duration-300">
-                    <FaCogs className="mr-3" /> Calendrier
+                    <FaCogs className="mr-3" /> Calendrier et statistiques
                   </div>
                 </Link>
               </div>
@@ -754,7 +754,7 @@ export default function AdminPage() {
               }}
               className="bg-secondary text-light px-6 py-2 rounded-md mb-6 hover:bg-dark hover:text-primary transition-colors border-2 border-primary font-bold"
             >
-              {showServiceForm ? 'Cerrar formulario' : 'Agregar Nuevo Servicio'}
+              {showServiceForm ? 'Fermer formulaire' : 'Ajouter nouveau service'}
             </button>
             
             {/* Formulario condicional */}
@@ -762,7 +762,7 @@ export default function AdminPage() {
               <div className="bg-secondary shadow-lg rounded-lg overflow-hidden mb-8">
                 <div className="p-6">
                   <h2 className="text-xl font-bold text-primary mb-4">
-                    {editingServiceId ? 'Editar Servicio' : 'Agregar Nuevo Servicio'}
+                    {editingServiceId ? 'Editer service' : 'Ajouter nouveau service'}
                   </h2>
                   
                   <form onSubmit={handleAddService} className="mb-6 grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -778,7 +778,7 @@ export default function AdminPage() {
                     </div>
                     
                     <div>
-                      <label className="block text-light text-sm font-bold mb-2">Precio (€)</label>
+                      <label className="block text-light text-sm font-bold mb-2">Prix (CHF)</label>
                       <input
                         type="number"
                         className="w-full px-3 py-2 border border-gray-600 rounded bg-dark text-light"
@@ -789,7 +789,7 @@ export default function AdminPage() {
                     </div>
                     
                     <div className="md:col-span-2">
-                      <label className="block text-light text-sm font-bold mb-2">Descripción</label>
+                      <label className="block text-light text-sm font-bold mb-2">Description</label>
                       <textarea
                         className="w-full px-3 py-2 border border-gray-600 rounded bg-dark text-light"
                         rows={2}
@@ -800,7 +800,7 @@ export default function AdminPage() {
                     </div>
                     
                     <div className="md:col-span-2">
-                      <label className="block text-light text-sm font-bold mb-2">Imagen del servicio</label>
+                      <label className="block text-light text-sm font-bold mb-2">Image</label>
                       <div className="flex flex-col sm:flex-row gap-4 w-full items-center">
                         <div className="w-full">
                           <div className="w-full flex justify-center sm:justify-start">
@@ -813,7 +813,7 @@ export default function AdminPage() {
                             />
                           </div>
                           <p className="text-sm mt-2 text-gray-400 text-center sm:text-left">
-                            Formato recomendado: JPEG o PNG, tamaño máximo 2MB
+                            Format recommandé: JPEG ou PNG, taille maximale 2MB
                           </p>
                         </div>
                         
@@ -837,14 +837,14 @@ export default function AdminPage() {
                         className="bg-primary px-6 py-2 rounded font-bold text-secondary hover:bg-yellow-400 transition-colors w-full sm:w-auto"
                         disabled={isUploading}
                       >
-                        {isUploading ? 'Subiendo...' : (editingServiceId ? 'Actualizar Servicio' : 'Agregar Servicio')}
+                        {isUploading ? 'Téléchargent' : (editingServiceId ? 'Mise à jour' : 'Ajouter service')}
                       </button>
                       <button
                         type="button"
                         onClick={cancelServiceForm}
                         className="bg-gray-600 text-white px-6 py-2 rounded hover:bg-gray-700 transition-colors w-full sm:w-auto"
                       >
-                        Cancelar
+                        Annuler
                       </button>
                     </div>
                   </form>
@@ -855,7 +855,7 @@ export default function AdminPage() {
             {/* Componente principal con la lista de servicios */}
             <div className="bg-secondary shadow-lg rounded-lg overflow-hidden mb-8">
               <div className="p-6">
-                <h2 className="text-xl font-bold text-primary mb-4">Liste des Services</h2>
+                <h2 className="text-xl font-bold text-primary mb-4">Liste de services</h2>
                 
                 {/* Vista de tarjetas para todas las pantallas */}
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -928,7 +928,7 @@ export default function AdminPage() {
               }}
               className="bg-secondary text-light px-6 py-2 rounded-md mb-6 hover:bg-dark hover:text-primary transition-colors border-2 border-primary font-bold"
             >
-              {showGalleryForm ? 'Cerrar formulario' : 'Agregar Nueva Imagen'}
+              {showGalleryForm ? 'Fermer' : 'Ajouter nouvelle image'}
             </button>
             
             {/* Formulario condicional */}
@@ -936,12 +936,12 @@ export default function AdminPage() {
               <div className="bg-secondary shadow-lg rounded-lg overflow-hidden mb-8">
                 <div className="p-6">
                   <h2 className="text-xl font-bold text-primary mb-4">
-                    {editingGalleryId ? 'Editar Imagen' : 'Agregar Nueva Imagen'}
+                    {editingGalleryId ? 'Editer image' : 'Ajouter nouvelle image'}
                   </h2>
                   
                   <form onSubmit={handleAddImage} className="mb-6 grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-light text-sm font-bold mb-2">Descripción</label>
+                      <label className="block text-light text-sm font-bold mb-2">Description</label>
                       <input
                         type="text"
                         className="w-full px-3 py-2 border border-gray-600 rounded bg-dark text-light"
@@ -952,7 +952,7 @@ export default function AdminPage() {
                     </div>
                     
                     <div>
-                      <label className="block text-light text-sm font-bold mb-2">Fecha</label>
+                      <label className="block text-light text-sm font-bold mb-2">Date</label>
                       <input
                         type="date"
                         className="w-full px-3 py-2 border border-gray-600 rounded bg-dark text-light"
@@ -963,7 +963,7 @@ export default function AdminPage() {
                     </div>
                     
                     <div className="md:col-span-2">
-                      <label className="block text-light text-sm font-bold mb-2">Imagen para la galería</label>
+                      <label className="block text-light text-sm font-bold mb-2">Image pour la galerie</label>
                       <div className="flex flex-col sm:flex-row gap-4 w-full items-center">
                         <div className="w-full">
                           <div className="w-full flex justify-center sm:justify-start">
@@ -977,7 +977,7 @@ export default function AdminPage() {
                             />
                           </div>
                           <p className="text-sm mt-2 text-gray-400 text-center sm:text-left">
-                            Formato recomendado: JPEG o PNG, tamaño máximo 2MB
+                            Format recommandé: JPEG ou PNG, taille maximale 2MB
                           </p>
                         </div>
                         
@@ -1001,14 +1001,14 @@ export default function AdminPage() {
                         className="bg-primary px-6 py-2 rounded font-bold text-secondary hover:bg-yellow-400 transition-colors w-full sm:w-auto"
                         disabled={isUploading}
                       >
-                        {isUploading ? 'Subiendo...' : (editingGalleryId ? 'Actualizar Imagen' : 'Agregar Imagen')}
+                        {isUploading ? 'Téléchargent' : (editingGalleryId ? 'Mise à jour' : 'Ajouter image')}
                       </button>
                       <button
                         type="button"
                         onClick={cancelGalleryForm}
                         className="bg-gray-600 text-white px-6 py-2 rounded hover:bg-gray-700 transition-colors w-full sm:w-auto"
                       >
-                        Cancelar
+                        Annuler
                       </button>
                     </div>
                   </form>
@@ -1078,20 +1078,20 @@ export default function AdminPage() {
         
         {activeSection === 'hero' && (
           <div className="space-y-8">
-            <h1 className="text-3xl font-bold text-primary">Configuración del Hero</h1>
+            <h1 className="text-3xl font-bold text-primary">Configuration du Hero</h1>
             
             <div className="bg-secondary shadow-lg rounded-lg overflow-hidden mb-8">
               <div className="p-6">
-                <h2 className="text-xl font-bold text-primary mb-4">Imágenes del Hero</h2>
+                <h2 className="text-xl font-bold text-primary mb-4">Images du Hero</h2>
                 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   {/* Image de bureau */}
                   <div className="border border-primary rounded-lg p-4 bg-dark">
-                    <h3 className="font-bold text-light mb-2">Imagen para Ordenador</h3>
-                    <p className="text-gray-300 mb-4">Esta imagen se mostrará en la versión de escritorio con un desvanecimiento de izquierda a derecha.</p>
+                    <h3 className="font-bold text-light mb-2">Image pour l'ordinateur</h3>
+                    <p className="text-gray-300 mb-4">Cette image sera affichée dans la version ordinateur avec un effet de dégradé de gauche à droite.</p>
                     
                     <div className="mb-4">
-                      <label className="block text-light text-sm font-bold mb-2">Seleccionar una imagen</label>
+                      <label className="block text-light text-sm font-bold mb-2">Sélectionner une image</label>
                       <input
                         ref={heroDesktopInputRef}
                         type="file"
@@ -1103,11 +1103,11 @@ export default function AdminPage() {
                     
                     {heroDesktopPreview && (
                       <div className="mt-4 w-full">
-                        <p className="text-sm font-medium text-light mb-2">Vista previa:</p>
+                        <p className="text-sm font-medium text-light mb-2">Prévisualisation:</p>
                         <div className="border rounded-lg overflow-hidden">
                           <Image 
                             src={heroDesktopPreview} 
-                            alt="Vista previa de la imagen para ordenador" 
+                            alt="Prévisualisation de l'image pour l'ordinateur" 
                             width={400}
                             height={200}
                             className="w-full h-auto object-cover"
@@ -1121,17 +1121,17 @@ export default function AdminPage() {
                       className="bg-primary text-secondary font-bold py-2 px-4 rounded hover:bg-yellow-400 transition duration-300 disabled:opacity-50 mt-4"
                       disabled={isUploading}
                     >
-                      {isUploading ? 'Téléchargement...' : 'Actualizar la Imagen'}
+                      {isUploading ? 'Téléchargement...' : 'Mise à jour de l\'image'}
                     </button>
                   </div>
                   
                   {/* Image mobile */}
                   <div className="border border-primary rounded-lg p-4 bg-dark">
-                    <h3 className="font-bold text-light mb-2">Imagen para Móvil</h3>
-                    <p className="text-gray-300 mb-4">Esta imagen se mostrará en la versión móvil con un desvanecimiento de arriba abajo.</p>
+                    <h3 className="font-bold text-light mb-2">Image pour le mobile</h3>
+                    <p className="text-gray-300 mb-4">Cette image sera affichée dans la version mobile avec un effet de dégradé de haut en bas.</p>
                     
                     <div className="mb-4">
-                      <label className="block text-light text-sm font-bold mb-2">Seleccionar una imagen</label>
+                      <label className="block text-light text-sm font-bold mb-2">Sélectionner une image</label>
                       <input
                         ref={heroMobileInputRef}
                         type="file"
@@ -1143,11 +1143,11 @@ export default function AdminPage() {
                     
                     {heroMobilePreview && (
                       <div className="mt-4 w-full">
-                        <p className="text-sm font-medium text-light mb-2">Vista previa:</p>
+                        <p className="text-sm font-medium text-light mb-2">Prévisualisation:</p>
                         <div className="border rounded-lg overflow-hidden">
                           <Image 
                             src={heroMobilePreview} 
-                            alt="Vista previa de la imagen para móvil" 
+                            alt="Prévisualisation de l'image pour le mobile" 
                             width={400}
                             height={200}
                             className="w-full h-auto object-cover"
@@ -1161,7 +1161,7 @@ export default function AdminPage() {
                       className="bg-primary text-secondary font-bold py-2 px-4 rounded hover:bg-yellow-400 transition duration-300 disabled:opacity-50 mt-4"
                       disabled={isUploading}
                     >
-                      {isUploading ? 'Téléchargement...' : 'Actualizar la Imagen'}
+                      {isUploading ? 'Téléchargement...' : 'Mise à jour de l\'image'}
                     </button>
                   </div>
                 </div>

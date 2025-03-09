@@ -93,7 +93,7 @@ export default function AdminNav() {
                     : 'text-light hover:bg-dark hover:text-primary'
                 } flex items-center transition-colors duration-200`}
               >
-                <FaCogs className="mr-2" /> Panel de Control
+                <FaCogs className="mr-2" /> Dashboard
               </Link>
               
               <button 
