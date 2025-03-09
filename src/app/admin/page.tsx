@@ -537,10 +537,10 @@ export default function AdminPage() {
             <div className="hidden md:flex items-center gap-2">
               <button 
                 onClick={() => setActiveSection('services')}
-                className={`px-3 py-2 rounded-md text-sm font-medium ${
+                className={`px-3 py-2 rounded-md text-sm font-medium cursor-pointer ${
                   activeSection === 'services' 
                     ? 'bg-dark text-primary' 
-                    : 'text-light hover:bg-dark hover:text-primary'
+                    : 'text-light hover:text-primary'
                 } flex items-center transition-colors duration-200`}
               >
                 <FaTools className="mr-2" /> Services
@@ -548,10 +548,10 @@ export default function AdminPage() {
               
               <button 
                 onClick={() => setActiveSection('gallery')}
-                className={`px-3 py-2 rounded-md text-sm font-medium ${
+                className={`px-3 py-2 rounded-md text-sm font-medium cursor-pointer ${
                   activeSection === 'gallery' 
                     ? 'bg-dark text-primary' 
-                    : 'text-light hover:bg-dark hover:text-primary'
+                    : 'text-light hover:text-primary'
                 } flex items-center transition-colors duration-200`}
               >
                 <FaImages className="mr-2" /> Galerie
@@ -559,10 +559,10 @@ export default function AdminPage() {
               
               <button 
                 onClick={() => setActiveSection('stylists')}
-                className={`px-3 py-2 rounded-md text-sm font-medium ${
+                className={`px-3 py-2 rounded-md text-sm font-medium cursor-pointer ${
                   activeSection === 'stylists' 
                     ? 'bg-dark text-primary' 
-                    : 'text-light hover:bg-dark hover:text-primary'
+                    : 'text-light hover:text-primary'
                 } flex items-center transition-colors duration-200`}
               >
                 <FaUserTie className="mr-2" /> Stylistes
@@ -570,10 +570,10 @@ export default function AdminPage() {
               
               <button 
                 onClick={() => setActiveSection('locations')}
-                className={`px-3 py-2 rounded-md text-sm font-medium ${
+                className={`px-3 py-2 rounded-md text-sm font-medium cursor-pointer ${
                   activeSection === 'locations' 
                     ? 'bg-dark text-primary' 
-                    : 'text-light hover:bg-dark hover:text-primary'
+                    : 'text-light hover:text-primary'
                 } flex items-center transition-colors duration-200`}
               >
                 <FaBuilding className="mr-2" /> Centres
@@ -581,10 +581,10 @@ export default function AdminPage() {
               
               <button 
                 onClick={() => setActiveSection('hero')}
-                className={`px-3 py-2 rounded-md text-sm font-medium ${
+                className={`px-3 py-2 rounded-md text-sm font-medium cursor-pointer ${
                   activeSection === 'hero' 
                     ? 'bg-dark text-primary' 
-                    : 'text-light hover:bg-dark hover:text-primary'
+                    : 'text-light hover:text-primary'
                 } flex items-center transition-colors duration-200`}
               >
                 <FaCogs className="mr-2" /> Configuration
@@ -592,14 +592,14 @@ export default function AdminPage() {
               
               <Link 
                 href="/admin/reservations" 
-                className="px-3 py-2 rounded-md text-sm font-medium text-light hover:bg-dark hover:text-primary flex items-center transition-colors duration-200"
+                className="px-3 py-2 rounded-md text-sm font-medium text-light hover:text-primary flex items-center transition-colors duration-200 cursor-pointer"
               >
                 <FaCogs className="mr-2" /> Calendrier
               </Link>
               
               <button 
                 onClick={handleSignOut}
-                className="px-3 py-2 rounded-md text-sm font-medium text-light hover:bg-dark hover:text-primary flex items-center transition-colors duration-200"
+                className="px-3 py-2 rounded-md text-sm font-medium text-light hover:text-primary flex items-center transition-colors duration-200 cursor-pointer"
               >
                 <FaSignOutAlt className="mr-2" /> Déconnexion
               </button>
@@ -609,7 +609,7 @@ export default function AdminPage() {
             <div className="md:hidden z-50">
               <button 
                 onClick={() => setIsOpen(!isOpen)} 
-                className={`focus:outline-none p-2 transition-all duration-200 text-primary ${isOpen ? 'bg-dark rounded-full shadow-lg hover:shadow-xl' : 'hover:scale-110'}`}
+                className={`focus:outline-none p-2 transition-all duration-200 text-primary cursor-pointer ${isOpen ? 'bg-dark rounded-full shadow-lg hover:shadow-xl' : 'hover:scale-110'}`}
                 aria-label={isOpen ? 'Fermer le menu' : 'Ouvrir le menu'}
               >
                 {isOpen ? <FaTimes size={24} /> : <FaBars size={24} />}
@@ -639,9 +639,9 @@ export default function AdminPage() {
                     setActiveSection('services');
                     setIsOpen(false);
                   }}
-                  className={`block w-full text-left py-3 text-xl font-bold border-b border-dark transition-all duration-300 ${activeSection === 'services' ? 'text-primary' : 'text-light'}`}
+                  className={`block w-full text-left py-3 text-xl font-bold border-b border-dark transition-all duration-300 cursor-pointer ${activeSection === 'services' ? 'text-primary' : 'text-light'}`}
                 >
-                  <div className="flex items-center hover:pl-2 transition-all duration-300">
+                  <div className="flex items-center hover:pl-2 hover:text-primary transition-all duration-300">
                     <FaTools className="mr-3" /> Services
                   </div>
                 </button>
@@ -651,9 +651,9 @@ export default function AdminPage() {
                     setActiveSection('gallery');
                     setIsOpen(false);
                   }}
-                  className={`block w-full text-left py-3 text-xl font-bold border-b border-dark transition-all duration-300 ${activeSection === 'gallery' ? 'text-primary' : 'text-light'}`}
+                  className={`block w-full text-left py-3 text-xl font-bold border-b border-dark transition-all duration-300 cursor-pointer ${activeSection === 'gallery' ? 'text-primary' : 'text-light'}`}
                 >
-                  <div className="flex items-center hover:pl-2 transition-all duration-300">
+                  <div className="flex items-center hover:pl-2 hover:text-primary transition-all duration-300">
                     <FaImages className="mr-3" /> Galerie
                   </div>
                 </button>
@@ -663,9 +663,9 @@ export default function AdminPage() {
                     setActiveSection('stylists');
                     setIsOpen(false);
                   }}
-                  className={`block w-full text-left py-3 text-xl font-bold border-b border-dark transition-all duration-300 ${activeSection === 'stylists' ? 'text-primary' : 'text-light'}`}
+                  className={`block w-full text-left py-3 text-xl font-bold border-b border-dark transition-all duration-300 cursor-pointer ${activeSection === 'stylists' ? 'text-primary' : 'text-light'}`}
                 >
-                  <div className="flex items-center hover:pl-2 transition-all duration-300">
+                  <div className="flex items-center hover:pl-2 hover:text-primary transition-all duration-300">
                     <FaUserTie className="mr-3" /> Stylistes
                   </div>
                 </button>
@@ -675,9 +675,9 @@ export default function AdminPage() {
                     setActiveSection('locations');
                     setIsOpen(false);
                   }}
-                  className={`block w-full text-left py-3 text-xl font-bold border-b border-dark transition-all duration-300 ${activeSection === 'locations' ? 'text-primary' : 'text-light'}`}
+                  className={`block w-full text-left py-3 text-xl font-bold border-b border-dark transition-all duration-300 cursor-pointer ${activeSection === 'locations' ? 'text-primary' : 'text-light'}`}
                 >
-                  <div className="flex items-center hover:pl-2 transition-all duration-300">
+                  <div className="flex items-center hover:pl-2 hover:text-primary transition-all duration-300">
                     <FaBuilding className="mr-3" /> Centres
                   </div>
                 </button>
@@ -687,19 +687,19 @@ export default function AdminPage() {
                     setActiveSection('hero');
                     setIsOpen(false);
                   }}
-                  className={`block w-full text-left py-3 text-xl font-bold border-b border-dark transition-all duration-300 ${activeSection === 'hero' ? 'text-primary' : 'text-light'}`}
+                  className={`block w-full text-left py-3 text-xl font-bold border-b border-dark transition-all duration-300 cursor-pointer ${activeSection === 'hero' ? 'text-primary' : 'text-light'}`}
                 >
-                  <div className="flex items-center hover:pl-2 transition-all duration-300">
+                  <div className="flex items-center hover:pl-2 hover:text-primary transition-all duration-300">
                     <FaCogs className="mr-3" /> Configuration
                   </div>
                 </button>
                 
                 <Link 
-                  href="/admin/reservations" 
-                  className="block py-3 text-xl font-bold border-b border-dark transition-all duration-300 text-light"
+                  href="/admin/reservations"
+                  className="block w-full text-left py-3 text-xl font-bold border-b border-dark transition-all duration-300 text-light cursor-pointer"
                   onClick={() => setIsOpen(false)}
                 >
-                  <div className="flex items-center hover:pl-2 transition-all duration-300">
+                  <div className="flex items-center hover:pl-2 hover:text-primary transition-all duration-300">
                     <FaCogs className="mr-3" /> Calendrier
                   </div>
                 </Link>
@@ -712,7 +712,7 @@ export default function AdminPage() {
                     setIsOpen(false);
                     handleSignOut();
                   }}
-                  className="block w-full py-3 px-4 text-lg font-bold text-center rounded-full transition-transform hover:scale-[1.02] active:scale-[0.98] bg-primary text-secondary shadow-lg"
+                  className="block w-full py-3 px-4 text-lg font-bold text-center rounded-full transition-transform hover:scale-[1.02] active:scale-[0.98] bg-primary text-secondary shadow-lg cursor-pointer"
                 >
                   <div className="flex items-center justify-center">
                     <FaSignOutAlt className="mr-2" /> Déconnexion
