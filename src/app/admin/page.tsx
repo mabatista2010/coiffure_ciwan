@@ -5,6 +5,8 @@ import { supabase, Service, GalleryImage } from '@/lib/supabase';
 import { v4 as uuidv4 } from 'uuid';
 import Image from 'next/image';
 import Link from 'next/link';
+import { FaImages, FaUserTie, FaBuilding, FaTools, FaSignOutAlt, FaBars, FaTimes, FaCogs } from 'react-icons/fa';
+import { motion, AnimatePresence } from 'framer-motion';
 import StylistManagement from './stylist-management';
 import LocationManagement from './location-management';
 
@@ -58,13 +60,35 @@ export default function AdminPage() {
   const [locations, setLocations] = useState<Location[]>([]);
   const [errorMessage, setErrorMessage] = useState('');
   
-  const [activeTab, setActiveTab] = useState('services');
-  
   // Referencias para los inputs de fichero
   const heroDesktopInputRef = useRef<HTMLInputElement>(null);
   const heroMobileInputRef = useRef<HTMLInputElement>(null);
   const serviceImageInputRef = useRef<HTMLInputElement>(null);
   const galleryImageInputRef = useRef<HTMLInputElement>(null);
+  
+  // Estado para navegación móvil
+  const [isOpen, setIsOpen] = useState(false);
+  
+  // Bloquear el scroll cuando el menú está abierto
+  useEffect(() => {
+    if (isOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = 'unset';
+    }
+    
+    return () => {
+      document.body.style.overflow = 'unset';
+    };
+  }, [isOpen]);
+  
+  // Estado para la sección activa
+  const [activeSection, setActiveSection] = useState<string>('services');
+  
+  const handleSignOut = async () => {
+    await supabase.auth.signOut();
+    window.location.href = '/admin';
+  };
   
   // Estado pour indiquer le chargement
   const [isUploading, setIsUploading] = useState(false);
@@ -76,62 +100,71 @@ export default function AdminPage() {
   const loadData = async () => {
     try {
       // Cargar servicios
-      const { data: serviciosData, error: serviciosError } = await supabase
+      const { data: servicesData, error: servicesError } = await supabase
         .from('servicios')
         .select('*')
         .order('id');
-      
-      if (serviciosError) throw serviciosError;
-      if (serviciosData) {
-        setServices(serviciosData);
+        
+      if (servicesError) {
+        throw servicesError;
       }
       
-      // Cargar imágenes de galería
-      const { data: imagenesData, error: imagenesError } = await supabase
+      if (servicesData) {
+        setServices(servicesData);
+      }
+      
+      // Cargar imágenes de la galería
+      const { data: galleryData, error: galleryError } = await supabase
         .from('imagenes_galeria')
         .select('*')
-        .order('fecha', { ascending: false });
-      
-      if (imagenesError) throw imagenesError;
-      if (imagenesData) {
-        setGalleryImages(imagenesData);
+        .order('id', { ascending: false });
+        
+      if (galleryError) {
+        throw galleryError;
       }
       
-      // Cargar configuración (imágenes hero)
+      if (galleryData) {
+        setGalleryImages(galleryData);
+      }
+      
+      // Cargar configuraciones
       const { data: configData, error: configError } = await supabase
         .from('configuracion')
         .select('*');
-      
-      if (configError) throw configError;
-      
-      if (configData) {
-        // Trouver les configurations spécifiques
-        const desktopImage = configData.find(c => c.clave === 'hero_image_desktop');
-        const mobileImage = configData.find(c => c.clave === 'hero_image_mobile');
         
-        if (desktopImage) {
-          setHeroDesktopImage(desktopImage.valor);
-          setHeroDesktopPreview(desktopImage.valor);
+      if (configError) {
+        throw configError;
+      }
+      
+      if (configData && configData.length > 0) {
+        const heroDesktop = configData.find(c => c.clave === 'hero_image_desktop');
+        const heroMobile = configData.find(c => c.clave === 'hero_image_mobile');
+        
+        if (heroDesktop) {
+          setHeroDesktopImage(heroDesktop.valor || '');
         }
-        if (mobileImage) {
-          setHeroMobileImage(mobileImage.valor);
-          setHeroMobilePreview(mobileImage.valor);
+        
+        if (heroMobile) {
+          setHeroMobileImage(heroMobile.valor || '');
         }
       }
       
-      // Cargar centros (necesario para StylistManagement)
+      // Cargar locations para el componente StylistManagement
       const { data: locationsData, error: locationsError } = await supabase
         .from('locations')
         .select('*')
         .eq('active', true);
+        
+      if (locationsError) {
+        throw locationsError;
+      }
       
-      if (locationsError) throw locationsError;
       if (locationsData) {
         setLocations(locationsData);
       }
-    } catch (err: Error | unknown) {
-      console.error('Error al cargar datos:', err);
-      setErrorMessage(err instanceof Error ? err.message : String(err));
+    } catch (error) {
+      console.error('Error al cargar datos:', error);
+      setErrorMessage(error instanceof Error ? error.message : 'Error al cargar datos');
     }
   };
 
@@ -203,52 +236,84 @@ export default function AdminPage() {
     e.preventDefault();
     
     try {
-      let imagen_url = newService.imagen_url;
+      let imageUrl = newService.imagen_url;
       
-      // Si un fichier est sélectionné, le télécharger d'abord
       if (serviceImageFile) {
-        const fileUrl = await uploadFile(serviceImageFile, 'fotos_peluqueria', 'servicios');
-        if (fileUrl) {
-          imagen_url = fileUrl;
+        setIsUploading(true);
+        try {
+          const { data, error } = await supabase.storage
+            .from('fotos_peluqueria')
+            .upload(`servicios/${uuidv4()}`, serviceImageFile);
+          
+          if (error) throw error;
+          
+          if (data) {
+            const { data: publicUrlData } = supabase.storage
+              .from('fotos_peluqueria')
+              .getPublicUrl(data.path);
+              
+            imageUrl = publicUrlData.publicUrl;
+          }
+        } catch (uploadError) {
+          console.error('Error al subir imagen:', uploadError);
+          setErrorMessage('Error al subir la imagen del servicio');
+          setIsUploading(false);
+          return;
         }
       }
       
+      // Crear o actualizar servicio
       if (editingServiceId) {
         // Actualizar servicio existente
         const { error } = await supabase
           .from('servicios')
-          .update({ ...newService, imagen_url })
+          .update({
+            nombre: newService.nombre,
+            descripcion: newService.descripcion,
+            precio: newService.precio,
+            imagen_url: imageUrl
+          })
           .eq('id', editingServiceId);
-        
+          
         if (error) throw error;
       } else {
         // Crear nuevo servicio
         const { error } = await supabase
           .from('servicios')
-          .insert([{ ...newService, imagen_url }]);
-        
+          .insert([{
+            nombre: newService.nombre,
+            descripcion: newService.descripcion,
+            precio: newService.precio,
+            imagen_url: imageUrl
+          }]);
+          
         if (error) throw error;
       }
       
-      // Réinitialiser le formulaire
+      // Reiniciar formulario
       setNewService({
         nombre: '',
         descripcion: '',
         precio: 0,
-        imagen_url: '',
+        imagen_url: ''
       });
+      
       setServiceImageFile(null);
       setServiceImagePreview('');
-      setShowServiceForm(false);
-      setEditingServiceId(null);
       if (serviceImageInputRef.current) {
         serviceImageInputRef.current.value = '';
       }
       
+      setShowServiceForm(false);
+      setEditingServiceId(null);
+      setIsUploading(false);
+      
+      // Recargar servicios
       loadData();
-    } catch (error: Error | unknown) {
-      setErrorMessage(error instanceof Error ? error.message : String(error));
-      console.error('Erreur lors de l\'ajout/modification du service:', error);
+    } catch (error) {
+      console.error('Error al guardar servicio:', error);
+      setErrorMessage(error instanceof Error ? error.message : 'Error al guardar el servicio');
+      setIsUploading(false);
     }
   };
 
@@ -439,503 +504,653 @@ export default function AdminPage() {
   };
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <h1 className="text-3xl font-bold mb-6" style={{ color: '#E76F51' }}>Panneau d&apos;Administration</h1>
-      
-      {errorMessage && (
-        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
-          {errorMessage}
+    <div className="min-h-screen bg-dark text-light">
+      {/* Barra de navegación superior */}
+      <nav className="fixed w-full z-40 bg-secondary text-light">
+        <div className="container mx-auto px-4">
+          <div className="flex justify-between items-center py-3">
+            {/* Logo / Título */}
+            <Link href="/admin" className="text-xl font-bold text-primary z-50">
+              Panel Administrativo
+            </Link>
+            
+            {/* Desktop Menu */}
+            <div className="hidden md:flex items-center gap-2">
+              <button 
+                onClick={() => setActiveSection('services')}
+                className={`px-3 py-2 rounded-md text-sm font-medium ${
+                  activeSection === 'services' 
+                    ? 'bg-dark text-primary' 
+                    : 'text-light hover:bg-dark hover:text-primary'
+                } flex items-center transition-colors duration-200`}
+              >
+                <FaTools className="mr-2" /> Services
+              </button>
+              
+              <button 
+                onClick={() => setActiveSection('gallery')}
+                className={`px-3 py-2 rounded-md text-sm font-medium ${
+                  activeSection === 'gallery' 
+                    ? 'bg-dark text-primary' 
+                    : 'text-light hover:bg-dark hover:text-primary'
+                } flex items-center transition-colors duration-200`}
+              >
+                <FaImages className="mr-2" /> Galerie
+              </button>
+              
+              <button 
+                onClick={() => setActiveSection('stylists')}
+                className={`px-3 py-2 rounded-md text-sm font-medium ${
+                  activeSection === 'stylists' 
+                    ? 'bg-dark text-primary' 
+                    : 'text-light hover:bg-dark hover:text-primary'
+                } flex items-center transition-colors duration-200`}
+              >
+                <FaUserTie className="mr-2" /> Stylistes
+              </button>
+              
+              <button 
+                onClick={() => setActiveSection('locations')}
+                className={`px-3 py-2 rounded-md text-sm font-medium ${
+                  activeSection === 'locations' 
+                    ? 'bg-dark text-primary' 
+                    : 'text-light hover:bg-dark hover:text-primary'
+                } flex items-center transition-colors duration-200`}
+              >
+                <FaBuilding className="mr-2" /> Centres
+              </button>
+              
+              <button 
+                onClick={() => setActiveSection('hero')}
+                className={`px-3 py-2 rounded-md text-sm font-medium ${
+                  activeSection === 'hero' 
+                    ? 'bg-dark text-primary' 
+                    : 'text-light hover:bg-dark hover:text-primary'
+                } flex items-center transition-colors duration-200`}
+              >
+                <FaCogs className="mr-2" /> Configuration
+              </button>
+              
+              <Link 
+                href="/admin/reservations" 
+                className="px-3 py-2 rounded-md text-sm font-medium text-light hover:bg-dark hover:text-primary flex items-center transition-colors duration-200"
+              >
+                <FaCogs className="mr-2" /> Calendrier
+              </Link>
+              
+              <button 
+                onClick={handleSignOut}
+                className="px-3 py-2 rounded-md text-sm font-medium text-light hover:bg-dark hover:text-primary flex items-center transition-colors duration-200"
+              >
+                <FaSignOutAlt className="mr-2" /> Déconnexion
+              </button>
+            </div>
+            
+            {/* Mobile Menu Button */}
+            <div className="md:hidden z-50">
+              <button 
+                onClick={() => setIsOpen(!isOpen)} 
+                className={`focus:outline-none p-2 transition-all duration-200 text-primary ${isOpen ? 'bg-dark rounded-full shadow-lg hover:shadow-xl' : 'hover:scale-110'}`}
+                aria-label={isOpen ? 'Fermer le menu' : 'Ouvrir le menu'}
+              >
+                {isOpen ? <FaTimes size={24} /> : <FaBars size={24} />}
+              </button>
+            </div>
+          </div>
         </div>
-      )}
+      </nav>
       
-      <div className="mb-6">
-        <div className="flex border-b border-gray-200 mb-4 overflow-x-auto whitespace-nowrap">
-          <button
-            className={`py-2 px-4 font-medium ${activeTab === 'services' ? 'border-b-2 border-primary' : 'text-gray-500'}`}
-            style={{ color: activeTab === 'services' ? '#FFD700' : undefined }}
-            onMouseOver={(e) => { if (activeTab !== 'services') e.currentTarget.style.color = '#FFD700' }}
-            onMouseOut={(e) => { if (activeTab !== 'services') e.currentTarget.style.color = '' }}
-            onClick={() => setActiveTab('services')}
-          >
-            Services
-          </button>
-          <button
-            className={`py-2 px-4 font-medium ${activeTab === 'gallery' ? 'border-b-2 border-primary' : 'text-gray-500'}`}
-            style={{ color: activeTab === 'gallery' ? '#FFD700' : undefined }}
-            onMouseOver={(e) => { if (activeTab !== 'gallery') e.currentTarget.style.color = '#FFD700' }}
-            onMouseOut={(e) => { if (activeTab !== 'gallery') e.currentTarget.style.color = '' }}
-            onClick={() => setActiveTab('gallery')}
-          >
-            Galerie
-          </button>
-          <button
-            className={`py-2 px-4 font-medium ${activeTab === 'config' ? 'border-b-2 border-primary' : 'text-gray-500'}`}
-            style={{ color: activeTab === 'config' ? '#FFD700' : undefined }}
-            onMouseOver={(e) => { if (activeTab !== 'config') e.currentTarget.style.color = '#FFD700' }}
-            onMouseOut={(e) => { if (activeTab !== 'config') e.currentTarget.style.color = '' }}
-            onClick={() => setActiveTab('config')}
-          >
-            Configuration
-          </button>
-          <button
-            className={`py-2 px-4 font-medium ${activeTab === 'stylists' ? 'border-b-2 border-primary' : 'text-gray-500'}`}
-            style={{ color: activeTab === 'stylists' ? '#FFD700' : undefined }}
-            onMouseOver={(e) => { if (activeTab !== 'stylists') e.currentTarget.style.color = '#FFD700' }}
-            onMouseOut={(e) => { if (activeTab !== 'stylists') e.currentTarget.style.color = '' }}
-            onClick={() => setActiveTab('stylists')}
-          >
-            Stylistes
-          </button>
-          <button
-            className={`py-2 px-4 font-medium ${activeTab === 'locations' ? 'border-b-2 border-primary' : 'text-gray-500'}`}
-            style={{ color: activeTab === 'locations' ? '#FFD700' : undefined }}
-            onMouseOver={(e) => { if (activeTab !== 'locations') e.currentTarget.style.color = '#FFD700' }}
-            onMouseOut={(e) => { if (activeTab !== 'locations') e.currentTarget.style.color = '' }}
-            onClick={() => setActiveTab('locations')}
-          >
-            Centres
-          </button>
-          <Link 
-            href="/admin/reservations" 
-            className="py-2 px-4 font-medium text-gray-500 flex items-center"
-            style={{ transition: 'color 0.3s' }}
-            onMouseOver={(e) => { e.currentTarget.style.color = '#FFD700' }}
-            onMouseOut={(e) => { e.currentTarget.style.color = '' }}
-          >
-            <span>Calendrier des Réservations</span>
-            <span className="ml-1 text-xs bg-primary text-secondary px-1 rounded">↗</span>
-          </Link>
-        </div>
-      </div>
+      {/* Espacio para compensar el navbar fijo */}
+      <div className="h-16"></div>
       
-      {/* Sections existantes */}
-      {activeTab === 'services' && (
-        <>
-          {/* Botón para mostrar/ocultar el formulario - ahora fuera del componente blanco */}
-          <button 
-            onClick={() => {
-              if (showServiceForm) {
-                cancelServiceForm();
-              } else {
-                setShowServiceForm(true);
-              }
-            }}
-            className="bg-white text-black px-6 py-2 rounded-md mb-6 hover:bg-yellow-300 transition-colors border-2 border-primary font-bold"
+      {/* Mobile Menu Overlay */}
+      <AnimatePresence>
+        {isOpen && (
+          <motion.div 
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            transition={{ duration: 0.3 }}
+            className="fixed top-0 left-0 right-0 z-30 md:hidden bg-secondary"
           >
-            {showServiceForm ? 'Cerrar formulario' : 'Agregar Nuevo Servicio'}
-          </button>
-          
-          {/* Formulario condicional */}
-          {showServiceForm && (
-            <div className="bg-white shadow-lg rounded-lg overflow-hidden mb-8">
-              <div className="p-6">
-                <h2 className="text-xl font-bold text-secondary mb-4">
-                  {editingServiceId ? 'Editar Servicio' : 'Agregar Nuevo Servicio'}
-                </h2>
+            <div className="flex flex-col pt-20 pb-10 px-6 min-h-[450px] max-h-[80vh] shadow-2xl">
+              <div className="space-y-1">
+                <button 
+                  onClick={() => {
+                    setActiveSection('services');
+                    setIsOpen(false);
+                  }}
+                  className={`block w-full text-left py-3 text-xl font-bold border-b border-dark transition-all duration-300 ${activeSection === 'services' ? 'text-primary' : 'text-light'}`}
+                >
+                  <div className="flex items-center hover:pl-2 transition-all duration-300">
+                    <FaTools className="mr-3" /> Services
+                  </div>
+                </button>
                 
-                <form onSubmit={handleAddService} className="mb-6 grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-text-dark text-sm font-bold mb-2">Nom</label>
-                    <input
-                      type="text"
-                      className="w-full px-3 py-2 border border-gray-300 rounded"
-                      value={newService.nombre}
-                      onChange={(e) => setNewService({ ...newService, nombre: e.target.value })}
-                      required
-                    />
+                <button 
+                  onClick={() => {
+                    setActiveSection('gallery');
+                    setIsOpen(false);
+                  }}
+                  className={`block w-full text-left py-3 text-xl font-bold border-b border-dark transition-all duration-300 ${activeSection === 'gallery' ? 'text-primary' : 'text-light'}`}
+                >
+                  <div className="flex items-center hover:pl-2 transition-all duration-300">
+                    <FaImages className="mr-3" /> Galerie
                   </div>
-                  
-                  <div>
-                    <label className="block text-text-dark text-sm font-bold mb-2">Precio (€)</label>
-                    <input
-                      type="number"
-                      className="w-full px-3 py-2 border border-gray-300 rounded"
-                      value={newService.precio}
-                      onChange={(e) => setNewService({ ...newService, precio: Number(e.target.value) })}
-                      required
-                    />
+                </button>
+                
+                <button 
+                  onClick={() => {
+                    setActiveSection('stylists');
+                    setIsOpen(false);
+                  }}
+                  className={`block w-full text-left py-3 text-xl font-bold border-b border-dark transition-all duration-300 ${activeSection === 'stylists' ? 'text-primary' : 'text-light'}`}
+                >
+                  <div className="flex items-center hover:pl-2 transition-all duration-300">
+                    <FaUserTie className="mr-3" /> Stylistes
                   </div>
-                  
-                  <div className="md:col-span-2">
-                    <label className="block text-text-dark text-sm font-bold mb-2">Descripción</label>
-                    <textarea
-                      className="w-full px-3 py-2 border border-gray-300 rounded"
-                      rows={2}
-                      value={newService.descripcion}
-                      onChange={(e) => setNewService({ ...newService, descripcion: e.target.value })}
-                      required
-                    />
+                </button>
+                
+                <button 
+                  onClick={() => {
+                    setActiveSection('locations');
+                    setIsOpen(false);
+                  }}
+                  className={`block w-full text-left py-3 text-xl font-bold border-b border-dark transition-all duration-300 ${activeSection === 'locations' ? 'text-primary' : 'text-light'}`}
+                >
+                  <div className="flex items-center hover:pl-2 transition-all duration-300">
+                    <FaBuilding className="mr-3" /> Centres
                   </div>
-                  
-                  <div className="md:col-span-2">
-                    <label className="block text-text-dark text-sm font-bold mb-2">Imagen del servicio</label>
-                    <input
-                      ref={serviceImageInputRef}
-                      type="file"
-                      accept="image/*"
-                      className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-primary file:text-secondary hover:file:bg-yellow-400"
-                      onChange={(e) => handleFileChange(e, setServiceImageFile, setServiceImagePreview)}
-                    />
-                    
-                    {serviceImagePreview && (
-                      <div className="mt-4 w-full">
-                        <p className="text-sm font-medium text-gray-600 mb-2">Vista previa:</p>
-                        <div className="border rounded-lg overflow-hidden" style={{ maxWidth: '300px' }}>
-                          <Image 
-                            src={serviceImagePreview} 
-                            alt="Vista previa del servicio" 
-                            width={300}
-                            height={200}
-                            className="w-full h-auto object-cover"
-                          />
-                        </div>
-                      </div>
-                    )}
+                </button>
+                
+                <button 
+                  onClick={() => {
+                    setActiveSection('hero');
+                    setIsOpen(false);
+                  }}
+                  className={`block w-full text-left py-3 text-xl font-bold border-b border-dark transition-all duration-300 ${activeSection === 'hero' ? 'text-primary' : 'text-light'}`}
+                >
+                  <div className="flex items-center hover:pl-2 transition-all duration-300">
+                    <FaCogs className="mr-3" /> Configuration
                   </div>
-                  
-                  <div className="md:col-span-2 flex space-x-2">
-                    <button
-                      type="submit"
-                      className="bg-primary text-secondary font-bold py-2 px-4 rounded hover:bg-yellow-400 transition duration-300 disabled:opacity-50"
-                      disabled={isUploading}
-                    >
-                      {isUploading ? 'Subiendo...' : (editingServiceId ? 'Actualizar Servicio' : 'Agregar Servicio')}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={cancelServiceForm}
-                      className="bg-gray-300 text-gray-700 font-bold py-2 px-4 rounded hover:bg-gray-400 transition duration-300"
-                    >
-                      Cancelar
-                    </button>
+                </button>
+                
+                <Link 
+                  href="/admin/reservations" 
+                  className="block py-3 text-xl font-bold border-b border-dark transition-all duration-300 text-light"
+                  onClick={() => setIsOpen(false)}
+                >
+                  <div className="flex items-center hover:pl-2 transition-all duration-300">
+                    <FaCogs className="mr-3" /> Calendrier
                   </div>
-                </form>
+                </Link>
+              </div>
+              
+              {/* Botón de cierre de sesión */}
+              <div className="mt-8">
+                <button 
+                  onClick={() => {
+                    setIsOpen(false);
+                    handleSignOut();
+                  }}
+                  className="block w-full py-3 px-4 text-lg font-bold text-center rounded-full transition-transform hover:scale-[1.02] active:scale-[0.98] bg-primary text-secondary shadow-lg"
+                >
+                  <div className="flex items-center justify-center">
+                    <FaSignOutAlt className="mr-2" /> Déconnexion
+                  </div>
+                </button>
               </div>
             </div>
-          )}
-          
-          {/* Componente principal con la lista de servicios - ahora responsive */}
-          <div className="bg-white shadow-lg rounded-lg overflow-hidden mb-8">
-            <div className="p-6">
-              <h2 className="text-xl font-bold text-secondary mb-4">Liste des Services</h2>
-              
-              {/* Vista de tarjetas para todas las pantallas */}
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {services.map((service) => (
-                  <div key={service.id} className="border rounded-lg shadow-sm hover:shadow-md transition-shadow overflow-hidden">
-                    {/* Estructura diferente para móvil y escritorio */}
-                    <div className="flex flex-col md:flex-col">
-                      {/* Imagen adaptada para diferentes tamaños */}
-                      {service.imagen_url ? (
-                        <>
-                          {/* Imagen grande en escritorio, oculta en móvil */}
-                          <div className="hidden md:block relative w-full h-48">
-                            <Image 
-                              src={service.imagen_url} 
-                              alt={service.nombre} 
-                              fill
-                              className="object-cover"
+          </motion.div>
+        )}
+      </AnimatePresence>
+      
+      <div className="container mx-auto px-4 py-8">
+        {/* Mensaje de error si existe */}
+        {errorMessage && (
+          <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4 relative">
+            <span className="block sm:inline">{errorMessage}</span>
+            <button 
+              className="absolute top-0 bottom-0 right-0 px-4 py-3"
+              onClick={() => setErrorMessage('')}
+            >
+              <span className="text-xl">&times;</span>
+            </button>
+          </div>
+        )}
+        
+        {/* Contenido según la sección activa */}
+        {activeSection === 'services' && (
+          <div className="space-y-8">
+            <h1 className="text-3xl font-bold text-primary">Gestion des Services</h1>
+            
+            {/* Botón para mostrar/ocultar el formulario */}
+            <button 
+              onClick={() => {
+                if (showServiceForm) {
+                  cancelServiceForm();
+                } else {
+                  setShowServiceForm(true);
+                }
+              }}
+              className="bg-secondary text-light px-6 py-2 rounded-md mb-6 hover:bg-dark hover:text-primary transition-colors border-2 border-primary font-bold"
+            >
+              {showServiceForm ? 'Cerrar formulario' : 'Agregar Nuevo Servicio'}
+            </button>
+            
+            {/* Formulario condicional */}
+            {showServiceForm && (
+              <div className="bg-secondary shadow-lg rounded-lg overflow-hidden mb-8">
+                <div className="p-6">
+                  <h2 className="text-xl font-bold text-primary mb-4">
+                    {editingServiceId ? 'Editar Servicio' : 'Agregar Nuevo Servicio'}
+                  </h2>
+                  
+                  <form onSubmit={handleAddService} className="mb-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-light text-sm font-bold mb-2">Nom</label>
+                      <input
+                        type="text"
+                        className="w-full px-3 py-2 border border-gray-600 rounded bg-dark text-light"
+                        value={newService.nombre}
+                        onChange={(e) => setNewService({ ...newService, nombre: e.target.value })}
+                        required
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className="block text-light text-sm font-bold mb-2">Precio (€)</label>
+                      <input
+                        type="number"
+                        className="w-full px-3 py-2 border border-gray-600 rounded bg-dark text-light"
+                        value={newService.precio}
+                        onChange={(e) => setNewService({ ...newService, precio: Number(e.target.value) })}
+                        required
+                      />
+                    </div>
+                    
+                    <div className="md:col-span-2">
+                      <label className="block text-light text-sm font-bold mb-2">Descripción</label>
+                      <textarea
+                        className="w-full px-3 py-2 border border-gray-600 rounded bg-dark text-light"
+                        rows={2}
+                        value={newService.descripcion}
+                        onChange={(e) => setNewService({ ...newService, descripcion: e.target.value })}
+                        required
+                      />
+                    </div>
+                    
+                    <div className="md:col-span-2">
+                      <label className="block text-light text-sm font-bold mb-2">Imagen del servicio</label>
+                      <div className="flex flex-col sm:flex-row gap-4 w-full items-center">
+                        <div className="w-full">
+                          <div className="w-full flex justify-center sm:justify-start">
+                            <input
+                              ref={serviceImageInputRef}
+                              type="file"
+                              accept="image/*"
+                              className="w-full max-w-xs sm:max-w-full p-2 rounded text-light bg-dark border border-gray-600 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-primary file:text-secondary"
+                              onChange={(e) => handleFileChange(e, setServiceImageFile, setServiceImagePreview)}
                             />
                           </div>
-                          {/* Imagen pequeña en móvil, oculta en escritorio */}
-                          <div className="md:hidden flex p-4">
-                            <div className="relative h-20 w-20 rounded overflow-hidden mr-3 flex-shrink-0">
-                              <Image 
-                                src={service.imagen_url} 
-                                alt={service.nombre} 
-                                width={80} 
-                                height={80} 
-                                className="absolute inset-0 w-full h-full object-cover"
-                              />
-                            </div>
-                            <div>
-                              <h3 className="font-bold text-lg">{service.nombre}</h3>
-                              <p className="text-primary font-semibold">{service.precio}€</p>
-                            </div>
+                          <p className="text-sm mt-2 text-gray-400 text-center sm:text-left">
+                            Formato recomendado: JPEG o PNG, tamaño máximo 2MB
+                          </p>
+                        </div>
+                        
+                        {serviceImagePreview && (
+                          <div className="w-24 h-24 relative flex-shrink-0">
+                            <Image
+                              src={serviceImagePreview}
+                              alt="Vista previa"
+                              className="rounded object-cover w-full h-full border-2 border-primary"
+                              width={96}
+                              height={96}
+                            />
                           </div>
-                        </>
-                      ) : (
-                        <div className="p-4">
-                          <h3 className="font-bold text-lg">{service.nombre}</h3>
-                          <p className="text-primary font-semibold">{service.precio}€</p>
-                        </div>
-                      )}
-                      
-                      {/* Información del servicio - versión escritorio */}
-                      {service.imagen_url && (
-                        <div className="hidden md:block p-4 pb-2">
-                          <h3 className="font-bold text-lg">{service.nombre}</h3>
-                          <p className="text-primary font-semibold">{service.precio}€</p>
-                        </div>
-                      )}
-                      
-                      {/* Descripción del servicio */}
-                      <div className="px-4 pb-4">
-                        <p className="text-sm text-gray-600">{service.descripcion}</p>
+                        )}
+                      </div>
+                    </div>
+                    
+                    <div className="md:col-span-2 flex flex-col sm:flex-row gap-3 pt-4 justify-center sm:justify-start">
+                      <button
+                        type="submit"
+                        className="bg-primary px-6 py-2 rounded font-bold text-secondary hover:bg-yellow-400 transition-colors w-full sm:w-auto"
+                        disabled={isUploading}
+                      >
+                        {isUploading ? 'Subiendo...' : (editingServiceId ? 'Actualizar Servicio' : 'Agregar Servicio')}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={cancelServiceForm}
+                        className="bg-gray-600 text-white px-6 py-2 rounded hover:bg-gray-700 transition-colors w-full sm:w-auto"
+                      >
+                        Cancelar
+                      </button>
+                    </div>
+                  </form>
+                </div>
+              </div>
+            )}
+            
+            {/* Componente principal con la lista de servicios */}
+            <div className="bg-secondary shadow-lg rounded-lg overflow-hidden mb-8">
+              <div className="p-6">
+                <h2 className="text-xl font-bold text-primary mb-4">Liste des Services</h2>
+                
+                {/* Vista de tarjetas para todas las pantallas */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {services.map((service) => (
+                    <div key={service.id} className="rounded-lg border border-primary shadow-md hover:shadow-lg transition-all bg-secondary overflow-hidden">
+                      {/* Imagen en la parte superior ocupando todo el ancho */}
+                      <div className="relative w-full h-48 sm:h-64">
+                        {service.imagen_url ? (
+                          <Image 
+                            src={service.imagen_url} 
+                            alt={service.nombre} 
+                            fill
+                            className="object-cover"
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center bg-dark">
+                            <span className="text-4xl sm:text-6xl font-bold text-primary">
+                              {service.nombre.charAt(0)}
+                            </span>
+                          </div>
+                        )}
                       </div>
                       
-                      <div className="flex space-x-2 p-4 mt-auto border-t">
+                      {/* Contenido debajo de la imagen */}
+                      <div className="p-5">
+                        <div className="flex justify-between items-center mb-2">
+                          <h3 className="text-xl font-bold text-primary">{service.nombre}</h3>
+                          <p className="text-primary font-bold">{service.precio}€</p>
+                        </div>
+                        
+                        <p className="text-sm text-light mb-2">{service.descripcion}</p>
+                      </div>
+                      
+                      {/* Botones de acción */}
+                      <div className="flex border-t border-gray-700">
                         <button
                           onClick={() => handleEditService(service)}
-                          className="flex-1 text-center py-1 rounded bg-blue-100 text-blue-700 font-medium text-sm hover:bg-blue-200 transition-colors"
+                          className="flex-1 text-center py-3 font-medium text-light hover:bg-dark hover:text-primary transition-colors"
                         >
                           Modifier
                         </button>
+                        <div className="w-px bg-gray-700"></div>
                         <button
                           onClick={() => handleDeleteService(service.id)}
-                          className="flex-1 text-center py-1 rounded bg-red-100 text-red-700 font-medium text-sm hover:bg-red-200 transition-colors"
+                          className="flex-1 text-center py-3 font-medium text-light hover:bg-dark hover:text-primary transition-colors"
                         >
                           Supprimer
                         </button>
                       </div>
                     </div>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
             </div>
           </div>
-        </>
-      )}
-      
-      {activeTab === 'gallery' && (
-        <>
-          {/* Botón para mostrar/ocultar el formulario - fuera del componente blanco */}
-          <button 
-            onClick={() => {
-              if (showGalleryForm) {
-                cancelGalleryForm();
-              } else {
-                setShowGalleryForm(true);
-              }
-            }}
-            className="bg-white text-black px-6 py-2 rounded-md mb-6 hover:bg-yellow-300 transition-colors border-2 border-primary font-bold"
-          >
-            {showGalleryForm ? 'Cerrar formulario' : 'Agregar Nueva Imagen'}
-          </button>
-          
-          {/* Formulario condicional */}
-          {showGalleryForm && (
-            <div className="bg-white shadow-lg rounded-lg overflow-hidden mb-8">
-              <div className="p-6">
-                <h2 className="text-xl font-bold text-secondary mb-4">
-                  {editingGalleryId ? 'Editar Imagen' : 'Agregar Nueva Imagen'}
-                </h2>
-                
-                <form onSubmit={handleAddImage} className="mb-6 grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-text-dark text-sm font-bold mb-2">Descripción</label>
-                    <input
-                      type="text"
-                      className="w-full px-3 py-2 border border-gray-300 rounded"
-                      value={newImage.descripcion}
-                      onChange={(e) => setNewImage({ ...newImage, descripcion: e.target.value })}
-                      required
-                    />
-                  </div>
+        )}
+        
+        {activeSection === 'gallery' && (
+          <div className="space-y-8">
+            <h1 className="text-3xl font-bold text-primary">Gestion de la Galerie</h1>
+            
+            {/* Botón para mostrar/ocultar el formulario */}
+            <button 
+              onClick={() => {
+                if (showGalleryForm) {
+                  cancelGalleryForm();
+                } else {
+                  setShowGalleryForm(true);
+                }
+              }}
+              className="bg-secondary text-light px-6 py-2 rounded-md mb-6 hover:bg-dark hover:text-primary transition-colors border-2 border-primary font-bold"
+            >
+              {showGalleryForm ? 'Cerrar formulario' : 'Agregar Nueva Imagen'}
+            </button>
+            
+            {/* Formulario condicional */}
+            {showGalleryForm && (
+              <div className="bg-secondary shadow-lg rounded-lg overflow-hidden mb-8">
+                <div className="p-6">
+                  <h2 className="text-xl font-bold text-primary mb-4">
+                    {editingGalleryId ? 'Editar Imagen' : 'Agregar Nueva Imagen'}
+                  </h2>
                   
-                  <div>
-                    <label className="block text-text-dark text-sm font-bold mb-2">Fecha</label>
-                    <input
-                      type="date"
-                      className="w-full px-3 py-2 border border-gray-300 rounded"
-                      value={newImage.fecha}
-                      onChange={(e) => setNewImage({ ...newImage, fecha: e.target.value })}
-                      required
-                    />
-                  </div>
-                  
-                  <div className="md:col-span-2">
-                    <label className="block text-text-dark text-sm font-bold mb-2">Imagen para la galería</label>
-                    <input
-                      ref={galleryImageInputRef}
-                      type="file"
-                      accept="image/*"
-                      className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-primary file:text-secondary hover:file:bg-yellow-400"
-                      onChange={(e) => handleFileChange(e, setGalleryImageFile, setGalleryImagePreview)}
-                      required={!editingGalleryId}
-                    />
+                  <form onSubmit={handleAddImage} className="mb-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-light text-sm font-bold mb-2">Descripción</label>
+                      <input
+                        type="text"
+                        className="w-full px-3 py-2 border border-gray-600 rounded bg-dark text-light"
+                        value={newImage.descripcion}
+                        onChange={(e) => setNewImage({ ...newImage, descripcion: e.target.value })}
+                        required
+                      />
+                    </div>
                     
-                    {galleryImagePreview && (
+                    <div>
+                      <label className="block text-light text-sm font-bold mb-2">Fecha</label>
+                      <input
+                        type="date"
+                        className="w-full px-3 py-2 border border-gray-600 rounded bg-dark text-light"
+                        value={newImage.fecha}
+                        onChange={(e) => setNewImage({ ...newImage, fecha: e.target.value })}
+                        required
+                      />
+                    </div>
+                    
+                    <div className="md:col-span-2">
+                      <label className="block text-light text-sm font-bold mb-2">Imagen para la galería</label>
+                      <div className="flex flex-col sm:flex-row gap-4 w-full items-center">
+                        <div className="w-full">
+                          <div className="w-full flex justify-center sm:justify-start">
+                            <input
+                              ref={galleryImageInputRef}
+                              type="file"
+                              accept="image/*"
+                              className="w-full max-w-xs sm:max-w-full p-2 rounded text-light bg-dark border border-gray-600 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-primary file:text-secondary"
+                              onChange={(e) => handleFileChange(e, setGalleryImageFile, setGalleryImagePreview)}
+                              required={!editingGalleryId}
+                            />
+                          </div>
+                          <p className="text-sm mt-2 text-gray-400 text-center sm:text-left">
+                            Formato recomendado: JPEG o PNG, tamaño máximo 2MB
+                          </p>
+                        </div>
+                        
+                        {galleryImagePreview && (
+                          <div className="w-24 h-24 relative flex-shrink-0">
+                            <Image
+                              src={galleryImagePreview}
+                              alt="Vista previa"
+                              className="rounded object-cover w-full h-full border-2 border-primary"
+                              width={96}
+                              height={96}
+                            />
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    
+                    <div className="md:col-span-2 flex flex-col sm:flex-row gap-3 pt-4 justify-center sm:justify-start">
+                      <button
+                        type="submit"
+                        className="bg-primary px-6 py-2 rounded font-bold text-secondary hover:bg-yellow-400 transition-colors w-full sm:w-auto"
+                        disabled={isUploading}
+                      >
+                        {isUploading ? 'Subiendo...' : (editingGalleryId ? 'Actualizar Imagen' : 'Agregar Imagen')}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={cancelGalleryForm}
+                        className="bg-gray-600 text-white px-6 py-2 rounded hover:bg-gray-700 transition-colors w-full sm:w-auto"
+                      >
+                        Cancelar
+                      </button>
+                    </div>
+                  </form>
+                </div>
+              </div>
+            )}
+            
+            {/* Componente principal con galería */}
+            <div className="bg-secondary shadow-lg rounded-lg overflow-hidden">
+              <div className="p-6">
+                <h2 className="text-xl font-bold text-primary mb-4">Images de la Galerie</h2>
+                
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {galleryImages.map((image) => (
+                    <div key={image.id} className="rounded-lg border border-primary shadow-md hover:shadow-lg transition-all bg-secondary overflow-hidden">
+                      {/* Imagen en la parte superior ocupando todo el ancho */}
+                      <div className="relative w-full h-48 sm:h-64">
+                        <Image 
+                          src={image.imagen_url} 
+                          alt={image.descripcion} 
+                          fill
+                          className="object-cover"
+                        />
+                      </div>
+                      
+                      {/* Contenido debajo de la imagen */}
+                      <div className="p-4">
+                        <h3 className="font-bold text-light mb-1">{image.descripcion}</h3>
+                        <p className="text-xs text-gray-400">{new Date(image.fecha).toLocaleDateString('fr-FR')}</p>
+                      </div>
+                      
+                      {/* Botones de acción */}
+                      <div className="flex border-t border-gray-700">
+                        <button
+                          onClick={() => handleEditImage(image)}
+                          className="flex-1 text-center py-3 font-medium text-light hover:bg-dark hover:text-primary transition-colors"
+                        >
+                          Modifier
+                        </button>
+                        <div className="w-px bg-gray-700"></div>
+                        <button
+                          onClick={() => handleDeleteImage(image.id)}
+                          className="flex-1 text-center py-3 font-medium text-light hover:bg-dark hover:text-primary transition-colors"
+                        >
+                          Supprimer
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+        
+        {activeSection === 'stylists' && (
+          <StylistManagement 
+            services={services} 
+            locations={locations}
+            onUpdate={loadData}
+          />
+        )}
+        
+        {activeSection === 'locations' && (
+          <LocationManagement />
+        )}
+        
+        {activeSection === 'hero' && (
+          <div className="space-y-8">
+            <h1 className="text-3xl font-bold text-primary">Configuración del Hero</h1>
+            
+            <div className="bg-secondary shadow-lg rounded-lg overflow-hidden mb-8">
+              <div className="p-6">
+                <h2 className="text-xl font-bold text-primary mb-4">Imágenes del Hero</h2>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {/* Image de bureau */}
+                  <div className="border border-primary rounded-lg p-4 bg-dark">
+                    <h3 className="font-bold text-light mb-2">Imagen para Ordenador</h3>
+                    <p className="text-gray-300 mb-4">Esta imagen se mostrará en la versión de escritorio con un desvanecimiento de izquierda a derecha.</p>
+                    
+                    <div className="mb-4">
+                      <label className="block text-light text-sm font-bold mb-2">Seleccionar una imagen</label>
+                      <input
+                        ref={heroDesktopInputRef}
+                        type="file"
+                        accept="image/*"
+                        className="block w-full text-sm text-light file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-primary file:text-secondary hover:file:bg-yellow-400"
+                        onChange={(e) => handleFileChange(e, setHeroDesktopFile, setHeroDesktopPreview)}
+                      />
+                    </div>
+                    
+                    {heroDesktopPreview && (
                       <div className="mt-4 w-full">
-                        <p className="text-sm font-medium text-gray-600 mb-2">Vista previa:</p>
-                        <div className="border rounded-lg overflow-hidden" style={{ maxWidth: '300px' }}>
+                        <p className="text-sm font-medium text-light mb-2">Vista previa:</p>
+                        <div className="border rounded-lg overflow-hidden">
                           <Image 
-                            src={galleryImagePreview} 
-                            alt="Vista previa de la galería" 
-                            width={300}
+                            src={heroDesktopPreview} 
+                            alt="Vista previa de la imagen para ordenador" 
+                            width={400}
                             height={200}
                             className="w-full h-auto object-cover"
                           />
                         </div>
                       </div>
                     )}
-                  </div>
-                  
-                  <div className="md:col-span-2 flex space-x-2">
-                    <button
-                      type="submit"
-                      className="bg-primary text-secondary font-bold py-2 px-4 rounded hover:bg-yellow-400 transition duration-300 disabled:opacity-50"
+                    
+                    <button 
+                      onClick={() => updateHeroImage('hero_image_desktop', heroDesktopFile, heroDesktopImage)}
+                      className="bg-primary text-secondary font-bold py-2 px-4 rounded hover:bg-yellow-400 transition duration-300 disabled:opacity-50 mt-4"
                       disabled={isUploading}
                     >
-                      {isUploading ? 'Subiendo...' : (editingGalleryId ? 'Actualizar Imagen' : 'Agregar Imagen')}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={cancelGalleryForm}
-                      className="bg-gray-300 text-gray-700 font-bold py-2 px-4 rounded hover:bg-gray-400 transition duration-300"
-                    >
-                      Cancelar
+                      {isUploading ? 'Téléchargement...' : 'Actualizar la Imagen'}
                     </button>
                   </div>
-                </form>
-              </div>
-            </div>
-          )}
-          
-          {/* Componente principal con galería */}
-          <div className="bg-white shadow-lg rounded-lg overflow-hidden">
-            <div className="p-6">
-              <h2 className="text-xl font-bold text-secondary mb-4">Images de la Galerie</h2>
-              
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                {galleryImages.map((image) => (
-                  <div key={image.id} className="border rounded-lg overflow-hidden shadow-sm">
-                    <div className="relative h-48 w-full">
-                      <Image 
-                        src={image.imagen_url} 
-                        alt={image.descripcion} 
-                        width={400} 
-                        height={300} 
-                        className="absolute inset-0 w-full h-full object-cover"
+                  
+                  {/* Image mobile */}
+                  <div className="border border-primary rounded-lg p-4 bg-dark">
+                    <h3 className="font-bold text-light mb-2">Imagen para Móvil</h3>
+                    <p className="text-gray-300 mb-4">Esta imagen se mostrará en la versión móvil con un desvanecimiento de arriba abajo.</p>
+                    
+                    <div className="mb-4">
+                      <label className="block text-light text-sm font-bold mb-2">Seleccionar una imagen</label>
+                      <input
+                        ref={heroMobileInputRef}
+                        type="file"
+                        accept="image/*"
+                        className="block w-full text-sm text-light file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-primary file:text-secondary hover:file:bg-yellow-400"
+                        onChange={(e) => handleFileChange(e, setHeroMobileFile, setHeroMobilePreview)}
                       />
                     </div>
-                    <div className="p-3">
-                      <p className="text-sm text-gray-700 mb-1">{image.descripcion}</p>
-                      <p className="text-xs text-gray-500 mb-2">{new Date(image.fecha).toLocaleDateString('fr-FR')}</p>
-                      <div className="flex space-x-2 pt-2 border-t mt-2">
-                        <button
-                          onClick={() => handleEditImage(image)}
-                          className="flex-1 text-center py-1 rounded bg-blue-100 text-blue-700 font-medium text-sm"
-                        >
-                          Modifier
-                        </button>
-                        <button
-                          onClick={() => handleDeleteImage(image.id)}
-                          className="flex-1 text-center py-1 rounded bg-red-100 text-red-700 font-medium text-sm"
-                        >
-                          Supprimer
-                        </button>
+                    
+                    {heroMobilePreview && (
+                      <div className="mt-4 w-full">
+                        <p className="text-sm font-medium text-light mb-2">Vista previa:</p>
+                        <div className="border rounded-lg overflow-hidden">
+                          <Image 
+                            src={heroMobilePreview} 
+                            alt="Vista previa de la imagen para móvil" 
+                            width={400}
+                            height={200}
+                            className="w-full h-auto object-cover"
+                          />
+                        </div>
                       </div>
-                    </div>
+                    )}
+                    
+                    <button 
+                      onClick={() => updateHeroImage('hero_image_mobile', heroMobileFile, heroMobileImage)}
+                      className="bg-primary text-secondary font-bold py-2 px-4 rounded hover:bg-yellow-400 transition duration-300 disabled:opacity-50 mt-4"
+                      disabled={isUploading}
+                    >
+                      {isUploading ? 'Téléchargement...' : 'Actualizar la Imagen'}
+                    </button>
                   </div>
-                ))}
+                </div>
               </div>
             </div>
           </div>
-        </>
-      )}
-      
-      {activeTab === 'config' && (
-        <div className="bg-white shadow-lg rounded-lg overflow-hidden mb-8">
-          <div className="p-6">
-            <h2 className="text-xl font-bold text-secondary mb-4">Imágenes del Hero</h2>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {/* Image de bureau */}
-              <div className="border rounded-lg p-4">
-                <h3 className="font-bold text-text-dark mb-2">Imagen para Ordenador</h3>
-                <p className="text-text-medium mb-4">Esta imagen se mostrará en la versión de escritorio con un desvanecimiento de izquierda a derecha.</p>
-                
-                <div className="mb-4">
-                  <label className="block text-text-dark text-sm font-bold mb-2">Seleccionar una imagen</label>
-                  <input
-                    ref={heroDesktopInputRef}
-                    type="file"
-                    accept="image/*"
-                    className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-primary file:text-secondary hover:file:bg-yellow-400"
-                    onChange={(e) => handleFileChange(e, setHeroDesktopFile, setHeroDesktopPreview)}
-                  />
-                </div>
-                
-                {heroDesktopPreview && (
-                  <div className="mt-4 w-full">
-                    <p className="text-sm font-medium text-gray-600 mb-2">Vista previa:</p>
-                    <div className="border rounded-lg overflow-hidden">
-                      <Image 
-                        src={heroDesktopPreview} 
-                        alt="Vista previa de la imagen para ordenador" 
-                        width={400}
-                        height={200}
-                        className="w-full h-auto object-cover"
-                      />
-                    </div>
-                  </div>
-                )}
-                
-                <button
-                  onClick={() => updateHeroImage('hero_image_desktop', heroDesktopFile, heroDesktopImage)}
-                  className="bg-primary text-secondary font-bold py-2 px-4 rounded hover:bg-yellow-400 transition duration-300 disabled:opacity-50 mt-4"
-                  disabled={isUploading}
-                >
-                  {isUploading ? 'Téléchargement...' : 'Actualizar la Imagen'}
-                </button>
-              </div>
-              
-              {/* Image mobile */}
-              <div className="border rounded-lg p-4">
-                <h3 className="font-bold text-text-dark mb-2">Imagen para Móvil</h3>
-                <p className="text-text-medium mb-4">Esta imagen se mostrará en la versión móvil con un desvanecimiento de arriba abajo.</p>
-                
-                <div className="mb-4">
-                  <label className="block text-text-dark text-sm font-bold mb-2">Seleccionar una imagen</label>
-                  <input
-                    ref={heroMobileInputRef}
-                    type="file"
-                    accept="image/*"
-                    className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-primary file:text-secondary hover:file:bg-yellow-400"
-                    onChange={(e) => handleFileChange(e, setHeroMobileFile, setHeroMobilePreview)}
-                  />
-                </div>
-                
-                {heroMobilePreview && (
-                  <div className="mt-4 w-full">
-                    <p className="text-sm font-medium text-gray-600 mb-2">Vista previa:</p>
-                    <div className="border rounded-lg overflow-hidden">
-                      <Image 
-                        src={heroMobilePreview} 
-                        alt="Vista previa de la imagen para móvil" 
-                        width={400}
-                        height={200}
-                        className="w-full h-auto object-cover"
-                      />
-                    </div>
-                  </div>
-                )}
-                
-                <button
-                  onClick={() => updateHeroImage('hero_image_mobile', heroMobileFile, heroMobileImage)}
-                  className="bg-primary text-secondary font-bold py-2 px-4 rounded hover:bg-yellow-400 transition duration-300 disabled:opacity-50 mt-4"
-                  disabled={isUploading}
-                >
-                  {isUploading ? 'Téléchargement...' : 'Actualizar la Imagen'}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-      
-      {activeTab === 'stylists' && (
-        <StylistManagement 
-          services={services} 
-          locations={locations} 
-          onUpdate={loadData}
-        />
-      )}
-      
-      {activeTab === 'locations' && (
-        <LocationManagement />
-      )}
+        )}
+      </div>
     </div>
   );
 } 
