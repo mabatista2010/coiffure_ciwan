@@ -66,7 +66,7 @@ export default function Services() {
   }, []);
 
   return (
-    <section id="servicios" className="py-20" style={{ backgroundColor: '#000000' }}>
+    <section id="servicios" className="py-20 bg-accent">
       <div className="container mx-auto px-4">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -75,17 +75,17 @@ export default function Services() {
           viewport={{ once: true }}
           className="text-center mb-16"
         >
-          <h2 className="text-3xl md:text-4xl font-bold mb-4" style={{ color: '#DAA520' }}>
+          <h2 className="text-3xl md:text-4xl font-bold mb-4 text-primary">
             Nos Services
           </h2>
-          <p className="text-lg max-w-2xl mx-auto" style={{ color: '#E0E0E0' }}>
+          <p className="text-lg max-w-2xl mx-auto text-light">
             Nous offrons une large gamme de services de coiffure pour hommes et enfants avec la meilleure qualité et attention personnalisée.
           </p>
         </motion.div>
 
         {loading ? (
           <div className="flex justify-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
+            <div className="w-12 h-12 animate-spin-custom"></div>
           </div>
         ) : error ? (
           <p className="text-center text-red-500">
@@ -100,14 +100,14 @@ export default function Services() {
                 whileInView={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.5, delay: index * 0.1 }}
                 viewport={{ once: true }}
-                className="bg-white rounded-lg shadow-lg overflow-hidden"
+                className="bg-light rounded-lg shadow-lg overflow-hidden"
               >
                 <div className="relative h-56 w-full">
                   <Image
                     src={service.imagen_url}
                     alt={service.nombre}
-                    layout="fill"
-                    objectFit="cover"
+                    fill
+                    className="object-cover"
                   />
                 </div>
                 <div className="p-6">
@@ -119,7 +119,7 @@ export default function Services() {
                       {service.precio}€
                     </span>
                   </div>
-                  <p className="text-gray-700">
+                  <p className="text-dark">
                     {service.descripcion}
                   </p>
                 </div>

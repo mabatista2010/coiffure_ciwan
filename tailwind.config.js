@@ -8,17 +8,24 @@ module.exports = {
   theme: {
     extend: {
       colors: {
-        primary: '#FFD700',   // amarillo más brillante
-        secondary: '#212121', // negro logo
-        accent: '#000000',    // negro total
-        'text-dark': '#1a1a1a', // texto oscuro para fondos claros
-        'text-light': '#ffffff', // texto claro para fondos oscuros
-        'text-medium': '#E0E0E0', // texto gris muy claro para mejor contraste en fondos oscuros
+        'primary': 'var(--color-primary)',   // amarillo dorado
+        'secondary': 'var(--color-secondary)', // negro logo
+        'accent': 'var(--color-accent)',    // negro total
+        'coral': 'var(--color-coral)',     // coral para títulos
+        'text-dark': 'var(--color-text-dark)', 
+        'text-light': 'var(--color-text-light)', 
+        'text-medium': 'var(--color-text-medium)',
+        'bg-dark': 'var(--color-bg-dark)',
+        'bg-card': 'var(--color-bg-card)',
+        'bg-light': 'var(--color-bg-light)',
       },
       fontFamily: {
-        sans: ['var(--font-montserrat)', 'sans-serif'],
-        'dancing-script': ['var(--font-dancing-script)', 'cursive'],
+        sans: ['var(--font-sans)'],
+        'decorative': ['var(--font-decorative)'],
       },
+      backgroundColor: {
+        'coral-30': 'rgba(231, 111, 81, 0.3)',
+      }
     },
   },
   plugins: [],

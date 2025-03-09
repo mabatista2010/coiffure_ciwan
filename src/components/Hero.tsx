@@ -141,16 +141,14 @@ export default function Hero() {
                 
                 <motion.h1 
                   variants={itemVariants}
-                  className="text-4xl md:text-6xl font-bold mb-4" 
-                  style={{ color: '#E76F51', fontFamily: 'Dancing Script, cursive' }}
+                  className="text-4xl md:text-6xl font-bold mb-4 text-coral font-decorative"
                 >
                   Coiffure Ciwan
                 </motion.h1>
                 
                 <motion.p 
                   variants={itemVariants}
-                  className="text-xl md:text-2xl mb-8" 
-                  style={{ color: '#E0E0E0' }}
+                  className="text-xl md:text-2xl mb-8 text-light"
                 >
                   Venez prendre du temps pour vous dans une ambiance sympa, et vous faire plaisir
                 </motion.p>
@@ -160,13 +158,7 @@ export default function Hero() {
                     <motion.div
                       whileHover={{ scale: 1.02 }}
                       whileTap={{ scale: 0.98 }}
-                      style={{ 
-                        backgroundColor: '#DAA520', 
-                        color: '#212121',
-                        boxShadow: '0 2px 8px rgba(218, 165, 32, 0.2)',
-                        fontFamily: "'Montserrat', sans-serif"
-                      }}
-                      className="font-medium py-2 px-6 rounded-full transition-all duration-300 inline-block mb-6 md:mb-0 text-base cursor-pointer"
+                      className="font-medium py-2 px-6 rounded-full transition-all duration-300 inline-block mb-6 md:mb-0 text-base cursor-pointer bg-primary text-secondary shadow-lg"
                     >
                       Réservez votre rendez-vous
                     </motion.div>

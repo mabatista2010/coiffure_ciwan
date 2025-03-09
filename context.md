@@ -31,6 +31,7 @@ Lors du développement de nouvelles fonctionnalités ou de la modification de fo
 - **TypeScript** : Surensemble typé de JavaScript pour un développement plus robuste
 - **TailwindCSS 4** : Framework CSS utility-first pour un design rapide et responsive
 - **Framer Motion** : Bibliothèque pour des animations fluides en React
+- **CSS Variables** : Système centralisé de variables CSS pour la gestion des styles
 
 ### Backend
 - **Next.js API Routes** : Endpoints serverless pour la logique métier
@@ -48,8 +49,11 @@ Lors du développement de nouvelles fonctionnalités ou de la modification de fo
   - Optimisation des images avec Next.js
 - **TypeScript** : Pour le typage statique avec couverture complète du code
 - **Next.js Image Component** : Pour l'optimisation automatique des images
+- **PostCSS** : Pour le traitement des styles avec le plugin @tailwindcss/postcss
 
 ## Améliorations Récentes
+- **Système de Styles Centralisé** : Création d'un système unifié de styles basé sur des variables CSS pour une cohérence visuelle et une maintenance simplifiée
+- **Page Équipe** : Ajout d'une page dédiée à la présentation de l'équipe d'estilistas accessible depuis la navigation principale
 - **Optimisation du Code** : Correction des problèmes de typage et élimination des `any` explicites
 - **Accessibilité** : Échappement correct des caractères spéciaux pour améliorer la compatibilité
 - **Performance des Images** : Conversion des balises `<img>` standard vers le composant `<Image>` de Next.js
@@ -64,10 +68,12 @@ Lors du développement de nouvelles fonctionnalités ou de la modification de fo
 - `/src/app` : Pages et routes de l'application (Next.js App Router)
 - `/src/components` : Composants réutilisables
 - `/src/lib` : Utilitaires, configurations et types
+- `/src/styles` : Styles globaux et système de design centralisé
 - `/public` : Fichiers statiques (images, polices, etc.)
 
 ### Pages Principales
 - `/` : Landing page principale
+- `/equipo` : Page de présentation de l'équipe d'estilistas
 - `/reservation` : Système de réservation pour les clients
 - `/admin` : Tableau de bord d'administration
 - `/admin/reservations` : Gestion des réservations (Page française)
@@ -80,6 +86,12 @@ Lors du développement de nouvelles fonctionnalités ou de la modification de fo
 - **Galerie** : Affiche des images des travaux réalisés
 - **Localisation** : Affiche l'adresse et la carte des centres
 - **Contact** : Informations de contact et formulaire
+
+### Page Équipe
+- **Présentation des Estilistas** : Affiche tous les estilistas actifs avec leurs photos, spécialités et biographies
+- **Mise en Page Responsive** : Affichage adapté à tous les dispositifs (1 colonne sur mobile, 2 sur tablette, 3 sur desktop)
+- **Animations Fluides** : Animations d'entrée pour améliorer l'expérience utilisateur
+- **Intégration avec la Base de Données** : Récupération dynamique des données des estilistas depuis Supabase
 
 ### Système de Réservation
 Le système de réservation suit un flux en 6 étapes :
@@ -104,6 +116,12 @@ Le système de réservation suit un flux en 6 étapes :
 - **Gestion Complète des Centres** : Interface dédiée pour ajouter, modifier et supprimer des centres avec toutes leurs informations (nom, adresse, téléphone, email, description, image et horaires d'ouverture multiples)
 - **Configuration des Horaires des Centres** : Possibilité de définir plusieurs plages horaires par jour pour chaque centre (par exemple, matin et après-midi)
 - **Prévisualisation des Images** : Fonctionnalité améliorée pour prévisualiser les images avant leur téléversement dans toutes les sections (services, galerie, configuration)
+
+### Système de Styles Centralisé
+- **Variables CSS** : Définition centralisée de toutes les couleurs et propriétés visuelles dans `/src/styles/theme.css`
+- **Classes Utilitaires** : Ensemble de classes prédéfinies pour appliquer les styles de manière cohérente
+- **Intégration avec Tailwind** : Les variables CSS sont utilisées comme base des couleurs dans la configuration de Tailwind
+- **Maintenance Simplifiée** : Tous les changements de style peuvent être faits à un seul endroit et se propagent automatiquement
 
 ### Système de Sécurité Administratif
 - **Authentification Centralisée** : Utilisation d'un layout qui vérifie l'authentification pour toutes les routes sous `/admin`
@@ -152,17 +170,18 @@ Le système de réservation suit un flux en 6 étapes :
 
 ## Caractéristiques de Design
 - **Design Responsive** : Adapté aux appareils mobiles, tablettes et ordinateurs de bureau
+- **Système de Design Unifié** : Tous les composants suivent le même système de design basé sur des variables CSS
 - **Palette de Couleurs** : 
-  - Primaire : #FFD700 (jaune doré)
-  - Secondaire : #212121 (noir logo)
-  - Accent : #000000 (noir total)
-  - Texte foncé : #1a1a1a
-  - Texte clair : #ffffff
-  - Texte moyen : #E0E0E0
-  - Accent Coral : #E76F51 (coral pour les titres principaux)
+  - Primaire : #FFD700 (jaune doré) - `--color-primary`
+  - Secondaire : #212121 (noir logo) - `--color-secondary`
+  - Accent : #000000 (noir total) - `--color-accent`
+  - Texte foncé : #1a1a1a - `--color-text-dark`
+  - Texte clair : #ffffff - `--color-text-light`
+  - Texte moyen : #E0E0E0 - `--color-text-medium`
+  - Accent Coral : #E76F51 (coral pour les titres principaux) - `--color-coral`
 - **Typographie** :
-  - Principale : Montserrat (sans-serif)
-  - Décorative : Dancing Script (cursive)
+  - Principale : Montserrat (sans-serif) - `--font-sans`
+  - Décorative : Dancing Script (cursive) - `--font-decorative`
 
 ## Fonctionnalités à Venir
 
@@ -187,12 +206,14 @@ Le système de réservation suit un flux en 6 étapes :
 
 ## Maintenance et Mise à Jour
 - Le contenu dynamique (services, images, centres) est géré depuis le tableau de bord d'administration
+- Les styles visuels sont gérés via le système centralisé dans `/src/styles/theme.css`
 - Les mises à jour de code nécessitent un déploiement sur Vercel
 - La configuration de Supabase se fait via sa console ou par des scripts SQL
 - **Vérification Qualité** : Les pull requests doivent passer toutes les vérifications ESLint avant fusion
 - **Sécurité** : Vérifier régulièrement que toutes les routes administratives sont correctement protégées
 
 ## Points d'Attention Importants
+- **Système de Styles** : Toujours utiliser les variables CSS et les classes prédéfinies pour maintenir la cohérence visuelle
 - **Gestion des Horaires Multiples** : Les centres peuvent avoir plusieurs plages horaires par jour (matin/après-midi), et les estilistas peuvent choisir quelles plages ils travaillent
 - **Gestion des Horaires** : Pour qu'un estilista apparaisse comme disponible dans le système de réservation, il doit avoir des horaires configurés dans la table `working_hours` pour chaque centre et jour où il travaille
 - **API de Disponibilité** : L'API combine toutes les plages horaires de travail d'un estilista pour générer les slots disponibles pour les réservations

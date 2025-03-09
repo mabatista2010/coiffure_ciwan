@@ -1,10 +1,11 @@
 @import "tailwindcss";
 @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700&display=swap');
 @import url('https://fonts.googleapis.com/css2?family=Dancing+Script:wght@400;500;600;700&display=swap');
+@import '../styles/theme.css';
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #000000;
+  --foreground: #ffffff;
 }
 
 @theme inline {
@@ -24,7 +25,65 @@
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: 'Montserrat', sans-serif;
+  font-family: var(--font-sans);
+  overflow-x: hidden;
+}
+
+/* Clases utilitarias */
+.container {
+  width: 100%;
+  margin-left: auto;
+  margin-right: auto;
+  padding-left: 1rem;
+  padding-right: 1rem;
+}
+
+@media (min-width: 640px) {
+  .container {
+    max-width: 640px;
+  }
+}
+
+@media (min-width: 768px) {
+  .container {
+    max-width: 768px;
+  }
+}
+
+@media (min-width: 1024px) {
+  .container {
+    max-width: 1024px;
+  }
+}
+
+@media (min-width: 1280px) {
+  .container {
+    max-width: 1280px;
+  }
+}
+
+/* Estilos para botones de acción */
+.btn-primary {
+  background-color: var(--color-primary);
+  color: var(--color-secondary);
+  font-weight: 600;
+  padding: 0.5rem 1rem;
+  border-radius: 0.375rem;
+  transition: all 0.3s ease;
+}
+
+.btn-primary:hover {
+  opacity: 0.9;
+  transform: translateY(-2px);
+}
+
+/* Enlaces generales */
+a {
+  transition: opacity 0.3s ease;
+}
+
+a:hover {
+  opacity: 0.8;
 }
 
 /* Mejoras de contraste */
@@ -56,31 +115,6 @@ table th {
 
 table td {
   color: #4a4a4a;
-}
-
-/* Estilos para botones de acción */
-.btn-primary {
-  background-color: #FDD835;
-  color: #212121;
-  font-weight: 600;
-  padding: 0.5rem 1rem;
-  border-radius: 0.375rem;
-  transition: all 0.3s ease;
-}
-
-.btn-primary:hover {
-  background-color: #F9A825;
-}
-
-/* Estilos para enlaces */
-a {
-  color: #212121;
-  font-weight: 500;
-  transition: color 0.3s ease;
-}
-
-a:hover {
-  color: #FDD835;
 }
 
 /* Estilos para textos en fondos oscuros */
