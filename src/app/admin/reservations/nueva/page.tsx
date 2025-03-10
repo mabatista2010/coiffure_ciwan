@@ -853,10 +853,10 @@ export default function NuevaReservacion() {
                 <div className="flex items-start gap-2">
                   <FaFilter className="text-blue-500 mt-0.5 flex-shrink-0" />
                   <div>
-                    <strong>Filtros activos:</strong> Las opciones de los selectores se filtran en función de sus selecciones.
+                    <strong>Filtres actifs:</strong> Les options des sélecteurs sont filtrées en fonction de vos sélections.
                     {(stylists.length === 0 || locations.length === 0 || services.length === 0) && (
                       <p className="mt-1 text-red-600">
-                        Algunas opciones no están disponibles con la configuración actual. Puede restablecer los filtros usando el botón &ldquo;Restablecer&rdquo;.
+                        Certaines options ne sont pas disponibles avec la configuration actuelle. Vous pouvez réinitialiser les filtres en utilisant le bouton &ldquo;Réinitialiser&rdquo;.
                       </p>
                     )}
                   </div>
@@ -871,7 +871,7 @@ export default function NuevaReservacion() {
             <div className="bg-secondary rounded-lg shadow-md overflow-hidden">
               <div className="p-4 border-b border-dark">
                 <div className="flex justify-between items-center">
-                  <h2 className="text-lg font-semibold text-primary">Calendario</h2>
+                  <h2 className="text-lg font-semibold text-primary">Calendrier</h2>
                   <div className="flex space-x-2">
                     <button 
                       onClick={prevMonth}

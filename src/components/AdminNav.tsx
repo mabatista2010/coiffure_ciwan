@@ -3,13 +3,30 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { FaCalendarAlt, FaUsers, FaSignOutAlt, FaChartBar, FaChartPie, FaBars, FaTimes, FaCogs } from 'react-icons/fa';
+import { FaCalendarAlt, FaUsers, FaSignOutAlt, FaChartBar, FaChartPie, FaBars, FaTimes, FaUserCog } from 'react-icons/fa';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '@/lib/supabase';
+import { getUserRole } from '@/lib/userRoles';
+
+// Definir el tipo para el rol
+type NavRole = 'admin' | 'employee' | 'all';
 
 export default function AdminNav() {
   const [isOpen, setIsOpen] = useState(false);
+  const [userRole, setUserRole] = useState<'admin' | 'employee' | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
   const pathname = usePathname();
+  
+  useEffect(() => {
+    const checkUserRole = async () => {
+      setIsLoading(true);
+      const role = await getUserRole();
+      setUserRole(role);
+      setIsLoading(false);
+    };
+    
+    checkUserRole();
+  }, []);
   
   // Bloquear el scroll cuando el menú está abierto
   useEffect(() => {
@@ -29,6 +46,74 @@ export default function AdminNav() {
     window.location.href = '/admin';
   };
   
+  // Función para determinar si mostrar un elemento de navegación basado en el rol
+  const shouldShowNavItem = (requiredRole: 'admin' | 'employee' | 'all') => {
+    if (requiredRole === 'all') return true;
+    if (requiredRole === 'admin') return userRole === 'admin';
+    if (requiredRole === 'employee') return userRole === 'employee' || userRole === 'admin';
+    return false;
+  };
+
+  // Navegar a la página apropiada para el dashboard según el rol
+  const getDashboardLink = () => {
+    if (userRole === 'admin') {
+      return '/admin';
+    } else {
+      return '/admin/reservations';
+    }
+  };
+  
+  // Array de elementos de navegación con sus roles requeridos
+  const navItems = [
+    { 
+      href: getDashboardLink(), 
+      label: 'Dashboard', 
+      icon: <FaChartPie className="w-6 h-6 mr-2" />, 
+      role: 'all' as NavRole
+    },
+    { 
+      href: '/admin/reservations', 
+      label: 'Reservations', 
+      icon: <FaCalendarAlt className="w-6 h-6 mr-2" />, 
+      role: 'all' as NavRole
+    },
+    { 
+      href: '/admin/crm', 
+      label: 'Clients', 
+      icon: <FaUsers className="w-6 h-6 mr-2" />, 
+      role: 'admin' as NavRole
+    },
+    { 
+      href: '/admin/stylist-stats', 
+      label: 'Stylists', 
+      icon: <FaChartBar className="w-6 h-6 mr-2" />, 
+      role: 'admin' as NavRole
+    },
+    { 
+      href: '/admin/location-stats', 
+      label: 'Centres', 
+      icon: <FaChartBar className="w-6 h-6 mr-2" />, 
+      role: 'admin' as NavRole
+    },
+    { 
+      href: '/admin/user-management', 
+      label: 'Utilisateurs', 
+      icon: <FaUserCog className="w-6 h-6 mr-2" />, 
+      role: 'admin' as NavRole
+    }
+  ];
+  
+  // Si está cargando, mostrar un indicador
+  if (isLoading) {
+    return (
+      <nav className="bg-dark p-4 shadow-md">
+        <div className="text-center">
+          <div className="w-8 h-8 mx-auto rounded-full animate-spin-custom"></div>
+        </div>
+      </nav>
+    );
+  }
+
   return (
     <>
       <nav className="fixed w-full z-40 bg-secondary text-light">
@@ -41,60 +126,21 @@ export default function AdminNav() {
             
             {/* Desktop Menu */}
             <div className="hidden md:flex items-center gap-2">
-              <Link 
-                href="/admin/reservations" 
-                className={`px-3 py-2 rounded-md text-sm font-medium ${
-                  pathname === '/admin/reservations' 
-                    ? 'bg-dark text-primary' 
-                    : 'text-light hover:bg-dark hover:text-primary'
-                } flex items-center transition-colors duration-200`}
-              >
-                <FaCalendarAlt className="mr-2" /> Réservations
-              </Link>
-              
-              <Link 
-                href="/admin/crm" 
-                className={`px-3 py-2 rounded-md text-sm font-medium ${
-                  pathname === '/admin/crm' 
-                    ? 'bg-dark text-primary' 
-                    : 'text-light hover:bg-dark hover:text-primary'
-                } flex items-center transition-colors duration-200`}
-              >
-                <FaUsers className="mr-2" /> CRM Clients
-              </Link>
-              
-              <Link 
-                href="/admin/stylist-stats" 
-                className={`px-3 py-2 rounded-md text-sm font-medium ${
-                  pathname === '/admin/stylist-stats' 
-                    ? 'bg-dark text-primary' 
-                    : 'text-light hover:bg-dark hover:text-primary'
-                } flex items-center transition-colors duration-200`}
-              >
-                <FaChartBar className="mr-2" /> Stats Stylistes
-              </Link>
-              
-              <Link 
-                href="/admin/location-stats" 
-                className={`px-3 py-2 rounded-md text-sm font-medium ${
-                  pathname === '/admin/location-stats' 
-                    ? 'bg-dark text-primary' 
-                    : 'text-light hover:bg-dark hover:text-primary'
-                } flex items-center transition-colors duration-200`}
-              >
-                <FaChartPie className="mr-2" /> Stats Centres
-              </Link>
-              
-              <Link 
-                href="/admin" 
-                className={`px-3 py-2 rounded-md text-sm font-medium ${
-                  pathname === '/admin' 
-                    ? 'bg-dark text-primary' 
-                    : 'text-light hover:bg-dark hover:text-primary'
-                } flex items-center transition-colors duration-200`}
-              >
-                <FaCogs className="mr-2" /> Dashboard
-              </Link>
+              {navItems.map((item, index) => (
+                shouldShowNavItem(item.role) && (
+                  <Link 
+                    key={`desktop-nav-${item.href}-${index}`}
+                    href={item.href} 
+                    className={`px-3 py-2 rounded-md text-sm font-medium ${
+                      pathname === item.href 
+                        ? 'bg-dark text-primary' 
+                        : 'text-light hover:bg-dark hover:text-primary'
+                    } flex items-center transition-colors duration-200`}
+                  >
+                    {item.icon} {item.label}
+                  </Link>
+                )
+              ))}
               
               <button 
                 onClick={handleSignOut}
@@ -133,55 +179,20 @@ export default function AdminNav() {
           >
             <div className="flex flex-col pt-20 pb-10 px-6 min-h-[450px] max-h-[80vh] shadow-2xl">
               <div className="space-y-1">
-                <Link 
-                  href="/admin/reservations" 
-                  className={`block py-3 text-xl font-bold border-b border-dark transition-all duration-300 ${pathname === '/admin/reservations' ? 'text-primary' : 'text-light'}`}
-                  onClick={() => setIsOpen(false)}
-                >
-                  <div className="flex items-center hover:pl-2 transition-all duration-300">
-                    <FaCalendarAlt className="mr-3" /> Réservations
-                  </div>
-                </Link>
-                
-                <Link 
-                  href="/admin/crm" 
-                  className={`block py-3 text-xl font-bold border-b border-dark transition-all duration-300 ${pathname === '/admin/crm' ? 'text-primary' : 'text-light'}`}
-                  onClick={() => setIsOpen(false)}
-                >
-                  <div className="flex items-center hover:pl-2 transition-all duration-300">
-                    <FaUsers className="mr-3" /> CRM Clients
-                  </div>
-                </Link>
-                
-                <Link 
-                  href="/admin/stylist-stats" 
-                  className={`block py-3 text-xl font-bold border-b border-dark transition-all duration-300 ${pathname === '/admin/stylist-stats' ? 'text-primary' : 'text-light'}`}
-                  onClick={() => setIsOpen(false)}
-                >
-                  <div className="flex items-center hover:pl-2 transition-all duration-300">
-                    <FaChartBar className="mr-3" /> Stats Stylistes
-                  </div>
-                </Link>
-                
-                <Link 
-                  href="/admin/location-stats" 
-                  className={`block py-3 text-xl font-bold border-b border-dark transition-all duration-300 ${pathname === '/admin/location-stats' ? 'text-primary' : 'text-light'}`}
-                  onClick={() => setIsOpen(false)}
-                >
-                  <div className="flex items-center hover:pl-2 transition-all duration-300">
-                    <FaChartPie className="mr-3" /> Stats Centres
-                  </div>
-                </Link>
-                
-                <Link 
-                  href="/admin" 
-                  className={`block py-3 text-xl font-bold border-b border-dark transition-all duration-300 ${pathname === '/admin' ? 'text-primary' : 'text-light'}`}
-                  onClick={() => setIsOpen(false)}
-                >
-                  <div className="flex items-center hover:pl-2 transition-all duration-300">
-                    <FaCogs className="mr-3" /> Panel de Control
-                  </div>
-                </Link>
+                {navItems.map((item, index) => (
+                  shouldShowNavItem(item.role) && (
+                    <Link 
+                      key={`mobile-nav-${item.href}-${index}`}
+                      href={item.href} 
+                      className={`block py-3 text-xl font-bold border-b border-dark transition-all duration-300 ${pathname === item.href ? 'text-primary' : 'text-light'}`}
+                      onClick={() => setIsOpen(false)}
+                    >
+                      <div className="flex items-center hover:pl-2 transition-all duration-300">
+                        {item.icon} {item.label}
+                      </div>
+                    </Link>
+                  )
+                ))}
               </div>
               
               {/* Botón de cierre de sesión */}

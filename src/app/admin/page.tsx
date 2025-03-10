@@ -587,7 +587,7 @@ export default function AdminPage() {
                     : 'text-light hover:text-primary'
                 } flex items-center transition-colors duration-200`}
               >
-                <FaCogs className="mr-2" /> Configuration
+                <FaCogs className="mr-2" /> Page d{"'"}accueil
               </button>
               
               <Link 
