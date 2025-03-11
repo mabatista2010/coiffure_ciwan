@@ -79,7 +79,7 @@ export default function AdminLayout({
       <div className="min-h-screen flex items-center justify-center bg-dark">
         <div className="w-full max-w-md p-8 space-y-8 bg-secondary rounded-lg shadow-md">
           <div className="text-center">
-            <h1 className="text-2xl font-bold text-primary">Cargando...</h1>
+            <h1 className="text-2xl font-bold text-primary">Chargement...</h1>
           </div>
         </div>
       </div>

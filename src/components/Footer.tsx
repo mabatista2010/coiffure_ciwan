@@ -106,7 +106,7 @@ export default function Footer() {
       {/* Botón de administración colocado en la esquina inferior derecha */}
       <div className="absolute bottom-4 right-4">
         <Link 
-          href="/admin" 
+          href="/admin/reservations" 
           className="flex items-center space-x-1 px-3 py-1 rounded-full bg-black bg-opacity-60 hover:bg-opacity-90 transition-all duration-300 border border-gray-700"
           aria-label="Accès administrateur"
           title="Administration"

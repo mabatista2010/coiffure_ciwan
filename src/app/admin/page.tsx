@@ -4,11 +4,9 @@ import { useState, useEffect, useRef } from 'react';
 import { supabase, Service, GalleryImage } from '@/lib/supabase';
 import { v4 as uuidv4 } from 'uuid';
 import Image from 'next/image';
-import Link from 'next/link';
-import { FaImages, FaUserTie, FaBuilding, FaTools, FaSignOutAlt, FaBars, FaTimes, FaCogs } from 'react-icons/fa';
-import { motion, AnimatePresence } from 'framer-motion';
 import StylistManagement from './stylist-management';
 import LocationManagement from './location-management';
+import AdminNav from '@/components/AdminNav';
 
 // Definir la interfaz Location
 interface Location {
@@ -67,7 +65,7 @@ export default function AdminPage() {
   const galleryImageInputRef = useRef<HTMLInputElement>(null);
   
   // Estado para navegación móvil
-  const [isOpen, setIsOpen] = useState(false);
+  const [isOpen] = useState(false);
   
   // Bloquear el scroll cuando el menú está abierto
   useEffect(() => {
@@ -85,16 +83,22 @@ export default function AdminPage() {
   // Estado para la sección activa
   const [activeSection, setActiveSection] = useState<string>('services');
   
-  const handleSignOut = async () => {
-    await supabase.auth.signOut();
-    window.location.href = '/admin';
-  };
-  
   // Estado pour indiquer le chargement
   const [isUploading, setIsUploading] = useState(false);
 
   useEffect(() => {
+    // Cargar los datos iniciales
     loadData();
+    
+    // Verificar si hay un parámetro de sección en la URL
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const sectionParam = params.get('section');
+      
+      if (sectionParam && ['services', 'gallery', 'stylists', 'locations', 'hero'].includes(sectionParam)) {
+        setActiveSection(sectionParam);
+      }
+    }
   }, []);
 
   const loadData = async () => {
@@ -524,205 +528,11 @@ export default function AdminPage() {
 
   return (
     <div className="min-h-screen bg-dark text-light">
-      {/* Barra de navegación superior */}
-      <nav className="fixed w-full z-40 bg-secondary text-light">
-        <div className="container mx-auto px-4">
-          <div className="flex justify-between items-center py-3">
-            {/* Logo / Título */}
-            <Link href="/admin" className="text-xl font-bold text-primary z-50">
-              Panneau administrative
-            </Link>
-            
-            {/* Desktop Menu */}
-            <div className="hidden md:flex items-center gap-2">
-              <button 
-                onClick={() => setActiveSection('services')}
-                className={`px-3 py-2 rounded-md text-sm font-medium cursor-pointer ${
-                  activeSection === 'services' 
-                    ? 'bg-dark text-primary' 
-                    : 'text-light hover:text-primary'
-                } flex items-center transition-colors duration-200`}
-              >
-                <FaTools className="mr-2" /> Services
-              </button>
-              
-              <button 
-                onClick={() => setActiveSection('gallery')}
-                className={`px-3 py-2 rounded-md text-sm font-medium cursor-pointer ${
-                  activeSection === 'gallery' 
-                    ? 'bg-dark text-primary' 
-                    : 'text-light hover:text-primary'
-                } flex items-center transition-colors duration-200`}
-              >
-                <FaImages className="mr-2" /> Galerie
-              </button>
-              
-              <button 
-                onClick={() => setActiveSection('stylists')}
-                className={`px-3 py-2 rounded-md text-sm font-medium cursor-pointer ${
-                  activeSection === 'stylists' 
-                    ? 'bg-dark text-primary' 
-                    : 'text-light hover:text-primary'
-                } flex items-center transition-colors duration-200`}
-              >
-                <FaUserTie className="mr-2" /> Stylistes
-              </button>
-              
-              <button 
-                onClick={() => setActiveSection('locations')}
-                className={`px-3 py-2 rounded-md text-sm font-medium cursor-pointer ${
-                  activeSection === 'locations' 
-                    ? 'bg-dark text-primary' 
-                    : 'text-light hover:text-primary'
-                } flex items-center transition-colors duration-200`}
-              >
-                <FaBuilding className="mr-2" /> Centres
-              </button>
-              
-              <button 
-                onClick={() => setActiveSection('hero')}
-                className={`px-3 py-2 rounded-md text-sm font-medium cursor-pointer ${
-                  activeSection === 'hero' 
-                    ? 'bg-dark text-primary' 
-                    : 'text-light hover:text-primary'
-                } flex items-center transition-colors duration-200`}
-              >
-                <FaCogs className="mr-2" /> Page d{"'"}accueil
-              </button>
-              
-              <Link 
-                href="/admin/reservations" 
-                className="px-3 py-2 rounded-md text-sm font-medium text-light hover:text-primary flex items-center transition-colors duration-200 cursor-pointer"
-              >
-                <FaCogs className="mr-2" /> Calendrier et statistiques
-              </Link>
-              
-              <button 
-                onClick={handleSignOut}
-                className="px-3 py-2 rounded-md text-sm font-medium text-light hover:text-primary flex items-center transition-colors duration-200 cursor-pointer"
-              >
-                <FaSignOutAlt className="mr-2" /> Déconnexion
-              </button>
-            </div>
-            
-            {/* Mobile Menu Button */}
-            <div className="md:hidden z-50">
-              <button 
-                onClick={() => setIsOpen(!isOpen)} 
-                className={`focus:outline-none p-2 transition-all duration-200 text-primary cursor-pointer ${isOpen ? 'bg-dark rounded-full shadow-lg hover:shadow-xl' : 'hover:scale-110'}`}
-                aria-label={isOpen ? 'Fermer le menu' : 'Ouvrir le menu'}
-              >
-                {isOpen ? <FaTimes size={24} /> : <FaBars size={24} />}
-              </button>
-            </div>
-          </div>
-        </div>
-      </nav>
-      
-      {/* Espacio para compensar el navbar fijo */}
-      <div className="h-16"></div>
-      
-      {/* Mobile Menu Overlay */}
-      <AnimatePresence>
-        {isOpen && (
-          <motion.div 
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -10 }}
-            transition={{ duration: 0.3 }}
-            className="fixed top-0 left-0 right-0 z-30 md:hidden bg-secondary"
-          >
-            <div className="flex flex-col pt-20 pb-10 px-6 min-h-[450px] max-h-[80vh] shadow-2xl">
-              <div className="space-y-1">
-                <button 
-                  onClick={() => {
-                    setActiveSection('services');
-                    setIsOpen(false);
-                  }}
-                  className={`block w-full text-left py-3 text-xl font-bold border-b border-dark transition-all duration-300 cursor-pointer ${activeSection === 'services' ? 'text-primary' : 'text-light'}`}
-                >
-                  <div className="flex items-center hover:pl-2 hover:text-primary transition-all duration-300">
-                    <FaTools className="mr-3" /> Services
-                  </div>
-                </button>
-                
-                <button 
-                  onClick={() => {
-                    setActiveSection('gallery');
-                    setIsOpen(false);
-                  }}
-                  className={`block w-full text-left py-3 text-xl font-bold border-b border-dark transition-all duration-300 cursor-pointer ${activeSection === 'gallery' ? 'text-primary' : 'text-light'}`}
-                >
-                  <div className="flex items-center hover:pl-2 hover:text-primary transition-all duration-300">
-                    <FaImages className="mr-3" /> Galerie
-                  </div>
-                </button>
-                
-                <button 
-                  onClick={() => {
-                    setActiveSection('stylists');
-                    setIsOpen(false);
-                  }}
-                  className={`block w-full text-left py-3 text-xl font-bold border-b border-dark transition-all duration-300 cursor-pointer ${activeSection === 'stylists' ? 'text-primary' : 'text-light'}`}
-                >
-                  <div className="flex items-center hover:pl-2 hover:text-primary transition-all duration-300">
-                    <FaUserTie className="mr-3" /> Stylistes
-                  </div>
-                </button>
-                
-                <button 
-                  onClick={() => {
-                    setActiveSection('locations');
-                    setIsOpen(false);
-                  }}
-                  className={`block w-full text-left py-3 text-xl font-bold border-b border-dark transition-all duration-300 cursor-pointer ${activeSection === 'locations' ? 'text-primary' : 'text-light'}`}
-                >
-                  <div className="flex items-center hover:pl-2 hover:text-primary transition-all duration-300">
-                    <FaBuilding className="mr-3" /> Centres
-                  </div>
-                </button>
-                
-                <button 
-                  onClick={() => {
-                    setActiveSection('hero');
-                    setIsOpen(false);
-                  }}
-                  className={`block w-full text-left py-3 text-xl font-bold border-b border-dark transition-all duration-300 cursor-pointer ${activeSection === 'hero' ? 'text-primary' : 'text-light'}`}
-                >
-                  <div className="flex items-center hover:pl-2 hover:text-primary transition-all duration-300">
-                    <FaCogs className="mr-3" /> Configuration
-                  </div>
-                </button>
-                
-                <Link 
-                  href="/admin/reservations"
-                  className="block w-full text-left py-3 text-xl font-bold border-b border-dark transition-all duration-300 text-light cursor-pointer"
-                  onClick={() => setIsOpen(false)}
-                >
-                  <div className="flex items-center hover:pl-2 hover:text-primary transition-all duration-300">
-                    <FaCogs className="mr-3" /> Calendrier et statistiques
-                  </div>
-                </Link>
-              </div>
-              
-              {/* Botón de cierre de sesión */}
-              <div className="mt-8">
-                <button 
-                  onClick={() => {
-                    setIsOpen(false);
-                    handleSignOut();
-                  }}
-                  className="block w-full py-3 px-4 text-lg font-bold text-center rounded-full transition-transform hover:scale-[1.02] active:scale-[0.98] bg-primary text-secondary shadow-lg cursor-pointer"
-                >
-                  <div className="flex items-center justify-center">
-                    <FaSignOutAlt className="mr-2" /> Déconnexion
-                  </div>
-                </button>
-              </div>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {/* Usar el AdminNav actualizado */}
+      <AdminNav 
+        activeSection={activeSection as 'services' | 'gallery' | 'stylists' | 'locations' | 'hero' | null} 
+        setActiveSection={(section: 'services' | 'gallery' | 'stylists' | 'locations' | 'hero' | null) => setActiveSection(section || '')}
+      />
       
       <div className="container mx-auto px-4 py-8">
         {/* Mensaje de error si existe */}

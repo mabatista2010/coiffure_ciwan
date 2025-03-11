@@ -1097,11 +1097,11 @@ export default function NuevaReservacion() {
             {loadingSlots ? (
               <div className="py-8 flex flex-col items-center justify-center">
                 <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-primary mb-2"></div>
-                <p className="text-light">Cargando horarios disponibles...</p>
+                <p className="text-light"> Chargement des horaires disponibles...</p>
               </div>
             ) : availableSlots.length === 0 ? (
               <div className="py-8 text-center text-light">
-                Ningún horario disponible para esta fecha
+                Aucun horaire disponible pour cette date
               </div>
             ) : (
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 my-4">
@@ -1139,9 +1139,9 @@ export default function NuevaReservacion() {
       {showCustomerModal && selectedTime && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-secondary rounded-xl shadow-lg max-w-md w-full p-6">
-            <h3 className="text-xl font-bold mb-2 text-primary">Información del cliente</h3>
+            <h3 className="text-xl font-bold mb-2 text-primary">Informations du client</h3>
             <p className="text-light text-sm mb-4">
-              Por favor, ingrese los datos del cliente para completar la reserva
+              Veuillez entrer les informations du client pour compléter la réservation
             </p>
             
             <form onSubmit={(e) => { e.preventDefault(); completeBooking(); }}>
@@ -1186,7 +1186,7 @@ export default function NuevaReservacion() {
                 
                 <div className="mb-6">
                   <label className="block text-sm font-medium text-light mb-1">
-                    Notas adicionales
+                    Notes supplémentaires
                   </label>
                   <textarea
                     value={notes}
@@ -1203,7 +1203,7 @@ export default function NuevaReservacion() {
                   onClick={() => setShowCustomerModal(false)}
                   className="px-4 py-2 border border-primary bg-dark text-light rounded-md hover:bg-opacity-80"
                 >
-                  Cancelar
+                  Annuler
                 </button>
                 <button
                   type="submit"
@@ -1213,10 +1213,10 @@ export default function NuevaReservacion() {
                   {bookingInProgress ? (
                     <>
                       <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full inline-block mr-2 align-middle"></div>
-                      Procesando...
+                      En cours de traitement...
                     </>
                   ) : (
-                    'Confirmar Reserva'
+                    'Confirmer la réservation'
                   )}
                 </button>
               </div>
@@ -1233,7 +1233,7 @@ export default function NuevaReservacion() {
             </div>
             <h3 className="text-xl font-bold mb-2 text-primary">¡Reserva confirmada!</h3>
             <p className="text-light mb-6">
-              La reserva ha sido creada correctamente
+              La réservation a été créée avec succès
             </p>
             <button
               onClick={() => {
@@ -1242,7 +1242,7 @@ export default function NuevaReservacion() {
               }}
               className="px-6 py-2 bg-primary text-light font-medium rounded-md"
             >
-              Volver al calendario
+              Retourner au calendrier
             </button>
           </div>
         </div>
@@ -1262,7 +1262,7 @@ export default function NuevaReservacion() {
               onClick={() => setBookingError(null)}
               className="px-6 py-2 bg-coral text-white font-medium rounded-md"
             >
-              Intentar de nuevo
+              Essayer à nouveau
             </button>
           </div>
         </div>

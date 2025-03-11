@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { FaUserEdit, FaTrash, FaSpinner, FaUserShield, FaUserCog, FaCut, FaInfoCircle } from 'react-icons/fa';
+import { FaUserEdit, FaTrash, FaSpinner, FaUserShield, FaUserCog, FaCut, FaInfoCircle, FaUser, FaEnvelope } from 'react-icons/fa';
 import AdminNav from '@/components/AdminNav';
 import { 
   getAllUsers, 
@@ -205,7 +205,7 @@ export default function UserManagement() {
           </div>
         </div>
         
-        {/* Lista de usuarios */}
+        {/* Lista de usuarios con tarjetas en lugar de tabla */}
         <div className="bg-secondary rounded-lg shadow-lg p-6">
           <h2 className="text-xl font-bold text-primary mb-4">Utilisateurs du Système</h2>
           
@@ -215,31 +215,27 @@ export default function UserManagement() {
               <p className="mt-2 text-light">Chargement des utilisateurs...</p>
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-light">
-                <thead className="border-b border-gray-700">
-                  <tr>
-                    <th className="py-3 px-4">Email</th>
-                    <th className="py-3 px-4">Rôle</th>
-                    <th className="py-3 px-4">Styliste</th>
-                    <th className="py-3 px-4">Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {users.length === 0 ? (
-                    <tr>
-                      <td colSpan={4} className="py-6 text-center text-light">
-                        Aucun utilisateur à afficher
-                      </td>
-                    </tr>
-                  ) : (
-                    users.map((user) => (
-                      <tr key={user.id} className="border-b border-gray-800">
-                        <td className="py-3 px-4">{user.email}</td>
-                        <td className="py-3 px-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {users.length === 0 ? (
+                <div className="col-span-full text-center py-8">
+                  <FaUser className="mx-auto text-primary opacity-50 text-5xl mb-4" />
+                  <p className="text-light opacity-60 text-lg">Aucun utilisateur à afficher</p>
+                </div>
+              ) : (
+                users.map((user) => (
+                  <div key={user.id} className="bg-dark rounded-lg p-4 shadow-lg border border-dark hover:border-primary transition-all">
+                    <div className="flex items-start mb-4">
+                      <div className="bg-secondary p-3 rounded-full mr-3">
+                        <FaUser className="text-primary text-xl" />
+                      </div>
+                      <div className="flex-grow">
+                        <p className="text-sm text-light flex items-center">
+                          <FaEnvelope className="mr-2 text-primary opacity-70" /> {user.email}
+                        </p>
+                        <div className="mt-2">
                           <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
                             user.role === 'admin' 
-                              ? 'bg-primary bg-opacity-20 text-primary' 
+                              ? 'bg-primary bg-opacity-20 text-dark' 
                               : 'bg-blue-100 text-blue-800'
                           }`}>
                             {user.role === 'admin' ? (
@@ -248,99 +244,106 @@ export default function UserManagement() {
                               <><FaUserCog className="mr-1" /> Employé</>
                             )}
                           </span>
-                        </td>
-                        <td className="py-3 px-4">
-                          {user.stylist_name ? (
-                            <span className="inline-flex items-center text-light">
-                              <FaCut className="mr-1 text-primary" /> {user.stylist_name}
-                            </span>
-                          ) : (
-                            <span className="text-gray-500">Non assigné</span>
-                          )}
-                        </td>
-                        <td className="py-3 px-4">
-                          {editUserId === user.id ? (
-                            <div className="flex flex-col space-y-2">
-                              <div className="flex items-center space-x-2">
-                                <select
-                                  value={editUserRole}
-                                  onChange={(e) => setEditUserRole(e.target.value as UserRole)}
-                                  className="px-2 py-1 rounded-md bg-dark text-light border border-gray-700 focus:border-primary focus:outline-none"
-                                >
-                                  <option value="employee">Employé</option>
-                                  <option value="admin">Administrateur</option>
-                                </select>
-                                
-                                <button
-                                  onClick={() => handleUpdateUserRole(user.id)}
-                                  disabled={isUpdatingUser}
-                                  className="p-1 rounded-md bg-primary text-dark hover:bg-opacity-90 transition-opacity"
-                                  title="Mettre à jour le rôle"
-                                >
-                                  {isUpdatingUser ? <FaSpinner className="animate-spin" /> : "Enregistrer"}
-                                </button>
-                              </div>
-                              
-                              <div className="flex items-center space-x-2">
-                                <select
-                                  value={editUserStylistId}
-                                  onChange={(e) => setEditUserStylistId(e.target.value)}
-                                  className="px-2 py-1 rounded-md bg-dark text-light border border-gray-700 focus:border-primary focus:outline-none"
-                                >
-                                  <option value="">-- Sélectionner un Styliste --</option>
-                                  {stylists.map(stylist => (
-                                    <option key={stylist.id} value={stylist.id}>
-                                      {stylist.name}
-                                    </option>
-                                  ))}
-                                </select>
-                                
-                                <button
-                                  onClick={() => handleUpdateUserStylist(user.id)}
-                                  disabled={isUpdatingStylist}
-                                  className="p-1 rounded-md bg-primary text-dark hover:bg-opacity-90 transition-opacity"
-                                  title="Mettre à jour le styliste"
-                                >
-                                  {isUpdatingStylist ? <FaSpinner className="animate-spin" /> : "Enregistrer"}
-                                </button>
-                              </div>
-                              
-                              <button
-                                onClick={() => setEditUserId(null)}
-                                className="p-1 rounded-md bg-gray-600 text-white hover:bg-opacity-90 transition-opacity"
-                              >
-                                Annuler
-                              </button>
-                            </div>
-                          ) : (
-                            <div className="flex items-center space-x-2">
-                              <button
-                                onClick={() => {
-                                  setEditUserId(user.id);
-                                  setEditUserRole(user.role);
-                                  setEditUserStylistId(user.stylist_id || '');
-                                }}
-                                className="p-1 rounded-md bg-blue-500 text-white hover:bg-opacity-90 transition-opacity"
-                                title="Modifier l'utilisateur"
-                              >
-                                <FaUserEdit />
-                              </button>
-                              
-                              <button
-                                onClick={() => setDeleteUserId(user.id)}
-                                className="p-1 rounded-md bg-red-500 text-white hover:bg-opacity-90 transition-opacity"
-                                title="Supprimer l'utilisateur"
-                              >
-                                <FaTrash />
-                              </button>
-                            </div>
-                          )}
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div className="bg-secondary p-3 rounded-lg mb-4">
+                      <p className="text-sm font-medium text-light mb-1">Styliste associé:</p>
+                      {user.stylist_name ? (
+                        <span className="text-sm flex items-center text-primary">
+                          <FaCut className="mr-1" /> {user.stylist_name}
+                        </span>
+                      ) : (
+                        <span className="text-sm text-gray-500">Non assigné</span>
+                      )}
+                    </div>
+                    
+                    {editUserId === user.id ? (
+                      <div className="mt-4 space-y-3 bg-secondary p-3 rounded-lg">
+                        <div className="space-y-2">
+                          <label className="block text-sm font-medium text-light">Rôle:</label>
+                          <div className="flex flex-col sm:flex-row items-start sm:items-center space-y-2 sm:space-y-0 sm:space-x-2">
+                            <select
+                              value={editUserRole}
+                              onChange={(e) => setEditUserRole(e.target.value as UserRole)}
+                              className="w-full sm:w-auto px-2 py-1 rounded-md bg-dark text-light border border-gray-700 focus:border-primary focus:outline-none flex-grow"
+                            >
+                              <option value="employee">Employé</option>
+                              <option value="admin">Administrateur</option>
+                            </select>
+                            
+                            <button
+                              onClick={() => handleUpdateUserRole(user.id)}
+                              disabled={isUpdatingUser}
+                              className="w-full sm:w-auto p-1 rounded-md bg-primary text-dark hover:bg-opacity-90 transition-opacity sm:w-24"
+                              title="Mettre à jour le rôle"
+                            >
+                              {isUpdatingUser ? <FaSpinner className="animate-spin mx-auto" /> : "Enregistrer"}
+                            </button>
+                          </div>
+                        </div>
+                        
+                        <div className="space-y-2">
+                          <label className="block text-sm font-medium text-light">Styliste:</label>
+                          <div className="flex flex-col sm:flex-row items-start sm:items-center space-y-2 sm:space-y-0 sm:space-x-2">
+                            <select
+                              value={editUserStylistId}
+                              onChange={(e) => setEditUserStylistId(e.target.value)}
+                              className="w-full sm:w-auto px-2 py-1 rounded-md bg-dark text-light border border-gray-700 focus:border-primary focus:outline-none flex-grow"
+                            >
+                              <option value="">-- Sélectionner un Styliste --</option>
+                              {stylists.map(stylist => (
+                                <option key={stylist.id} value={stylist.id}>
+                                  {stylist.name}
+                                </option>
+                              ))}
+                            </select>
+                            
+                            <button
+                              onClick={() => handleUpdateUserStylist(user.id)}
+                              disabled={isUpdatingStylist}
+                              className="w-full sm:w-auto p-1 rounded-md bg-primary text-dark hover:bg-opacity-90 transition-opacity sm:w-24"
+                              title="Mettre à jour le styliste"
+                            >
+                              {isUpdatingStylist ? <FaSpinner className="animate-spin mx-auto" /> : "Enregistrer"}
+                            </button>
+                          </div>
+                        </div>
+                        
+                        <button
+                          onClick={() => setEditUserId(null)}
+                          className="w-full p-2 rounded-md bg-gray-600 text-white hover:bg-opacity-90 transition-opacity"
+                        >
+                          Annuler
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="flex justify-end space-x-2 mt-3">
+                        <button
+                          onClick={() => {
+                            setEditUserId(user.id);
+                            setEditUserRole(user.role);
+                            setEditUserStylistId(user.stylist_id || '');
+                          }}
+                          className="p-2 rounded-md bg-blue-500 text-white hover:bg-opacity-90 transition-opacity flex items-center"
+                          title="Modifier l'utilisateur"
+                        >
+                          <FaUserEdit className="mr-1" /> Modifier
+                        </button>
+                        
+                        <button
+                          onClick={() => setDeleteUserId(user.id)}
+                          className="p-2 rounded-md bg-red-500 text-white hover:bg-opacity-90 transition-opacity flex items-center"
+                          title="Supprimer l'utilisateur"
+                        >
+                          <FaTrash className="mr-1" /> Supprimer
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                ))
+              )}
             </div>
           )}
         </div>

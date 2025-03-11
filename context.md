@@ -84,7 +84,20 @@ Lors du développement de nouvelles fonctionnalités ou de la modification de fo
 - **Correction de l'Ordre Chronologique des Graphiques** : Amélioration des graphiques de tendances pour afficher les mois en ordre chronologique correct (de plus ancien à plus récent) et formater les étiquettes de façon appropriée
 - **Affichage Adaptatif des Étiquettes** : Optimisation de l'affichage des étiquettes de mois dans les graphiques avec format complet sur desktop et simplifié sur mobile pour une meilleure lisibilité
 - **Amélioration des Périodes Personnalisées** : Renforcement de la précision et de la lisibilité des périodes de dates sélectionnées dans les interfaces de statistiques
-
+- **Système de Gestion des Utilisateurs** : Implémentation d'un système complet de gestion des rôles utilisateurs (admin/employé) avec interface d'administration dédiée
+- **Interface Multilingue Cohérente** : Traduction complète de l'interface de gestion des utilisateurs en français pour maintenir la cohérence linguistique
+- **Optimisation React des Clés** : Résolution des problèmes de rendu avec clés duplicées dans le composant AdminNav pour améliorer la performance et éliminer les avertissements
+- **Flux d'Invitation des Employés** : Mise en place d'un processus où le propriétaire du site crée les utilisateurs et les administrateurs leur attribuent des rôles et les associent à des estilistas
+- **Interface Utilisateur Gestion Utilisateurs Améliorée** : Transformation de la présentation tabulaire en cartes interactives et correction des problèmes de contraste, avec amélioration de la responsivité du formulaire d'édition pour les mobiles
+- **Barre Latérale Administrative Unifiée** : Unification de deux barres de navigation administratives en un seul composant de barre latérale pliable, offrant une meilleure expérience utilisateur et une navigation plus cohérente
+- **Fonctionnalité de Collapse** : Implémentation d'une fonctionnalité permettant de réduire/agrandir la barre latérale pour optimiser l'espace disponible sur les écrans de bureau
+- **Adaptation Contextuelle** : Affichage adaptatif de la barre latérale en fonction du rôle de l'utilisateur et de la page actuelle
+- **Expérience Mobile Préservée** : Maintien d'une expérience mobile optimale avec un menu hamburger pour les petits écrans
+- **Correction des Problèmes de Timezone** : Résolution des problèmes liés à la sélection des dates dans le calendrier des réservations pour assurer que les réservations s'affichent pour le jour correct sélectionné
+- **Navigation Simplifiée** : Suppression du bouton Dashboard redondant pour une interface plus épurée et intuitive
+- **Barre Latérale Fermée par Défaut** : Configuration de la barre latérale pour qu'elle soit fermée par défaut, optimisant l'espace d'écran disponible
+- **Fermeture Automatique de la Barre Latérale** : Implémentation d'un système de détection de clics qui ferme automatiquement la barre latérale lorsque l'utilisateur clique en dehors de celle-ci
+- **Centrage Amélioré du Calendrier** : Correction du centrage du calendrier des réservations pour assurer une présentation visuelle cohérente avec les autres pages de l'application
 
 ## Structure de l'Application
 
@@ -102,8 +115,9 @@ Lors du développement de nouvelles fonctionnalités ou de la modification de fo
 - `/admin` : Tableau de bord d'administration
 - `/admin/reservations` : Gestion des réservations
 - `/admin/crm` : Gestion de la relation client et suivi des clients
-- `/admin/stylist-management` : Gestion des estilistas
-- `/admin/location-management` : Gestion des centres
+- `/admin/stylist-stats` : Statistiques des estilistas
+- `/admin/location-stats` : Statistiques des centres
+- `/admin/user-management` : Gestion des utilisateurs et des rôles
 
 ## Fonctionnalités Implémentées
 
@@ -132,7 +146,15 @@ Le système de réservation suit un flux en 6 étapes :
 
 ### Tableau de Bord d'Administration
 - **Interface en Français** : L'interface a été entièrement traduite en français
-- **Navigation Unifiée** : Barre de navigation administrative centralisée avec accès à toutes les sections
+- **Barre Latérale Unifiée** : Barre de navigation administrative centralisée et pliable qui:
+  - Intègre toutes les options de navigation principales et de configuration
+  - S'adapte au rôle de l'utilisateur connecté
+  - Est fermée par défaut pour maximiser l'espace de travail
+  - Se ferme automatiquement lorsque l'utilisateur clique en dehors
+  - Présente une interface simplifiée sans bouton Dashboard redondant
+  - Affiche le nom et l'image de l'utilisateur connecté
+  - Offre une expérience mobile optimisée avec menu hamburger
+  - Permet un accès rapide à toutes les sections du panel administratif
 - **Gestion des Réservations** : Voir, créer, modifier et annuler des réservations
 - **Filtrage par Date et Centre** : Filtrer les réservations par date et centre
 - **Filtrage par Estilista** : Possibilité de filtrer les réservations et le calendrier par estilista avec mise à jour dynamique de la vue
@@ -171,7 +193,15 @@ Le système de réservation suit un flux en 6 étapes :
   - **Indicateurs Visuels** : Affichage de points indiquant les jours avec réservations
   - **Navigation Optimisée** : Boutons de navigation entre les mois plus visibles et mieux espacés
   - **Adaptation au Contexte** : Titre du calendrier indiquant l'estilista sélectionné pour une meilleure orientation
-- **Design Sombre** : Thème sombre cohérent pour toutes les interfaces d'administration qui améliore la lisibilité et réduit la fatigue visuelle
+  - **Sélection Précise des Dates** : Correction des problèmes de timezone qui causaient l'affichage des réservations du jour précédent
+  - **Chargement Immédiat** : Chargement automatique des réservations lors de la sélection d'une date spécifique
+- **Design Sombre** : Thème sombre cohérent pour toutes les interfaces d'administration
+- **Gestion des Utilisateurs** : Interface complète pour gérer les utilisateurs du système administratif
+  - **Attribution de Rôles** : Possibilité d'assigner des rôles (Administrateur/Employé) aux utilisateurs
+  - **Association aux Estilistas** : Liaison entre utilisateurs et estilistas pour permettre à chaque estilista d'accéder à ses données
+  - **Interface Multilingue** : Interface entièrement en français pour maintenir la cohérence linguistique de l'application
+  - **Contrôle d'Accès** : Restrictions basées sur les rôles (les employés n'ont accès qu'aux réservations)
+  - **Flux d'Invitation** : Processus où le propriétaire crée les utilisateurs, qui sont ensuite configurés par les administrateurs
 
 ### Système de Styles Centralisé
 - **Variables CSS** : Définition centralisée de toutes les couleurs et propriétés visuelles dans `/src/styles/theme.css`
@@ -204,6 +234,8 @@ Le système de réservation suit un flux en 6 étapes :
 - **bookings** : Réservations des clients
 - **imagenes_galeria** : Images pour la galerie
 - **configuracion** : Configurations générales du site
+- **user_roles** : Rôles attribués aux utilisateurs (admin/employee)
+- **stylist_users** : Relation entre utilisateurs et estilistas
 
 ### Politiques de Sécurité
 - **Clients** : Peuvent lire les services, les coiffeurs et les centres, et créer des réservations
@@ -301,4 +333,8 @@ Le système de réservation suit un flux en 6 étapes :
 - **Manipulation des Dates** : Utiliser des approches explicites pour la manipulation des dates, en privilégiant des structures claires pour les opérations d'incrémentation et de comparaison
 - **Variables Modifiables** : Déclarer avec `let` toute variable qui sera modifiée dans son cycle de vie, même si la référence de l'objet reste la même
 - **Ordre Chronologique** : Dans les visualisations de données temporelles, toujours présenter les données dans un ordre chronologique cohérent pour faciliter l'analyse
-- **Étiquetage des Périodes** : Adapter le niveau de détail des étiquettes temporelles en fonction du contexte d'affichage (detailed pour desktop, simplifié pour mobile) 
+- **Étiquetage des Périodes** : Adapter le niveau de détail des étiquettes temporelles en fonction du contexte d'affichage (detailed pour desktop, simplifié pour mobile)
+- **Optimisation des Clés React** : Utiliser des clés uniques pour les éléments générés dynamiquement, en ajoutant un préfixe ou un suffixe contextuel pour éviter les duplications
+- **Gestion des Rôles** : Vérifier que les vues administratives adaptent leur contenu en fonction du rôle de l'utilisateur connecté 
+- **Contraste et Lisibilité** : Assurer un contraste suffisant pour tous les textes, particulièrement pour les étiquettes sur fond coloré (comme le texte sur fond primaire jaune qui doit être foncé et non clair)
+- **Expérience Mobile Optimisée** : Utiliser une disposition en colonnes (`flex-col`) sur mobile et en lignes (`sm:flex-row`) sur desktop pour les formulaires et contrôles, avec largeur complète (`w-full`) sur mobile pour une meilleure expérience utilisateur 
