@@ -49,10 +49,16 @@ export default function AdminPage() {
   // Estado para configuraciones
   const [heroDesktopImage, setHeroDesktopImage] = useState('');
   const [heroMobileImage, setHeroMobileImage] = useState('');
+  const [servicesBackgroundImage, setServicesBackgroundImage] = useState('');
+  const [servicesBackgroundMobileImage, setServicesBackgroundMobileImage] = useState('');
   const [heroDesktopFile, setHeroDesktopFile] = useState<File | null>(null);
   const [heroMobileFile, setHeroMobileFile] = useState<File | null>(null);
+  const [servicesBackgroundFile, setServicesBackgroundFile] = useState<File | null>(null);
+  const [servicesBackgroundMobileFile, setServicesBackgroundMobileFile] = useState<File | null>(null);
   const [heroDesktopPreview, setHeroDesktopPreview] = useState<string>('');
   const [heroMobilePreview, setHeroMobilePreview] = useState<string>('');
+  const [servicesBackgroundPreview, setServicesBackgroundPreview] = useState<string>('');
+  const [servicesBackgroundMobilePreview, setServicesBackgroundMobilePreview] = useState<string>('');
   
   // Estado para locations (necesario para el componente StylistManagement)
   const [locations, setLocations] = useState<Location[]>([]);
@@ -63,6 +69,8 @@ export default function AdminPage() {
   const heroMobileInputRef = useRef<HTMLInputElement>(null);
   const serviceImageInputRef = useRef<HTMLInputElement>(null);
   const galleryImageInputRef = useRef<HTMLInputElement>(null);
+  const servicesBackgroundInputRef = useRef<HTMLInputElement>(null);
+  const servicesBackgroundMobileInputRef = useRef<HTMLInputElement>(null);
   
   // Estado para navegación móvil
   const [isOpen] = useState(false);
@@ -143,6 +151,8 @@ export default function AdminPage() {
       if (configData && configData.length > 0) {
         const heroDesktop = configData.find(c => c.clave === 'hero_image_desktop');
         const heroMobile = configData.find(c => c.clave === 'hero_image_mobile');
+        const servicesBackground = configData.find(c => c.clave === 'services_background');
+        const servicesBackgroundMobile = configData.find(c => c.clave === 'services_background_mobile');
         
         if (heroDesktop && heroDesktop.valor) {
           setHeroDesktopImage(heroDesktop.valor);
@@ -152,6 +162,16 @@ export default function AdminPage() {
         if (heroMobile && heroMobile.valor) {
           setHeroMobileImage(heroMobile.valor);
           setHeroMobilePreview(heroMobile.valor);
+        }
+        
+        if (servicesBackground && servicesBackground.valor) {
+          setServicesBackgroundImage(servicesBackground.valor);
+          setServicesBackgroundPreview(servicesBackground.valor);
+        }
+        
+        if (servicesBackgroundMobile && servicesBackgroundMobile.valor) {
+          setServicesBackgroundMobileImage(servicesBackgroundMobile.valor);
+          setServicesBackgroundMobilePreview(servicesBackgroundMobile.valor);
         }
       }
       
@@ -475,20 +495,29 @@ export default function AdminPage() {
     }
   };
 
-  const updateHeroImage = async (clave: string, file: File | null, currentUrl: string) => {
+  const updateConfigImage = async (clave: string, file: File | null, currentUrl: string) => {
     try {
       setIsUploading(true);
       let valor = currentUrl;
       
       // Si un fichier est sélectionné, le télécharger d'abord
       if (file) {
-        const fileUrl = await uploadFile(file, 'hero_images');
+        // Usar el bucket hero_images para todas las imágenes de configuración
+        const bucket = 'hero_images';
+        const folder = ''; // Sin carpetas, directamente en la raíz del bucket
+        
+        console.log(`Subiendo imagen para ${clave} en bucket: ${bucket}`);
+        const fileUrl = await uploadFile(file, bucket, folder);
+        console.log(`URL obtenida después de subir: ${fileUrl}`);
+        
         if (fileUrl) {
           valor = fileUrl;
         } else {
           throw new Error('Impossible de télécharger le fichier');
         }
       }
+      
+      console.log(`Actualizando configuración ${clave} con valor: ${valor}`);
       
       // Mettre à jour la configuration dans la base de données
       const { error } = await supabase
@@ -513,6 +542,20 @@ export default function AdminPage() {
           heroMobileInputRef.current.value = '';
         }
         setHeroMobileFile(null);
+      } else if (clave === 'services_background') {
+        setServicesBackgroundImage(valor);
+        setServicesBackgroundPreview(valor);
+        if (servicesBackgroundInputRef.current) {
+          servicesBackgroundInputRef.current.value = '';
+        }
+        setServicesBackgroundFile(null);
+      } else if (clave === 'services_background_mobile') {
+        setServicesBackgroundMobileImage(valor);
+        setServicesBackgroundMobilePreview(valor);
+        if (servicesBackgroundMobileInputRef.current) {
+          servicesBackgroundMobileInputRef.current.value = '';
+        }
+        setServicesBackgroundMobileFile(null);
       }
       
       // Recharger les données
@@ -927,7 +970,7 @@ export default function AdminPage() {
                     )}
                     
                     <button 
-                      onClick={() => updateHeroImage('hero_image_desktop', heroDesktopFile, heroDesktopImage)}
+                      onClick={() => updateConfigImage('hero_image_desktop', heroDesktopFile, heroDesktopImage)}
                       className="bg-primary text-secondary font-bold py-2 px-4 rounded hover:bg-yellow-400 transition duration-300 disabled:opacity-50 mt-4"
                       disabled={isUploading}
                     >
@@ -967,13 +1010,97 @@ export default function AdminPage() {
                     )}
                     
                     <button 
-                      onClick={() => updateHeroImage('hero_image_mobile', heroMobileFile, heroMobileImage)}
+                      onClick={() => updateConfigImage('hero_image_mobile', heroMobileFile, heroMobileImage)}
                       className="bg-primary text-secondary font-bold py-2 px-4 rounded hover:bg-yellow-400 transition duration-300 disabled:opacity-50 mt-4"
                       disabled={isUploading}
                     >
                       {isUploading ? 'Téléchargement...' : 'Mise à jour de l\'image'}
                     </button>
                   </div>
+                </div>
+              </div>
+            </div>
+            
+            <div className="bg-secondary shadow-lg rounded-lg overflow-hidden mb-8">
+              <div className="p-6">
+                <h2 className="text-xl font-bold text-primary mb-4">Image de fond pour la section Services</h2>
+                
+                <div className="border border-primary rounded-lg p-4 bg-dark mb-6">
+                  <h3 className="font-bold text-light mb-2">Image de fond avec effet parallax (Desktop)</h3>
+                  <p className="text-gray-300 mb-4">Cette image sera affichée comme fond de la section des services avec un effet parallax lors du défilement sur les écrans d&apos;ordinateur.</p>
+                  
+                  <div className="mb-4">
+                    <label className="block text-light text-sm font-bold mb-2">Sélectionner une image</label>
+                    <input
+                      ref={servicesBackgroundInputRef}
+                      type="file"
+                      accept="image/*"
+                      className="block w-full text-sm text-light file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-primary file:text-secondary hover:file:bg-yellow-400"
+                      onChange={(e) => handleFileChange(e, setServicesBackgroundFile, setServicesBackgroundPreview)}
+                    />
+                  </div>
+                  
+                  {servicesBackgroundPreview && (
+                    <div className="mt-4 w-full">
+                      <p className="text-sm font-medium text-light mb-2">Prévisualisation:</p>
+                      <div className="border rounded-lg overflow-hidden">
+                        <Image 
+                          src={servicesBackgroundPreview} 
+                          alt="Prévisualisation de l'image de fond des services" 
+                          width={400}
+                          height={200}
+                          className="w-full h-auto object-cover"
+                        />
+                      </div>
+                    </div>
+                  )}
+                  
+                  <button 
+                    onClick={() => updateConfigImage('services_background', servicesBackgroundFile, servicesBackgroundImage)}
+                    className="bg-primary text-secondary font-bold py-2 px-4 rounded hover:bg-yellow-400 transition duration-300 disabled:opacity-50 mt-4"
+                    disabled={isUploading}
+                  >
+                    {isUploading ? 'Téléchargement...' : 'Mise à jour de l\'image'}
+                  </button>
+                </div>
+                
+                <div className="border border-primary rounded-lg p-4 bg-dark">
+                  <h3 className="font-bold text-light mb-2">Image de fond avec effet parallax (Mobile)</h3>
+                  <p className="text-gray-300 mb-4">Cette image sera affichée comme fond de la section des services avec un effet parallax lors du défilement sur les écrans mobiles.</p>
+                  
+                  <div className="mb-4">
+                    <label className="block text-light text-sm font-bold mb-2">Sélectionner une image</label>
+                    <input
+                      ref={servicesBackgroundMobileInputRef}
+                      type="file"
+                      accept="image/*"
+                      className="block w-full text-sm text-light file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-primary file:text-secondary hover:file:bg-yellow-400"
+                      onChange={(e) => handleFileChange(e, setServicesBackgroundMobileFile, setServicesBackgroundMobilePreview)}
+                    />
+                  </div>
+                  
+                  {servicesBackgroundMobilePreview && (
+                    <div className="mt-4 w-full">
+                      <p className="text-sm font-medium text-light mb-2">Prévisualisation:</p>
+                      <div className="border rounded-lg overflow-hidden">
+                        <Image 
+                          src={servicesBackgroundMobilePreview} 
+                          alt="Prévisualisation de l'image de fond des services (mobile)" 
+                          width={400}
+                          height={200}
+                          className="w-full h-auto object-cover"
+                        />
+                      </div>
+                    </div>
+                  )}
+                  
+                  <button 
+                    onClick={() => updateConfigImage('services_background_mobile', servicesBackgroundMobileFile, servicesBackgroundMobileImage)}
+                    className="bg-primary text-secondary font-bold py-2 px-4 rounded hover:bg-yellow-400 transition duration-300 disabled:opacity-50 mt-4"
+                    disabled={isUploading}
+                  >
+                    {isUploading ? 'Téléchargement...' : 'Mise à jour de l\'image'}
+                  </button>
                 </div>
               </div>
             </div>

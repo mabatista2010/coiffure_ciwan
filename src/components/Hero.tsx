@@ -53,43 +53,52 @@ export default function Hero() {
       transition: { 
         duration: 0.7,
         when: "beforeChildren",
-        staggerChildren: 0.2
+        delayChildren: 0.3
       }
     }
   };
 
-  // Variante para texto que viene desde la derecha
-  const fromRightVariants = {
-    hidden: { opacity: 0, x: 100 },
-    visible: { 
-      opacity: 1, 
-      x: 0,
-      transition: { duration: 0.7, ease: "easeOut" }
-    }
-  };
-
-  // Variante para texto con efecto de rebote
-  const bounceVariants = {
+  // Variante para el título principal (aparece primero)
+  const titleVariants = {
     hidden: { opacity: 0, scale: 0.8 },
     visible: { 
       opacity: 1, 
       scale: 1,
       transition: { 
         type: "spring", 
-        damping: 8, 
-        stiffness: 100,
-        duration: 0.8
+        damping: 5, 
+        stiffness: 70,
+        duration: 1.2,
+        delay: 0.2
       }
     }
   };
 
-  // Variante para botón que viene desde abajo
-  const fromBottomVariants = {
+  // Variante para texto que viene desde la derecha (aparece segundo)
+  const fromRightVariants = {
+    hidden: { opacity: 0, x: 120 },
+    visible: { 
+      opacity: 1, 
+      x: 0,
+      transition: { 
+        duration: 0.8, 
+        ease: "easeOut",
+        delay: 0.6  // Aparece después del título
+      }
+    }
+  };
+
+  // Variante para el botón que aparece al final
+  const buttonVariants = {
     hidden: { opacity: 0, y: 50 },
     visible: { 
       opacity: 1, 
       y: 0,
-      transition: { duration: 0.6, ease: "easeOut" }
+      transition: { 
+        duration: 0.7, 
+        ease: "easeOut", 
+        delay: 1.4  // Aparece después de todos los textos
+      }
     }
   };
 
@@ -159,7 +168,7 @@ export default function Hero() {
               </motion.p>
               
               <motion.h1 
-                variants={bounceVariants}
+                variants={titleVariants}
                 className="text-4xl md:text-5xl font-bold mb-8 md:mb-4 uppercase"
                 style={{ color: 'var(--color-text-medium)' }}
               >
@@ -175,7 +184,7 @@ export default function Hero() {
               </motion.p>
               
               <motion.div 
-                variants={fromBottomVariants} 
+                variants={buttonVariants} 
                 className="flex justify-end w-full pt-4"
               >
                 <Link href="/reservation">

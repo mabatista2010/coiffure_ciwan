@@ -3,6 +3,7 @@
 :root {
   /* Colores principales */
   --color-primary: #D4A017; /* amarillo dorado */
+  --color-primary-rgb: 212, 160, 23; /* valores RGB del amarillo dorado */
   --color-secondary: #212121; /* negro logo */
   --color-accent: #000000; /* negro total */
   --color-coral: #E76F51; /* coral para títulos principales */
