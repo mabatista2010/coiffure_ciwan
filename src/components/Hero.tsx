@@ -58,8 +58,34 @@ export default function Hero() {
     }
   };
 
-  const itemVariants = {
-    hidden: { opacity: 0, y: 20 },
+  // Variante para texto que viene desde la derecha
+  const fromRightVariants = {
+    hidden: { opacity: 0, x: 100 },
+    visible: { 
+      opacity: 1, 
+      x: 0,
+      transition: { duration: 0.7, ease: "easeOut" }
+    }
+  };
+
+  // Variante para texto con efecto de rebote
+  const bounceVariants = {
+    hidden: { opacity: 0, scale: 0.8 },
+    visible: { 
+      opacity: 1, 
+      scale: 1,
+      transition: { 
+        type: "spring", 
+        damping: 8, 
+        stiffness: 100,
+        duration: 0.8
+      }
+    }
+  };
+
+  // Variante para botón que viene desde abajo
+  const fromBottomVariants = {
+    hidden: { opacity: 0, y: 50 },
     visible: { 
       opacity: 1, 
       y: 0,
@@ -86,9 +112,11 @@ export default function Hero() {
             layout="fill"
             objectFit="cover"
             priority
-            className="brightness-[0.9]"
+            className="brightness-[0.85]"
             onLoadingComplete={imageLoaded}
           />
+          {/* Capa de gradiente para desktop */}
+          <div className="absolute inset-0 bg-gradient-to-l from-black/70 to-black/30"></div>
         </motion.div>
       </div>
       
@@ -105,67 +133,62 @@ export default function Hero() {
             layout="fill"
             objectFit="cover"
             priority
-            className="brightness-[0.9]"
+            className="brightness-[0.85]"
             onLoadingComplete={imageLoaded}
           />
+          {/* Capa de gradiente para mobile */}
+          <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-black/30"></div>
         </motion.div>
       </div>
       
-      {/* Capa de gradiente sobre la imagen para mejor contraste */}
-      <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent z-0"></div>
-      
       {/* Contenido */}
-      <div className="relative z-1 h-full container mx-auto px-6">
+      <div className="relative z-1 h-full flex items-start md:items-center justify-end md:pr-16 px-8 pt-36 md:pt-0">
         <AnimatePresence>
           {isLoaded && (
-            <div className="flex h-full md:items-center items-end md:justify-start justify-center pb-2 md:pb-0">
-              <motion.div
-                variants={containerVariants}
-                initial="hidden"
-                animate="visible"
-                className="md:text-left text-center md:max-w-lg w-full pt-16 md:pt-0"
+            <motion.div
+              variants={containerVariants}
+              initial="hidden"
+              animate="visible"
+              className="md:max-w-[600px] w-full text-white text-right flex flex-col items-end md:mb-0 md:ml-auto md:mr-12 space-y-6 md:space-y-4"
+            >
+              <motion.p 
+                variants={fromRightVariants}
+                className="uppercase text-primary text-xl md:text-lg font-bold mb-4 md:mb-2"
               >
-                {/* Logo encima del texto */}
-                <motion.div 
-                  variants={itemVariants}
-                  className="flex justify-center md:justify-start mb-6"
-                >
-                  <Image
-                    src="/logo.png"
-                    alt="Logo Coiffure Ciwan"
-                    width={150}
-                    height={150}
-                    className="object-contain"
-                  />
-                </motion.div>
-                
-                <motion.h1 
-                  variants={itemVariants}
-                  className="text-4xl md:text-6xl font-bold mb-4 text-coral font-decorative"
-                >
-                  Coiffure Ciwan
-                </motion.h1>
-                
-                <motion.p 
-                  variants={itemVariants}
-                  className="text-xl md:text-2xl mb-8 text-light"
-                >
-                  Venez prendre du temps pour vous dans une ambiance sympa, et vous faire plaisir
-                </motion.p>
-                
-                <motion.div variants={itemVariants}>
-                  <Link href="/reservation">
-                    <motion.div
-                      whileHover={{ scale: 1.02 }}
-                      whileTap={{ scale: 0.98 }}
-                      className="font-medium py-2 px-6 rounded-full transition-all duration-300 inline-block mb-6 md:mb-0 text-base cursor-pointer bg-primary text-secondary shadow-lg"
-                    >
-                      Réservez votre rendez-vous
-                    </motion.div>
-                  </Link>
-                </motion.div>
+                Affirmez votre style avec élégance
+              </motion.p>
+              
+              <motion.h1 
+                variants={bounceVariants}
+                className="text-4xl md:text-5xl font-bold mb-8 md:mb-4 uppercase"
+                style={{ color: 'var(--color-text-medium)' }}
+              >
+                La meilleure coupe à Montreux
+              </motion.h1>
+              
+              <motion.p 
+                variants={fromRightVariants}
+                className="text-base md:text-base leading-relaxed mb-14 md:mb-8"
+                style={{ color: 'var(--color-text-medium)' }}
+              >
+                Nos barbiers offrent les meilleures coupes de cheveux et rasages traditionnels, adaptés à votre style et à vos préférences. Grâce à une combinaison de techniques de barbier classiques et modernes, nous garantissons un look impeccable et une sensation de confiance.
+              </motion.p>
+              
+              <motion.div 
+                variants={fromBottomVariants} 
+                className="flex justify-end w-full pt-4"
+              >
+                <Link href="/reservation">
+                  <motion.div
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.98 }}
+                    className="bg-primary text-black text-base md:text-base font-bold py-4 px-8 inline-block rounded uppercase md:w-auto"
+                  >
+                    Réservez maintenant
+                  </motion.div>
+                </Link>
               </motion.div>
-            </div>
+            </motion.div>
           )}
         </AnimatePresence>
       </div>

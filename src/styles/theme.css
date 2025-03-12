@@ -2,7 +2,7 @@
 
 :root {
   /* Colores principales */
-  --color-primary: #FFD700; /* amarillo dorado */
+  --color-primary: #D4A017; /* amarillo dorado */
   --color-secondary: #212121; /* negro logo */
   --color-accent: #000000; /* negro total */
   --color-coral: #E76F51; /* coral para títulos principales */
@@ -10,7 +10,7 @@
   /* Variaciones de texto */
   --color-text-dark: #1a1a1a;
   --color-text-light: #ffffff;
-  --color-text-medium: #E0E0E0;
+  --color-text-medium: #e0e0e0f2;
   
   /* Colores de fondo */
   --color-bg-dark: #121212;

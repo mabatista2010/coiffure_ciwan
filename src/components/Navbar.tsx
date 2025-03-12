@@ -3,8 +3,9 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { FaBars, FaTimes, FaCalendarAlt } from 'react-icons/fa';
+import { FaBars, FaTimes } from 'react-icons/fa';
 import { motion, AnimatePresence } from 'framer-motion';
+import Image from 'next/image';
 
 export default function Navbar() {
   const [isOpen, setIsOpen] = useState(false);
@@ -48,35 +49,67 @@ export default function Navbar() {
 
   return (
     <>
-      <nav className={`fixed w-full z-40 py-4 transition-all duration-300 ${scrolled ? 'bg-black/50 backdrop-blur-md' : 'bg-transparent'}`}>
-        <div className="container mx-auto px-4 flex justify-between items-center relative">
+      <nav className={`fixed w-full z-40 py-4 px-4 md:px-10 transition-all duration-300 ${scrolled ? 'bg-black/50 backdrop-blur-md' : 'bg-transparent'}`}>
+        <div className="flex justify-between items-center relative">
           {/* Logo */}
-          <Link href="/" className="text-2xl font-bold z-50 text-coral font-decorative">
-            Coiffure Ciwan
-          </Link>
+          <div className="flex items-center gap-2 z-50">
+            <Image 
+              src="/logo.png" 
+              alt="Logo Coiffure Ciwan" 
+              width={40} 
+              height={40} 
+              className="rounded-full object-cover" 
+            />
+            <span className="text-2xl font-bold text-coral font-decorative">
+              Coiffure Ciwan
+            </span>
+          </div>
 
           {/* Desktop Menu */}
-          <div className="hidden md:flex space-x-8 items-center">
-            <Link href={getUrl("#servicios")} className="text-primary hover:opacity-75 transition duration-300">
-              Services
-            </Link>
-            <Link href="/equipo" className="text-primary hover:opacity-75 transition duration-300">
-              Équipe
-            </Link>
-            <Link href={getUrl("#galeria")} className="text-primary hover:opacity-75 transition duration-300">
-              Galerie
-            </Link>
-            <Link href={getUrl("#ubicacion")} className="text-primary hover:opacity-75 transition duration-300">
-              Localisation
-            </Link>
-            <Link href={getUrl("#contacto")} className="text-primary hover:opacity-75 transition duration-300">
-              Contact
-            </Link>
+          <div className="hidden md:flex items-center gap-6">
+            <div className="flex gap-6">
+              <Link 
+                href={getUrl("#servicios")} 
+                className="text-[#cccccc] uppercase text-sm hover:text-primary transition duration-300 relative group"
+              >
+                Services
+                <span className="absolute left-0 bottom-[-4px] w-0 h-[2px] bg-primary transition-all duration-300 group-hover:w-full"></span>
+              </Link>
+              <Link 
+                href="/equipo" 
+                className="text-[#cccccc] uppercase text-sm hover:text-primary transition duration-300 relative group"
+              >
+                Équipe
+                <span className="absolute left-0 bottom-[-4px] w-0 h-[2px] bg-primary transition-all duration-300 group-hover:w-full"></span>
+              </Link>
+              <Link 
+                href={getUrl("#galeria")} 
+                className="text-[#cccccc] uppercase text-sm hover:text-primary transition duration-300 relative group"
+              >
+                Galerie
+                <span className="absolute left-0 bottom-[-4px] w-0 h-[2px] bg-primary transition-all duration-300 group-hover:w-full"></span>
+              </Link>
+              <Link 
+                href={getUrl("#ubicacion")} 
+                className="text-[#cccccc] uppercase text-sm hover:text-primary transition duration-300 relative group"
+              >
+                Localisation
+                <span className="absolute left-0 bottom-[-4px] w-0 h-[2px] bg-primary transition-all duration-300 group-hover:w-full"></span>
+              </Link>
+              <Link 
+                href={getUrl("#contacto")} 
+                className="text-[#cccccc] uppercase text-sm hover:text-primary transition duration-300 relative group"
+              >
+                Contact
+                <span className="absolute left-0 bottom-[-4px] w-0 h-[2px] bg-primary transition-all duration-300 group-hover:w-full"></span>
+              </Link>
+            </div>
+            
             <Link 
               href="/reservation" 
-              className="text-primary hover:opacity-75 transition duration-300 flex items-center gap-1"
+              className="bg-primary text-[#cccccc] px-5 py-2 rounded text-sm uppercase font-bold hover:bg-[#b88b14] hover:text-primary transition duration-300"
             >
-              <FaCalendarAlt className="text-sm" /> Réserver
+              Réserver
             </Link>
           </div>
 
@@ -96,7 +129,7 @@ export default function Navbar() {
         </div>
       </nav>
 
-      {/* Mobile Menu - Fullscreen with fixed X button in a better position */}
+      {/* Mobile Menu - Mantenemos el actual como solicitado */}
       <AnimatePresence>
         {isOpen && (
           <motion.div 
