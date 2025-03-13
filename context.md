@@ -55,7 +55,7 @@ Lors du développement de nouvelles fonctionnalités ou de la modification de fo
 ## Améliorations Récentes
 - **Système de Styles Centralisé** : Création d'un système unifié de styles basé sur des variables CSS pour une cohérence visuelle et une maintenance simplifiée
 - **Page Équipe** : Ajout d'une page dédiée à la présentation de l'équipe d'estilistas accessible depuis la navigation principale
-- **Optimisation du Code** : Correction des problèmes de typage et élimination des `any` explicites
+- **Optimisation du Code** : Correction des problèmes de linter et suppression des variables non utilisées pour améliorer la qualité et la maintenance du code
 - **Accessibilité** : Échappement correct des caractères spéciaux pour améliorer la compatibilité
 - **Performance des Images** : Conversion des balises `<img>` standard vers le composant `<Image>` de Next.js
 - **Qualité du Code** : Élimination des variables et fonctions non utilisées
@@ -98,6 +98,21 @@ Lors du développement de nouvelles fonctionnalités ou de la modification de fo
 - **Barre Latérale Fermée par Défaut** : Configuration de la barre latérale pour qu'elle soit fermée par défaut, optimisant l'espace d'écran disponible
 - **Fermeture Automatique de la Barre Latérale** : Implémentation d'un système de détection de clics qui ferme automatiquement la barre latérale lorsque l'utilisateur clique en dehors de celle-ci
 - **Centrage Amélioré du Calendrier** : Correction du centrage du calendrier des réservations pour assurer une présentation visuelle cohérente avec les autres pages de l'application
+- **Effet Parallax dans la Section Services** : Implémentation d'un effet parallax pour l'arrière-plan de la section services, créant une profondeur visuelle lors du défilement
+- **Images de Service Optimisées** : Ajout d'une subtile sombra blanche aux images des services pour les mettre en valeur sur fond sombre et améliorer l'expérience visuelle
+- **Soutien des Images Mobile et Desktop** : Configuration distincte d'images d'arrière-plan pour mobile et desktop dans la section services via Supabase
+- **Animation Séquentielle Hero** : Amélioration des animations de la section Hero avec un titre à effet rebond suivi des textes secondaires et du bouton CTA
+- **Gestion d'Erreur des Images** : Implémentation d'un système robuste de fallback pour les images en cas d'erreur de chargement
+- **Amélioration de la Section Galerie** : Implémentation d'un carrousel interactif avec animations fluides, miniatures pour navigation sur desktop et indicateurs de position pour mobile
+- **Interface de Galerie Moderne** : Ajout d'effets visuels comme échelle au survol, gradients pour améliorer la lisibilité, et animations de transition entre les images
+- **Gestion Tactile de la Galerie** : Support de gestures tactiles pour navigation de galerie sur mobile, avec détection de swipe gauche/droite
+- **Amélioration de la Section Location** : Transformation avec arrière-plan à effet parallaxe, intégration de cartes Google Maps dynamiques et organisation visuelle équilibrée
+- **Interface Multi-Centres** : Support pour affichage de plusieurs centres avec sélecteur par boutons et navigation par flèches sur mobile
+- **Optimisation Mobile Location** : Adaptation complète pour écrans mobiles avec contrôles intuitifs et affichage optimisé
+- **Affichage d'Heures d'Ouverture**: Présentation claire des heures d'ouverture de chaque centre, groupées par jour avec support pour plusieurs plages horaires
+- **Bouton de Navigation Maps** : Ajout d'un bouton pour obtenir des directions via Google Maps directement depuis la section location
+- **Bouton Réservation Intégré** : Ajout d'un bouton "Réservez Maintenant" en bas de la section location pour conversion directe des visiteurs
+- **Refactorisation du Style Location** : Implémentation d'une constante backgroundStyle pour maintenir la cohérence et faciliter la maintenance
 
 ## Structure de l'Application
 
@@ -124,8 +139,24 @@ Lors du développement de nouvelles fonctionnalités ou de la modification de fo
 ### Landing Page
 - **Section Hero** : Présentation principale avec image de fond et appel à l'action
 - **Services** : Affiche les services proposés avec les prix
-- **Galerie** : Affiche des images des travaux réalisés
-- **Localisation** : Affiche l'adresse et la carte des centres
+- **Galerie** : 
+  - Carrousel interactif avec animations fluides et transitions élégantes
+  - Navigation par flèches et miniatures sur desktop, indicateurs de position sur mobile
+  - Support de gestes tactiles (swipe) pour la navigation sur appareils mobiles
+  - Échelle au survol pour ajouter un effet de profondeur et d'interactivité
+  - Informations descriptives et dates avec formatage en français
+  - Récupération dynamique des images depuis Supabase avec fallback local en cas d'erreur
+  - Fond avec gradient et effets visuels améliorant la présentation des images
+- **Localisation** : 
+  - Affichage des centres avec intégration Google Maps interactive
+  - Interface multi-centres avec navigation fluide par boutons ou flèches
+  - Horaires d'ouverture présentés de façon organisée par jour de la semaine
+  - Support pour plusieurs plages horaires par jour (matin/après-midi)
+  - Adaptation mobile avec contrôles de navigation optimisés
+  - Bouton de directions Google Maps pour faciliter la navigation des clients
+  - Fond avec effet parallaxe pour une expérience visuelle moderne
+  - Récupération dynamique des données depuis Supabase
+  - Bouton "Réservez Maintenant" pour convertir les visiteurs en clients
 - **Contact** : Informations de contact et formulaire
 
 ### Page Équipe
