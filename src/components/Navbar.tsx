@@ -12,6 +12,7 @@ export default function Navbar() {
   const [scrolled, setScrolled] = useState(false);
   const pathname = usePathname();
   const isHomePage = pathname === '/';
+  const isReservationPage = pathname === '/reservation' || pathname.startsWith('/reservation/');
   
   // Bloquear el scroll cuando el menú está abierto
   useEffect(() => {
@@ -28,6 +29,12 @@ export default function Navbar() {
 
   // Detectar scroll para añadir un fondo semitransparente al navbar
   useEffect(() => {
+    // Si estamos en la página de reservas, establecer scrolled a true inmediatamente
+    if (isReservationPage) {
+      setScrolled(true);
+      return;
+    }
+    
     const handleScroll = () => {
       if (window.scrollY > 60) {
         setScrolled(true);
@@ -36,11 +43,14 @@ export default function Navbar() {
       }
     };
 
+    // Comprobar el scroll inicial
+    handleScroll();
+    
     window.addEventListener('scroll', handleScroll);
     return () => {
       window.removeEventListener('scroll', handleScroll);
     };
-  }, []);
+  }, [isReservationPage]);
 
   // Función para generar la URL correcta según la ruta actual
   const getUrl = (anchor: string) => {
@@ -49,10 +59,14 @@ export default function Navbar() {
 
   return (
     <>
-      <nav className={`fixed w-full z-40 py-4 px-4 md:px-10 transition-all duration-300 ${scrolled ? 'bg-black/50 backdrop-blur-md' : 'bg-transparent'}`}>
+      <nav className={`fixed w-full z-40 py-4 px-4 md:px-10 transition-all duration-300 ${scrolled || isReservationPage ? 'bg-black/50 backdrop-blur-md' : 'bg-transparent'}`}>
         <div className="flex justify-between items-center relative">
-          {/* Logo */}
-          <div className="flex items-center gap-2 z-50">
+          {/* Logo y texto como un solo botón clicable */}
+          <Link 
+            href="/" 
+            className="flex items-center gap-2 z-50 cursor-pointer transition-transform hover:scale-105"
+            aria-label="Retour à l'accueil"
+          >
             <Image 
               src="/logo.png" 
               alt="Logo Coiffure Ciwan" 
@@ -63,7 +77,7 @@ export default function Navbar() {
             <span className="text-2xl font-bold text-coral font-decorative">
               Coiffure Ciwan
             </span>
-          </div>
+          </Link>
 
           {/* Desktop Menu */}
           <div className="hidden md:flex items-center gap-6">
