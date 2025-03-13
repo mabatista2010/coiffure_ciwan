@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { motion, useScroll, useTransform, useInView } from 'framer-motion';
+import { motion } from 'framer-motion';
 import Image from 'next/image';
 import Link from 'next/link';
 import { supabase, Service } from '@/lib/supabase';
@@ -42,11 +42,6 @@ export default function Services() {
   const servicesGridRef = useRef<HTMLDivElement>(null);
   const ctaRef = useRef<HTMLDivElement>(null);
   
-  const { scrollYProgress } = useScroll({
-    target: sectionRef,
-    offset: ["start end", "end start"]
-  });
-
   const titleVariants = {
     hidden: { opacity: 0, y: 30 },
     visible: (custom: number) => ({
