@@ -27,8 +27,7 @@ export default function Services() {
   const backgroundStyleMobile = {
     backgroundImage: `url("${backgroundImageMobile}")`,
     backgroundSize: 'cover',
-    backgroundPosition: 'center',
-    backgroundAttachment: 'fixed'
+    backgroundPosition: 'center'
   };
   
   // Estilos para mejorar la legibilidad del texto sin oscurecer el fondo
@@ -291,7 +290,7 @@ return (
                 />
               </div>
             </div>
-            <div className="service-card-content pt-4 pb-2 text-center bg-black bg-opacity-50 rounded-b-sm">
+            <div className="service-card-content pt-4 pb-2 text-center rounded-b-sm">
               <h3 className="service-card-title text-2xl font-bold mb-2 text-white" style={{textShadow: '0 2px 8px rgba(0, 0, 0, 0.9)'}}>
                 {service.nombre}
               </h3>

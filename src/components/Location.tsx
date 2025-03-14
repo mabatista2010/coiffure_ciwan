@@ -26,12 +26,20 @@ interface LocationHour {
   end_time: string;
 }
 
-// Constante con los estilos del fondo
+// Constante con los estilos del fondo para desktop
 const backgroundStyle = {
   backgroundImage: 'url("https://tvdwepumtrrjpkvnitpw.supabase.co/storage/v1/object/public/fotos_peluqueria//freepik__a-highly-realistic-venetian-plaster-texture-in-dee__43097.jpeg")',
   backgroundSize: 'cover',
   backgroundPosition: 'center',
   backgroundAttachment: 'fixed'
+};
+
+// Constante con los estilos del fondo para móvil (sin parallax)
+const backgroundStyleMobile = {
+  backgroundImage: 'url("https://tvdwepumtrrjpkvnitpw.supabase.co/storage/v1/object/public/fotos_peluqueria//freepik__a-highly-realistic-venetian-plaster-texture-in-dee__43097.jpeg")',
+  backgroundSize: 'cover',
+  backgroundPosition: 'center'
+  // Se elimina backgroundAttachment: 'fixed' para móviles
 };
 
 // Nombres de los días de la semana en francés
@@ -54,6 +62,25 @@ export default function Location() {
   
   // Para la navegación del carrusel en caso de muchos centros
   const [currentIndex, setCurrentIndex] = useState(0);
+  const [isMobile, setIsMobile] = useState<boolean>(false);
+
+  // Detectar si es mobile
+  useEffect(() => {
+    const checkIfMobile = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    
+    // Verificar al inicio
+    checkIfMobile();
+    
+    // Añadir event listener para cambios de tamaño
+    window.addEventListener('resize', checkIfMobile);
+    
+    // Cleanup
+    return () => {
+      window.removeEventListener('resize', checkIfMobile);
+    };
+  }, []);
 
   // Obtener los centros al cargar el componente
   useEffect(() => {
@@ -173,7 +200,7 @@ export default function Location() {
       <section 
         id="ubicacion" 
         className="py-20 relative"
-        style={backgroundStyle}
+        style={isMobile ? backgroundStyleMobile : backgroundStyle}
       >
         {/* Capa de oscurecimiento */}
         <div className="absolute inset-0 bg-black opacity-75"></div>
@@ -192,7 +219,7 @@ export default function Location() {
       <section 
         id="ubicacion" 
         className="py-20 relative"
-        style={backgroundStyle}
+        style={isMobile ? backgroundStyleMobile : backgroundStyle}
       >
         {/* Capa de oscurecimiento */}
         <div className="absolute inset-0 bg-black opacity-75"></div>
@@ -211,7 +238,7 @@ export default function Location() {
       <section 
         id="ubicacion" 
         className="py-20 relative"
-        style={backgroundStyle}
+        style={isMobile ? backgroundStyleMobile : backgroundStyle}
       >
         {/* Capa de oscurecimiento */}
         <div className="absolute inset-0 bg-black opacity-75"></div>
@@ -230,7 +257,7 @@ export default function Location() {
     <section 
       id="ubicacion" 
       className="py-16 md:py-24 relative"
-      style={backgroundStyle}
+      style={isMobile ? backgroundStyleMobile : backgroundStyle}
     >
       {/* Capa de oscurecimiento */}
       <div className="absolute inset-0 bg-black opacity-75"></div>
