@@ -13,7 +13,7 @@ export default function Footer() {
           {/* Logo y descripción */}
           <div>
             <h3 className="text-2xl font-bold mb-4" style={{ color: '#E76F51', fontFamily: 'Dancing Script, cursive' }}>
-              Coiffure Ciwan
+              Steel & Blade
             </h3>
             <p style={{ color: '#E0E0E0' }} className="mb-4">
               Salon de coiffure moderne spécialisé dans les coupes pour hommes et enfants, avec les meilleurs stylistes et barbiers de la ville.
@@ -98,7 +98,7 @@ export default function Footer() {
         {/* Línea divisoria */}
         <div className="border-t border-gray-700 mt-8 pt-8 text-center">
           <p style={{ color: '#E0E0E0' }} className="mb-2">
-            © {currentYear} Coiffure Ciwan. Tous droits réservés.
+            © {currentYear} Steel & Blade. Tous droits réservés.
           </p>
         </div>
       </div>

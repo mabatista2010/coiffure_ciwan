@@ -164,7 +164,7 @@ export default function Hero() {
                 variants={fromRightVariants}
                 className="uppercase text-primary text-xl md:text-lg font-bold mb-4 md:mb-2"
               >
-                Affirmez votre style avec élégance
+                La coupe idéale à votre imgage
               </motion.p>
               
               <motion.h1 
@@ -172,7 +172,7 @@ export default function Hero() {
                 className="text-4xl md:text-5xl font-bold mb-8 md:mb-4 uppercase"
                 style={{ color: 'var(--color-text-medium)' }}
               >
-                La meilleure coupe à Montreux
+                Votre style, notre passion
               </motion.h1>
               
               <motion.p 

@@ -240,7 +240,7 @@ return (
             Ce que nous offrons
           </motion.h3>
           <motion.h2 
-            className="text-4xl md:text-6xl font-bold mb-6 text-white"
+            className="text-4xl md:text-6xl font-bold mb-6 text-light"
             initial="hidden"
             animate="visible"
             variants={titleVariants}
@@ -253,7 +253,7 @@ return (
         
         <div ref={descriptionRef} className="flex items-center relative z-30">
           <motion.p 
-            className="text-lg text-white"
+            className="text-lg text-light"
             initial="hidden"
             animate="visible"
             variants={descriptionVariants}
@@ -291,7 +291,7 @@ return (
               </div>
             </div>
             <div className="service-card-content pt-4 pb-2 text-center rounded-b-sm">
-              <h3 className="service-card-title text-2xl font-bold mb-2 text-white" style={{textShadow: '0 2px 8px rgba(0, 0, 0, 0.9)'}}>
+              <h3 className="service-card-title text-2xl font-bold mb-2 text-light" style={{textShadow: '0 2px 8px rgba(0, 0, 0, 0.9)'}}>
                 {service.nombre}
               </h3>
               <p className="service-card-description text-light" style={{textShadow: '0 2px 4px rgba(0, 0, 0, 0.9)'}}>

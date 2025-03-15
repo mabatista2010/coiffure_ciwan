@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Coiffure Civan - Montreux</title>
+  <link
+    href=https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700&family=Dancing+Script:wght@400;700&display=swap
+    rel="stylesheet"
+  />
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+ 
+    body {
+      font-family: 'Montserrat', sans-serif;
+      background-color: #f5f5f5;
+    }
+ 
+    /* Barra de navegación */
+    .header {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      background-color: #1a1a1a;
+      display: flex;
+      align-items: center;
+      justify-content: space-between; /* Espaciado entre logo y el resto */
+      padding: 15px 40px;
+      z-index: 1000;
+    }
+ 
+    .logo-container {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+ 
+    .logo-container img {
+      width: 40px;
+      border-radius: 50%;
+    }
+ 
+    .logo-container span {
+      color: #FF7F50;
+      font-size: 24px;
+      font-family: 'Dancing Script', cursive;
+      font-weight: 700;
+    }
+ 
+    /* Contenedor que agrupa enlaces y botón de escritorio */
+    .nav-container {
+      display: flex;
+      align-items: center;
+      gap: 25px;
+      margin-left: auto; /* Empuja la nav-container a la derecha */
+    }
+ 
+    .nav-links {
+      list-style: none;
+      display: flex;
+      gap: 25px;
+    }
+ 
+    .nav-links a {
+      color: #cccccc;
+      text-decoration: none;
+      text-transform: uppercase;
+      font-size: 14px;
+      transition: color 0.3s;
+    }
+ 
+    .nav-links a:hover {
+      color: #D4A017;
+    }
+ 
+    /* Botones CTA */
+    .cta-button {
+      background-color: #D4A017;
+      color: white;
+      padding: 10px 20px;
+      border: none;
+      border-radius: 5px;
+      text-transform: uppercase;
+      font-weight: bold;
+      cursor: pointer;
+      font-size: 14px;
+      transition: background-color 0.3s;
+    }
+ 
+    .cta-button:hover {
+      background-color: #b88b14;
+    }
+ 
+    /* Botón escritorio vs. móvil */
+    .desktop-cta {
+      display: block;  /* Por defecto, se ve en escritorio */
+    }
+    .mobile-cta {
+      display: none;   /* Oculto en escritorio */
+    }
+ 
+    /* Ícono de hamburguesa (oculto en escritorio) */
+    .hamburger {
+      display: none;
+      flex-direction: column;
+      cursor: pointer;
+    }
+ 
+    .hamburger span {
+      width: 25px;
+      height: 3px;
+      background-color: #cccccc;
+      margin: 4px 0;
+      transition: 0.4s;
+    }
+ 
+    /* Sección hero */
+    .hero {
+      position: relative;
+      height: 100vh;
+      background-image: url('hero-image.jpeg'); /* Imagen para escritorio */
+      background-size: cover;
+      background-position: center;
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      padding: 0 50px;
+    }
+ 
+    .hero::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(to left, rgba(0, 0, 0, 0.7), rgba(0, 0, 0, 0.3));
+    }
+ 
+    .hero-content {
+      position: relative;
+      z-index: 1;
+      max-width: 600px;
+      color: white;
+      text-align: left;
+    }
+ 
+    .hero-content .cta-button {
+      margin-left: 0;
+      display: block;
+      text-align: center;
+    }
+ 
+    .tagline {
+      color: #D4A017;
+      text-transform: uppercase;
+      font-size: 18px;
+      margin-bottom: 10px;
+    }
+ 
+    h1 {
+      font-size: 48px;
+      font-weight: 700;
+      margin: 0 0 20px;
+      text-transform: uppercase;
+    }
+ 
+    .subtext {
+      font-size: 16px;
+      line-height: 1.5;
+      margin-bottom: 20px;
+    }
+ 
+    /* Media query para móviles */
+    @media (max-width: 768px) {
+      .header {
+        padding: 10px 20px;
+      }
+ 
+      .nav-container {
+        position: absolute;
+        top: 100%;
+        left: 0;
+        width: 100%;
+        background-color: #1a1a1a;
+        flex-direction: column;
+        align-items: center;
+        display: none;
+        padding: 20px 0;
+      }
+ 
+      .nav-container.active {
+        display: flex;
+      }
+ 
+      .nav-links {
+        flex-direction: column;
+        gap: 15px;
+      }
+ 
+      .desktop-cta {
+        display: none;   /* Oculto en móvil */
+      }
+      .mobile-cta {
+        display: block;  /* Mostrado en móvil */
+        margin-top: 20px;
+      }
+ 
+      .hamburger {
+        display: flex;   /* Ícono visible en móvil */
+      }
+ 
+      /* Ajustes hero en móvil */
+      .hero {
+        background-image: url('hero-image-mobile.jpeg');
+        justify-content: center;
+        padding: 0 20px;
+        align-items: flex-end;
+        padding-bottom: 15%;
+      }
+ 
+      .hero-content {
+        text-align: center;
+        max-width: 100%;
+      }
+ 
+      h1 {
+        font-size: 32px;
+      }
+ 
+      .tagline {
+        font-size: 16px;
+      }
+ 
+      .subtext {
+        font-size: 14px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <!-- Barra de navegación -->
+  <nav class="header">
+    <div class="logo-container">
+      <img src="logo.png" alt="Logo Coiffure Civan" />
+      <span>Coiffure Ciwan</span>
+    </div>
+ 
+    <!-- Contenedor para enlaces y botón escritorio -->
+    <div class="nav-container">
+      <ul class="nav-links">
+        <li><a href="#">Services</a></li>
+        <li><a href="#">Equipe</a></li>
+        <li><a href="#">Galerie</a></li>
+        <li><a href="#">Localisation</a></li>
+        <li><a href="#">Contact</a></li>
+      </ul>
+      <!-- Botón escritorio, alineado a la derecha gracias al flex -->
+      <button class="cta-button desktop-cta">Réserver</button>
+ 
+      <!-- Botón móvil, se muestra solo cuando .nav-container está activo en móvil -->
+      <button class="cta-button mobile-cta">Réserver</button>
+    </div>
+ 
+    <!-- Ícono de hamburguesa (para móviles) -->
+    <div class="hamburger">
+      <span></span>
+      <span></span>
+      <span></span>
+    </div>
+  </nav>
+ 
+  <!-- Sección hero -->
+  <section class="hero">
+    <div class="hero-content">
+      <p class="tagline">Affirmez votre style avec élégance</p>
+      <h1>La meilleure coupe à Montreux</h1>
+      <p class="subtext">
+          Nos barbiers offrent les meilleures coupes de cheveux et rasages traditionnels, adaptés à votre style et à vos préférences. Grâce à une combinaison de techniques de barbier classiques et modernes, nous garantissons un look impeccable et une sensation de confiance.
+      </p>
+      <button class="cta-button">Réservez votre rendez-vous</button>
+    </div>
+  </section>
+ 
+  <!-- JavaScript para el menú hamburguesa -->
+  <script>
+    const hamburger = document.querySelector('.hamburger');
+    const navContainer = document.querySelector('.nav-container');
+ 
+    hamburger.addEventListener('click', () => {
+      navContainer.classList.toggle('active');
+    });
+  </script>
+</body>
+</html>

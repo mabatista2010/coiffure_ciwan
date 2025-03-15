@@ -130,7 +130,7 @@ export default function Gallery() {
           <h2 className="text-3xl md:text-4xl font-bold mb-4 text-primary font-sans tracking-wide">
             Galerie
           </h2>
-          <p className="text-base md:text-lg max-w-2xl mx-auto text-white opacity-90 leading-relaxed">
+          <p className="text-base md:text-lg max-w-2xl mx-auto text-light opacity-90 leading-relaxed">
             Découvrez quelques-uns de nos meilleurs travaux et styles de coupe que nous réalisons dans notre salon.
           </p>
         </motion.div>
