@@ -16,7 +16,7 @@ interface CustomerInfo {
 
 function CheckoutContent() {
   const router = useRouter();
-  const { state, getTotalPrice, clearCart } = useCarrito();
+  const { state, getTotalPrice } = useCarrito();
   const [customerInfo, setCustomerInfo] = useState<CustomerInfo>({
     nombre: '',
     email: '',
@@ -42,38 +42,8 @@ function CheckoutContent() {
     setError('');
 
     try {
-      const response = await fetch('/api/boutique/stripe', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          items: state.items.map(item => ({
-            id: item.producto.id,
-            nombre: item.producto.nombre,
-            precio: item.producto.precio,
-            cantidad: item.cantidad,
-            stripe_price_id: item.producto.stripe_price_id
-          })),
-          customerInfo
-        }),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Erreur lors du traitement de la commande');
-      }
-
-      // Limpiar carrito
-      clearCart();
-      
-      // Redirigir a Stripe Checkout
-      if (data.sessionUrl) {
-        window.location.href = data.sessionUrl;
-      } else {
-        throw new Error('URL de session Stripe manquante');
-      }
+      // Redirigir a la página de demo en lugar de procesar el pago
+      router.push('/boutique/checkout/demo');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error desconocido');
     } finally {
@@ -120,10 +90,10 @@ function CheckoutContent() {
           className="text-center mb-12"
         >
           <h1 className="text-4xl md:text-5xl font-bold text-primary mb-4 font-decorative">
-            Finaliser l&apos;Achat
+            Démonstration - Finaliser l&apos;Achat
           </h1>
           <p className="text-light text-lg max-w-2xl mx-auto">
-            Complétez vos informations pour procéder au paiement sécurisé
+            Complétez vos informations pour voir la démonstration du processus de paiement
           </p>
         </motion.div>
 
@@ -228,12 +198,12 @@ function CheckoutContent() {
                     {loading ? (
                       <>
                         <div className="animate-spin-custom w-5 h-5"></div>
-                        Traitement en cours...
+                        Redirection en cours...
                       </>
                     ) : (
                       <>
                         <CreditCard className="w-5 h-5" />
-                        Procéder au Paiement Sécurisé
+                        Voir la Démonstration
                       </>
                     )}
                   </span>
@@ -307,20 +277,20 @@ function CheckoutContent() {
               <div className="p-6">
                 <div className="flex items-center gap-3 mb-4">
                   <Shield className="w-6 h-6 text-primary" />
-                  <h3 className="text-xl font-bold text-light">Paiement Sécurisé</h3>
+                  <h3 className="text-xl font-bold text-light">Démonstration de Paiement</h3>
                 </div>
                 <div className="space-y-3 text-text-medium">
                   <div className="flex items-center gap-2">
                     <div className="w-2 h-2 bg-primary rounded-full"></div>
-                    <span>Traité par Stripe (PCI DSS Compliant)</span>
+                    <span>Interface de paiement réaliste</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <div className="w-2 h-2 bg-primary rounded-full"></div>
-                    <span>Données chiffrées de bout en bout</span>
+                    <span>Aucun paiement réel ne sera traité</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <div className="w-2 h-2 bg-primary rounded-full"></div>
-                    <span>Confirmation par email automatique</span>
+                    <span>Processus de checkout complet</span>
                   </div>
                 </div>
               </div>
