@@ -106,4 +106,14 @@
   to {
     transform: rotate(360deg);
   }
+}
+
+/* Sombras personalizadas */
+.shadow-3xl {
+  box-shadow: 0 35px 60px -12px rgba(0, 0, 0, 0.25);
+}
+
+/* Efectos de hover */
+.hover\:shadow-3xl:hover {
+  box-shadow: 0 35px 60px -12px rgba(0, 0, 0, 0.25);
 } 

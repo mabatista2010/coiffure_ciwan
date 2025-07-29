@@ -12,6 +12,7 @@ L'objectif principal de l'application est de :
 2. Permettre aux clients de faire des réservations en ligne en sélectionnant le centre, le service, le coiffeur, la date et l'heure
 3. Offrir aux administrateurs un tableau de bord pour gérer les réservations, les services, les coiffeurs et le contenu du site
 4. Fournir un système de CRM pour le suivi des clients et l'analyse de leurs habitudes
+5. Permettre la vente en ligne de produits capillaires via une boutique intégrée avec système de paiement sécurisé
 
 ## Langue de l'Application
 
@@ -41,6 +42,11 @@ Lors du développement de nouvelles fonctionnalités ou de la modification de fo
   - Authentification et autorisation
   - Stockage de fichiers
   - Politiques de sécurité au niveau des lignes (RLS)
+- **Stripe** : Plateforme de paiement intégrée pour :
+  - Gestion des produits et prix
+  - Sessions de paiement sécurisées
+  - Webhooks pour les notifications de paiement
+  - Support multi-devises et multi-pays
 
 ### Outils de Développement
 - **ESLint** : Linter pour maintenir la qualité du code avec règles strictes:
@@ -113,6 +119,26 @@ Lors du développement de nouvelles fonctionnalités ou de la modification de fo
 - **Bouton de Navigation Maps** : Ajout d'un bouton pour obtenir des directions via Google Maps directement depuis la section location
 - **Bouton Réservation Intégré** : Ajout d'un bouton "Réservez Maintenant" en bas de la section location pour conversion directe des visiteurs
 - **Refactorisation du Style Location** : Implémentation d'une constante backgroundStyle pour maintenir la cohérence et faciliter la maintenance
+- **Boutique en Ligne Complète** : Implémentation d'un système de vente en ligne avec catalogue de produits, panier d'achat et processus de paiement sécurisé
+- **Intégration Stripe** : Connexion complète avec Stripe pour la gestion des paiements, incluant la synchronisation automatique des produits entre la base de données et Stripe
+- **Système de Panier Global** : Implémentation d'un panier d'achat persistant avec gestion d'état globale via React Context et localStorage
+- **Interface de Gestion des Produits** : Panel administratif dédié pour créer, modifier, activer/désactiver et supprimer des produits avec synchronisation automatique vers Stripe
+- **Processus de Checkout Sécurisé** : Intégration avec Stripe Checkout pour un processus de paiement professionnel et sécurisé
+- **Webhooks de Paiement** : Système de notifications en temps réel pour traiter les événements de paiement et mettre à jour le statut des commandes
+- **Gestion des Commandes** : Système complet de suivi des commandes avec statuts et historique des transactions
+- **Navigation Unifiée** : Intégration du panier d'achat dans la navigation principale pour un accès global depuis toutes les pages
+- **Interface Responsive Boutique** : Design adaptatif pour la boutique avec filtrage par catégories et présentation optimisée des produits
+- **Synchronisation Bidirectionnelle** : Système automatique de synchronisation des produits entre Supabase et Stripe lors de la création, modification ou suppression
+- **Gestion des Erreurs de Paiement** : Système robuste de gestion des erreurs et des cas d'échec de paiement
+- **Support Multi-Pays** : Configuration de Stripe pour supporter les paiements depuis différents pays, incluant la Suisse et d'autres pays européens
+- **Gestion de Commandes avec Pestañas** : Refonte complète de l'interface de gestion de la boutique avec système de pestañas séparant la gestion des produits et des commandes
+  - **Interface à Pestañas** : Navigation intuitive entre la gestion des produits et la gestion des commandes avec design cohérent
+  - **Gestion des États de Commandes** : Système d'états en français (En Attente, En Traitement, Traité) avec indicateurs visuels et couleurs distinctives
+  - **Informations Détaillées des Commandes** : Affichage complet des données client, articles commandés avec images et prix, et informations de paiement
+  - **Modification d'État en Temps Réel** : Selecteur pour changer le statut des commandes directement depuis l'interface avec mise à jour immédiate
+  - **APIs de Gestion des Commandes** : Endpoints dédiés pour récupérer et mettre à jour les commandes avec leurs articles associés
+  - **Interface Responsive Optimisée** : Design adaptatif pour mobile et desktop avec présentation claire des informations de commande
+  - **Horodatage et Suivi** : Affichage des dates de création et modification pour un suivi complet des commandes
 
 ## Structure de l'Application
 
@@ -127,12 +153,16 @@ Lors du développement de nouvelles fonctionnalités ou de la modification de fo
 - `/` : Landing page principale
 - `/equipo` : Page de présentation de l'équipe d'estilistas
 - `/reservation` : Système de réservation pour les clients
+- `/boutique` : Boutique en ligne avec catalogue de produits
+- `/boutique/checkout` : Processus de paiement sécurisé
+- `/boutique/checkout/success` : Page de confirmation après paiement réussi
 - `/admin` : Tableau de bord d'administration
 - `/admin/reservations` : Gestion des réservations
 - `/admin/crm` : Gestion de la relation client et suivi des clients
 - `/admin/stylist-stats` : Statistiques des estilistas
 - `/admin/location-stats` : Statistiques des centres
 - `/admin/user-management` : Gestion des utilisateurs et des rôles
+- `/admin/boutique` : Gestion des produits de la boutique
 
 ## Fonctionnalités Implémentées
 
@@ -158,6 +188,16 @@ Lors du développement de nouvelles fonctionnalités ou de la modification de fo
   - Récupération dynamique des données depuis Supabase
   - Bouton "Réservez Maintenant" pour convertir les visiteurs en clients
 - **Contact** : Informations de contact et formulaire
+
+### Boutique en Ligne
+- **Catalogue de Produits** : Affichage dynamique de tous les produits actifs avec images, descriptions et prix
+- **Filtrage par Catégories** : Système de filtrage pour afficher les produits par catégorie
+- **Panier d'Achat Global** : Panier accessible depuis toutes les pages avec persistance des données via localStorage
+- **Interface de Panier** : Panneau coulissant avec gestion des quantités, suppression d'articles et calcul automatique du total
+- **Processus de Checkout** : Formulaire de saisie des informations client avant redirection vers Stripe
+- **Intégration Stripe Checkout** : Redirection vers la page de paiement sécurisée de Stripe avec support multi-pays
+- **Page de Confirmation** : Affichage des détails de la commande après paiement réussi
+- **Design Responsive** : Interface adaptée à tous les dispositifs avec navigation optimisée
 
 ### Page Équipe
 - **Présentation des Estilistas** : Affiche tous les estilistas actifs avec leurs photos, spécialités et biographies
@@ -233,6 +273,28 @@ Le système de réservation suit un flux en 6 étapes :
   - **Interface Multilingue** : Interface entièrement en français pour maintenir la cohérence linguistique de l'application
   - **Contrôle d'Accès** : Restrictions basées sur les rôles (les employés n'ont accès qu'aux réservations)
   - **Flux d'Invitation** : Processus où le propriétaire crée les utilisateurs, qui sont ensuite configurés par les administrateurs
+- **Gestion de la Boutique** : Interface complète divisée en deux pestañas pour gérer les produits et les commandes
+  - **Pestaña Produits** : Gestion complète des produits de la boutique
+    - **Création de Produits** : Formulaire pour ajouter de nouveaux produits avec synchronisation automatique vers Stripe
+    - **Modification de Produits** : Édition des informations des produits avec mise à jour en temps réel dans Stripe
+    - **Activation/Désactivation** : Possibilité d'activer ou désactiver des produits sans les supprimer définitivement
+    - **Suppression Sécurisée** : Suppression complète des produits avec nettoyage automatique des références dans Stripe
+    - **Indicateurs de Synchronisation** : Indicateurs visuels (cercles verts/jaunes) pour montrer le statut de synchronisation avec Stripe
+    - **Gestion des Images** : Upload et prévisualisation des images de produits avec stockage dans Supabase
+    - **Gestion des Catégories** : Organisation des produits par catégories pour une meilleure navigation
+  - **Pestaña Commandes** : Gestion complète des commandes clients
+    - **Liste des Commandes** : Affichage de toutes les commandes avec informations détaillées du client
+    - **Informations Client** : Nom, email, téléphone, adresse de livraison pour chaque commande
+    - **Détails des Articles** : Liste des produits commandés avec images, quantités et prix unitaires
+    - **Gestion des États** : Système d'états en français pour suivre le traitement des commandes
+      - "En Attente" (pendiente) : Commande reçue mais pas encore traitée
+      - "En Traitement" (en_traitement) : Commande en cours de préparation
+      - "Traité" (traite) : Commande finalisée et prête pour l'expédition
+    - **Modification d'État** : Selecteur pour changer le statut de chaque commande en temps réel
+    - **Informations de Paiement** : Affichage des références Stripe et du total de la commande
+    - **Horodatage** : Dates de création et de dernière modification des commandes
+    - **Interface Responsive** : Design adapté pour mobile et desktop avec navigation intuitive
+    - **Indicateurs Visuels** : Icônes et couleurs distinctives pour chaque état de commande
 
 ### Système de Styles Centralisé
 - **Variables CSS** : Définition centralisée de toutes les couleurs et propriétés visuelles dans `/src/styles/theme.css`
@@ -251,6 +313,15 @@ Le système de réservation suit un flux en 6 étapes :
 - **API de Disponibilité** : Calcule les horaires disponibles selon le service, le centre, le coiffeur et la date, en tenant compte de toutes les plages horaires de travail du coiffeur
 - **API de Création de Réservations** : Crée de nouvelles réservations en vérifiant la disponibilité en temps réel et que l'horaire est dans une plage horaire de travail valide
 - **API de Stockage** : Gestion des téléversements d'images avec politiques de sécurité RLS
+- **APIs de Boutique** :
+  - **API Produits** : Gestion complète des produits (GET, POST, PUT, DELETE) avec synchronisation automatique vers Stripe
+  - **API Checkout Stripe** : Création de sessions de paiement sécurisées avec redirection vers Stripe Checkout
+  - **API Webhook Stripe** : Traitement des événements de paiement en temps réel pour mettre à jour le statut des commandes
+  - **API Commandes** : Récupération des détails des commandes avec informations complètes des produits
+  - **API Gestion des Commandes** : 
+    - **GET /api/boutique/pedidos** : Obtention de toutes les commandes avec leurs articles et informations produits
+    - **PUT /api/boutique/pedidos/[id]** : Mise à jour du statut des commandes (En Attente, En Traitement, Traité)
+- **Synchronisation Stripe** : Système automatique de création, modification et suppression de produits dans Stripe lors des opérations CRUD
 
 ## Base de Données (Supabase)
 
@@ -267,6 +338,14 @@ Le système de réservation suit un flux en 6 étapes :
 - **configuracion** : Configurations générales du site
 - **user_roles** : Rôles attribués aux utilisateurs (admin/employee)
 - **stylist_users** : Relation entre utilisateurs et estilistas
+
+### Tables de la Boutique
+- **productos** : Produits de la boutique avec informations complètes (nom, description, prix, stock, catégorie, image, statut actif/destacado)
+- **categorias_productos** : Catégories pour organiser les produits de la boutique
+- **pedidos** : Commandes des clients avec informations de livraison et statut de paiement
+- **items_pedido** : Articles individuels dans chaque commande avec quantités et prix
+- **carrito_sesiones** : Sessions de panier pour gérer les paniers temporaires
+- **items_carrito** : Articles dans le panier avec quantités et informations de produit
 
 ### Politiques de Sécurité
 - **Clients** : Peuvent lire les services, les coiffeurs et les centres, et créer des réservations
@@ -286,6 +365,14 @@ Le système de réservation suit un flux en 6 étapes :
 - Un **estilista** doit avoir des **horaires de travail** configurés pour chaque centre et jour où il travaille
 - Un **estilista** peut sélectionner quelles plages horaires spécifiques il travaille parmi les plages disponibles du centre
 - Un **estilista** peut offrir plusieurs **services**
+
+### Relations de la Boutique
+- Un **produit** appartient à une **catégorie**
+- Un **pedido** contient plusieurs **items_pedido**
+- Un **item_pedido** référence un **produit** spécifique
+- Un **carrito_sesion** contient plusieurs **items_carrito**
+- Un **item_carrito** référence un **produit** spécifique
+- Les **produits** sont synchronisés avec **Stripe** via `stripe_product_id` et `stripe_price_id`
 
 ## Caractéristiques de Design
 - **Design Responsive** : Adapté aux appareils mobiles, tablettes et ordinateurs de bureau
@@ -312,6 +399,14 @@ Le système de réservation suit un flux en 6 étapes :
 - **Expansion du CRM** : Ajout de fonctionnalités avancées comme la segmentation des clients et les campagnes marketing
 - **Rapports et Analyses** : Tableaux de bord statistiques pour analyser les performances par centre, estilista et service
 
+### Phase 3 : Améliorations de la Boutique
+- **Système de Gestion des Stocks** : Suivi automatique des stocks avec alertes de réapprovisionnement
+- **Système de Codes Promo** : Intégration avec Stripe pour les coupons et réductions
+- **Historique des Commandes** : Interface client pour consulter l'historique des achats
+- **Système de Fidélité** : Points de fidélité et récompenses pour les clients réguliers
+- **Notifications de Livraison** : Suivi des commandes avec notifications par email/SMS
+- **Analytics de Vente** : Tableaux de bord pour analyser les performances de la boutique
+
 ## Déploiement
 - **Vercel** : Plateforme recommandée pour le déploiement de l'application
 - **Supabase** : Hébergement de la base de données et stockage
@@ -326,12 +421,14 @@ Le système de réservation suit un flux en 6 étapes :
   - Interface utilisateur adaptée pour les différents états d'authentification (chargement, connexion, authentifié)
 
 ## Maintenance et Mise à Jour
-- Le contenu dynamique (services, images, centres) est géré depuis le tableau de bord d'administration
+- Le contenu dynamique (services, images, centres, produits) est géré depuis le tableau de bord d'administration
 - Les styles visuels sont gérés via le système centralisé dans `/src/styles/theme.css`
 - Les mises à jour de code nécessitent un déploiement sur Vercel
 - La configuration de Supabase se fait via sa console ou par des scripts SQL
 - **Vérification Qualité** : Les pull requests doivent passer toutes les vérifications ESLint avant fusion
 - **Sécurité** : Vérifier régulièrement que toutes les routes administratives sont correctement protégées
+- **Synchronisation Stripe** : Vérifier périodiquement la synchronisation entre Supabase et Stripe pour les produits
+- **Webhooks** : Surveiller les webhooks Stripe pour s'assurer du bon traitement des événements de paiement
 
 ## Points d'Attention Importants
 - **Système de Styles** : Toujours utiliser les variables CSS et les classes prédéfinies pour maintenir la cohérence visuelle
@@ -368,4 +465,13 @@ Le système de réservation suit un flux en 6 étapes :
 - **Optimisation des Clés React** : Utiliser des clés uniques pour les éléments générés dynamiquement, en ajoutant un préfixe ou un suffixe contextuel pour éviter les duplications
 - **Gestion des Rôles** : Vérifier que les vues administratives adaptent leur contenu en fonction du rôle de l'utilisateur connecté 
 - **Contraste et Lisibilité** : Assurer un contraste suffisant pour tous les textes, particulièrement pour les étiquettes sur fond coloré (comme le texte sur fond primaire jaune qui doit être foncé et non clair)
-- **Expérience Mobile Optimisée** : Utiliser une disposition en colonnes (`flex-col`) sur mobile et en lignes (`sm:flex-row`) sur desktop pour les formulaires et contrôles, avec largeur complète (`w-full`) sur mobile pour une meilleure expérience utilisateur 
+- **Expérience Mobile Optimisée** : Utiliser une disposition en colonnes (`flex-col`) sur mobile et en lignes (`sm:flex-row`) sur desktop pour les formulaires et contrôles, avec largeur complète (`w-full`) sur mobile pour une meilleure expérience utilisateur
+- **Gestion du Panier** : Le panier d'achat utilise React Context avec localStorage pour la persistance des données entre les sessions
+- **Synchronisation Stripe** : Tous les produits créés/modifiés/supprimés via le panel administratif sont automatiquement synchronisés avec Stripe
+- **Webhooks Stripe** : Les webhooks doivent être configurés dans le dashboard Stripe pour traiter les événements de paiement en temps réel
+- **Clés API Stripe** : Utiliser les clés de production (`sk_live_`) pour l'environnement de production et les clés de test (`sk_test_`) pour le développement
+- **Gestion des Erreurs de Paiement** : Implémenter une gestion robuste des erreurs pour les cas d'échec de paiement et les problèmes de synchronisation
+- **Sécurité des Paiements** : Tous les paiements passent par Stripe Checkout pour garantir la sécurité et la conformité PCI
+- **Contraintes de Clés Étrangères** : Lors de la suppression de produits, gérer correctement les contraintes de clés étrangères dans les tables `items_carrito` et `items_pedido`
+- **Indicateurs de Synchronisation** : Utiliser les indicateurs visuels dans le panel administratif pour identifier rapidement les produits non synchronisés avec Stripe
+- **Configuration Multi-Pays** : Configurer Stripe Checkout pour supporter les paiements depuis différents pays, notamment la Suisse et les pays européens 

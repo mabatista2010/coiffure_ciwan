@@ -18,7 +18,8 @@ import {
   FaBuilding,
   FaCogs,
   FaChevronLeft,
-  FaChevronRight
+  FaChevronRight,
+  FaShoppingBag
 } from 'react-icons/fa';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '@/lib/supabase';
@@ -175,6 +176,12 @@ export default function AdminNav({
       label: 'Utilisateurs', 
       icon: <FaUserCog className="w-7 h-7 md:w-5 md:h-5" />, 
       role: 'admin' as NavRole
+    },
+    { 
+      href: '/admin/boutique', 
+      label: 'Boutique', 
+      icon: <FaShoppingBag className="w-7 h-7 md:w-5 md:h-5" />, 
+      role: 'admin' as NavRole
     }
   ];
   
@@ -206,7 +213,7 @@ export default function AdminNav({
     },
     { 
       id: 'hero' as ConfigSection,
-      label: 'Page d\'accueil', 
+              label: 'Page d&apos;accueil', 
       icon: <FaCogs className="w-7 h-7 md:w-5 md:h-5" />, 
       role: 'admin' as NavRole
     }

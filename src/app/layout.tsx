@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import { Montserrat, Dancing_Script } from 'next/font/google';
+import { CarritoProvider } from '../components/boutique/CarritoContext';
 
 // Configurar las fuentes usando la API de Next.js
 const montserrat = Montserrat({
@@ -48,7 +49,9 @@ export default function RootLayout({
   return (
     <html lang="fr" className={`scroll-smooth ${montserrat.variable} ${dancingScript.variable}`}>
       <body className={montserrat.className}>
-        {children}
+        <CarritoProvider>
+          {children}
+        </CarritoProvider>
       </body>
     </html>
   );

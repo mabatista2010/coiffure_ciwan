@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useRouter, usePathname } from 'next/navigation';
 import { getUserRole, UserRole } from '@/lib/userRoles';
+import AdminNav from '@/components/AdminNav';
 
 export default function AdminLayout({
   children,
@@ -167,5 +168,12 @@ export default function AdminLayout({
     }
   }
 
-  return <>{children}</>;
+  return (
+    <>
+      <AdminNav />
+      <main className="min-h-screen bg-dark">
+        {children}
+      </main>
+    </>
+  );
 } 

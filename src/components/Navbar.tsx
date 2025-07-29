@@ -6,6 +6,9 @@ import { usePathname } from 'next/navigation';
 import { FaBars, FaTimes } from 'react-icons/fa';
 import { motion, AnimatePresence } from 'framer-motion';
 import Image from 'next/image';
+import CarritoButton from './boutique/CarritoButton';
+import Carrito from './boutique/Carrito';
+import { useCarrito } from './boutique/CarritoContext';
 
 export default function Navbar() {
   const [isOpen, setIsOpen] = useState(false);
@@ -13,6 +16,7 @@ export default function Navbar() {
   const pathname = usePathname();
   const isHomePage = pathname === '/';
   const isReservationPage = pathname === '/reservation' || pathname.startsWith('/reservation/');
+  const { state, updateQuantity, removeItem, closeCart } = useCarrito();
   
   // Bloquear el scroll cuando el menú está abierto
   useEffect(() => {
@@ -116,8 +120,16 @@ export default function Navbar() {
                 Contact
                 <span className="absolute left-0 bottom-[-4px] w-0 h-[2px] bg-primary transition-all duration-300 group-hover:w-full"></span>
               </Link>
+              <Link 
+                href="/boutique" 
+                className="text-[#cccccc] uppercase text-sm hover:text-primary transition duration-300 relative group"
+              >
+                Boutique
+                <span className="absolute left-0 bottom-[-4px] w-0 h-[2px] bg-primary transition-all duration-300 group-hover:w-full"></span>
+              </Link>
             </div>
             
+            <CarritoButton />
             <Link 
               href="/reservation" 
               className="bg-primary text-[#cccccc] px-5 py-2 rounded text-sm uppercase font-bold hover:bg-[#b88b14] hover:text-primary transition duration-300"
@@ -195,10 +207,21 @@ export default function Navbar() {
                 >
                   <span className="hover:pl-2 transition-all duration-300">Contact</span>
                 </Link>
+                <Link 
+                  href="/boutique" 
+                  className="py-4 text-3xl sm:text-4xl font-extrabold flex justify-between items-center border-b border-gray-800 transition-all duration-300 text-primary"
+                  style={{ textShadow: '0 1px 2px rgba(0,0,0,0.5)' }}
+                  onClick={() => setIsOpen(false)}
+                >
+                  <span className="hover:pl-2 transition-all duration-300">Boutique</span>
+                </Link>
               </div>
               
-              {/* Botón de reserva con mejor visibilidad */}
-              <div className="mt-10">
+              {/* Botón de carrito y reserva con mejor visibilidad */}
+              <div className="mt-10 space-y-4">
+                <div className="flex justify-center">
+                  <CarritoButton />
+                </div>
                 <Link 
                   href="/reservation" 
                   className="block w-full py-4 px-6 text-2xl font-black text-center rounded text-[#cccccc] bg-primary hover:bg-[#b88b14] hover:text-primary transition duration-300"
@@ -211,6 +234,15 @@ export default function Navbar() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Carrito */}
+      <Carrito
+        isOpen={state.isOpen}
+        onClose={closeCart}
+        items={state.items}
+        onUpdateQuantity={updateQuantity}
+        onRemoveItem={removeItem}
+      />
     </>
   );
 } 
