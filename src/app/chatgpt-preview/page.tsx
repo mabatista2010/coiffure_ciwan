@@ -84,7 +84,7 @@ export default function ChatGPTPreviewPage() {
     };
 
     frameWindow.dispatchEvent(
-      new frameWindow.CustomEvent("openai:set_globals", {
+      new CustomEvent("openai:set_globals", {
         detail: { globals: { toolOutput: mockData } },
       })
     );
