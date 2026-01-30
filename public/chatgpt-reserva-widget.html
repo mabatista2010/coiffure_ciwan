@@ -74,11 +74,24 @@
         max-width: 60%;
         height: auto;
         filter: drop-shadow(0 6px 16px rgba(0, 0, 0, 0.35));
+        opacity: 0;
+        transition: opacity 0.2s ease;
+      }
+
+      .hero-logo.is-ready {
+        opacity: 1;
       }
 
       h2 {
         margin: 0 0 6px;
         font-size: 18px;
+      }
+
+      .section-title {
+        margin: 0 0 10px;
+        font-size: 16px;
+        font-weight: 600;
+        color: #222;
       }
 
       label {
@@ -99,7 +112,8 @@
         box-sizing: border-box;
       }
 
-      .locations {
+      .locations,
+      .stylists {
         margin-top: 12px;
       }
 
@@ -139,6 +153,46 @@
         color: #444;
       }
 
+      .stylists-track {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+        gap: 12px;
+      }
+
+      .stylist-card {
+        background: #f7f7f7;
+        border-radius: 12px;
+        border: 1px solid #e5e5e5;
+        padding: 12px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        min-height: 72px;
+      }
+
+      .stylist-card img {
+        width: 46px;
+        height: 46px;
+        border-radius: 50%;
+        object-fit: cover;
+        background: #e0e0e0;
+      }
+
+      .stylist-card .name {
+        font-size: 13px;
+        font-weight: 600;
+        color: #222;
+      }
+
+      .empty {
+        font-size: 12px;
+        color: #666;
+      }
+
+      .is-hidden {
+        display: none !important;
+      }
+
       .muted {
         color: #666;
         font-size: 12px;
@@ -173,20 +227,32 @@
   </head>
   <body>
     <main>
-      <section class="intro">
+      <section class="intro" id="welcome-section">
         <div class="hero">
           <img id="hero" alt="Salon de coiffure" />
           <div class="hero-overlay">
-            <img class="hero-logo" src="/logo.png" alt="Steel & Blade" />
+            <img class="hero-logo" id="hero-logo" alt="Steel & Blade" />
           </div>
         </div>
         <h2 id="welcome-title">Bienvenue chez Steel & Blade</h2>
         <div id="welcome-subtitle" class="muted">
           Que puis-je faire pour vous aujourd'hui ?
         </div>
+      </section>
 
-        <div class="locations">
-          <div class="locations-track" id="locations-track"></div>
+      <section class="locations" id="locations-section">
+        <div class="section-title">Nos centres</div>
+        <div class="locations-track" id="locations-track"></div>
+        <div class="empty is-hidden" id="locations-empty">
+          Aucun centre disponible pour le moment.
+        </div>
+      </section>
+
+      <section class="stylists" id="stylists-section">
+        <div class="section-title">Notre equipe</div>
+        <div class="stylists-track" id="stylists-track"></div>
+        <div class="empty is-hidden" id="stylists-empty">
+          Aucun styliste disponible pour le moment.
         </div>
       </section>
     </main>
@@ -194,18 +260,28 @@
     <script type="module">
       const ui = {
         hero: document.querySelector("#hero"),
+        logo: document.querySelector("#hero-logo"),
+        welcomeSection: document.querySelector("#welcome-section"),
         welcomeTitle: document.querySelector("#welcome-title"),
         welcomeSubtitle: document.querySelector("#welcome-subtitle"),
+        locationsSection: document.querySelector("#locations-section"),
         locationsTrack: document.querySelector("#locations-track"),
+        locationsEmpty: document.querySelector("#locations-empty"),
+        stylistsSection: document.querySelector("#stylists-section"),
+        stylistsTrack: document.querySelector("#stylists-track"),
+        stylistsEmpty: document.querySelector("#stylists-empty"),
       };
 
       let state = {
+        view: "welcome",
         welcome: {
           title: "Bienvenue chez Steel & Blade",
           subtitle: "Que puis-je faire pour vous aujourd'hui ?",
           image_url: "",
+          logo_url: "",
         },
         locations: [],
+        stylists: [],
         selectedLocationId: null,
       };
 
@@ -238,7 +314,11 @@
       const renderLocationsGrid = () => {
         if (!ui.locationsTrack) return;
         ui.locationsTrack.innerHTML = "";
-        if (!state.locations.length) return;
+        if (!state.locations.length) {
+          ui.locationsEmpty?.classList.remove("is-hidden");
+          return;
+        }
+        ui.locationsEmpty?.classList.add("is-hidden");
 
         state.locations.forEach((location) => {
           const card = document.createElement("div");
@@ -265,10 +345,58 @@
         scheduleHeight();
       };
 
+      const renderStylistsGrid = () => {
+        if (!ui.stylistsTrack) return;
+        ui.stylistsTrack.innerHTML = "";
+        if (!state.stylists.length) {
+          ui.stylistsEmpty?.classList.remove("is-hidden");
+          return;
+        }
+        ui.stylistsEmpty?.classList.add("is-hidden");
+
+        state.stylists.forEach((stylist) => {
+          const card = document.createElement("div");
+          card.className = "stylist-card";
+
+          if (stylist.image_url) {
+            const img = document.createElement("img");
+            img.alt = stylist.name;
+            img.src = stylist.image_url;
+            img.addEventListener("load", scheduleHeight, { once: true });
+            card.appendChild(img);
+          }
+
+          const name = document.createElement("div");
+          name.className = "name";
+          name.textContent = stylist.name;
+          card.appendChild(name);
+
+          ui.stylistsTrack.appendChild(card);
+        });
+
+        scheduleHeight();
+      };
+
+      const renderView = () => {
+        const view = state.view || "welcome";
+        if (ui.welcomeSection) {
+          ui.welcomeSection.classList.toggle("is-hidden", view !== "welcome");
+        }
+        if (ui.locationsSection) {
+          ui.locationsSection.classList.toggle("is-hidden", view !== "locations");
+        }
+        if (ui.stylistsSection) {
+          ui.stylistsSection.classList.toggle("is-hidden", view !== "stylists");
+        }
+        scheduleHeight();
+      };
+
       const applyToolOutput = (toolOutput) => {
         if (!toolOutput) return;
+        if (toolOutput.view) state.view = toolOutput.view;
         if (toolOutput.welcome) state.welcome = toolOutput.welcome;
         if (toolOutput.locations) state.locations = toolOutput.locations;
+        if (toolOutput.stylists) state.stylists = toolOutput.stylists;
 
         if (state.welcome?.title) {
           ui.welcomeTitle.textContent = state.welcome.title;
@@ -296,13 +424,28 @@
           }
         }
 
-        if (state.locations.length) {
-          renderLocationsGrid();
-        } else {
-          ui.locationsTrack.innerHTML = "";
+        if (state.welcome?.logo_url && ui.logo) {
+          if (ui.logo.src !== state.welcome.logo_url) {
+            ui.logo.classList.remove("is-ready");
+            ui.logo.src = state.welcome.logo_url;
+          }
+          if (ui.logo.complete) {
+            ui.logo.classList.add("is-ready");
+          } else {
+            ui.logo.addEventListener(
+              "load",
+              () => {
+                ui.logo.classList.add("is-ready");
+                scheduleHeight();
+              },
+              { once: true }
+            );
+          }
         }
 
-        scheduleHeight();
+        renderLocationsGrid();
+        renderStylistsGrid();
+        renderView();
       };
 
       const updateFromResponse = (response) => {
@@ -324,12 +467,6 @@
         const widgetState = window.openai?.widgetState;
         if (widgetState?.selectedLocationId) {
           state.selectedLocationId = widgetState.selectedLocationId;
-        }
-        const tasks = [];
-        tasks.push(callTool("get_welcome", {}, { apply: false }));
-        tasks.push(callTool("list_locations", {}, { apply: false }));
-        if (tasks.length) {
-          await Promise.all(tasks);
         }
         isBootstrapping = false;
         applyToolOutput(pendingToolOutput || window.openai?.toolOutput);

@@ -35,6 +35,14 @@ const reply = (structuredContent: Record<string, unknown>, message?: string): To
   structuredContent,
 });
 
+const toAbsoluteUrl = (url: string, baseUrl: string) => {
+  if (!url) return "";
+  if (url.startsWith("http://") || url.startsWith("https://")) return url;
+  if (url.startsWith("//")) return `https:${url}`;
+  if (url.startsWith("/")) return `${baseUrl}${url}`;
+  return `${baseUrl}/${url}`;
+};
+
 const getBaseUrl = (request: NextRequest) => {
   const host =
     request.headers.get("x-forwarded-host") ||
@@ -75,7 +83,9 @@ const createReservationServer = (baseUrl: string) => {
     instructions:
       "Reponds en francais. Accueille l'utilisateur et demande comment aider. " +
       "N'appelle pas list_services pour un simple bonjour. " +
-      "Utilise get_welcome pour afficher le widget d'accueil avec image. " +
+      "Utilise get_welcome uniquement pour l'accueil ou si l'utilisateur demande d'ouvrir le widget. " +
+      "N'appelle list_locations que si l'utilisateur demande a voir les centres. " +
+      "N'appelle list_stylists que si l'utilisateur demande a voir l'equipe. " +
       "N'appelle list_services que si l'utilisateur demande les services ou les prix. " +
       "Utilise get_availability uniquement apres que la date, le centre, le styliste et le service soient connus.",
   });
@@ -122,12 +132,16 @@ const createReservationServer = (baseUrl: string) => {
         .single();
 
       const heroImageUrl = !error && data?.valor ? getImageUrl(data.valor) : "";
+      const resolvedHeroUrl = toAbsoluteUrl(heroImageUrl, baseUrl);
+      const logoUrl = toAbsoluteUrl("/logo.png", baseUrl);
 
       return reply({
+        view: "welcome",
         welcome: {
           title: "Bienvenue chez Steel & Blade",
           subtitle: "Que puis-je faire pour vous aujourd'hui ?",
-          image_url: heroImageUrl,
+          image_url: resolvedHeroUrl,
+          logo_url: logoUrl,
         },
       });
     }
@@ -145,7 +159,6 @@ const createReservationServer = (baseUrl: string) => {
         readOnlyHint: true,
       },
       _meta: {
-        "openai/outputTemplate": UI_RESOURCE_URI,
         "openai/toolInvocation/invoking": "Chargement des services...",
         "openai/toolInvocation/invoked": "Services charges",
       },
@@ -208,10 +221,12 @@ const createReservationServer = (baseUrl: string) => {
         address: location.address,
         phone: location.phone,
         description: location.description || "",
-        image_url: location.image ? getImageUrl(location.image) : "",
+        image_url: location.image
+          ? toAbsoluteUrl(getImageUrl(location.image), baseUrl)
+          : "",
       }));
 
-      return reply({ locations }, "Centres charges.");
+      return reply({ view: "locations", locations }, "Centres charges.");
     }
   );
 
@@ -253,10 +268,12 @@ const createReservationServer = (baseUrl: string) => {
       const stylists = (data || []).map((stylist) => ({
         id: stylist.id,
         name: stylist.name,
-        image_url: stylist.profile_img ? getImageUrl(stylist.profile_img) : "",
+        image_url: stylist.profile_img
+          ? toAbsoluteUrl(getImageUrl(stylist.profile_img), baseUrl)
+          : "",
       }));
 
-      return reply({ stylists }, "Stylistes charges.");
+      return reply({ view: "stylists", stylists }, "Stylistes charges.");
     }
   );
 
@@ -272,7 +289,6 @@ const createReservationServer = (baseUrl: string) => {
         readOnlyHint: true,
       },
       _meta: {
-        "openai/outputTemplate": UI_RESOURCE_URI,
         "openai/toolInvocation/invoking": "Recherche des creneaux...",
         "openai/toolInvocation/invoked": "Creneaux charges",
       },
@@ -309,7 +325,6 @@ const createReservationServer = (baseUrl: string) => {
         readOnlyHint: false,
       },
       _meta: {
-        "openai/outputTemplate": UI_RESOURCE_URI,
         "openai/toolInvocation/invoking": "Creation de la reservation...",
         "openai/toolInvocation/invoked": "Reservation terminee",
       },
