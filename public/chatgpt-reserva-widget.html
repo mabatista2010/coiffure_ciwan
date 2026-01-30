@@ -23,32 +23,41 @@
       }
 
       main {
-        width: 100%;
-        max-width: 420px;
+        width: min(100%, 720px);
         margin: 0 auto;
         background: #fff;
         border-radius: 14px;
         padding: 16px;
         box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08);
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
       }
 
       #hero {
         width: 100%;
-        height: 160px;
+        height: 140px;
         object-fit: cover;
         border-radius: 12px;
         margin-bottom: 12px;
-        display: none;
+        display: block;
+        opacity: 0;
+        background: #eaeaea;
+        transition: opacity 0.2s ease;
+      }
+
+      #hero.is-ready {
+        opacity: 1;
       }
 
       h2 {
-        margin: 0 0 10px;
+        margin: 0 0 6px;
         font-size: 18px;
       }
 
       label {
         display: block;
-        margin-top: 12px;
+        margin: 0;
         font-size: 12px;
         color: #444;
       }
@@ -58,7 +67,6 @@
       button {
         width: 100%;
         padding: 10px 12px;
-        margin-top: 6px;
         border-radius: 10px;
         border: 1px solid #d7d7d7;
         font-size: 14px;
@@ -75,12 +83,16 @@
       }
 
       #load-services {
-        margin-top: 10px;
+        margin-top: 6px;
+        width: auto;
+        align-self: center;
+        padding: 10px 18px;
       }
 
       .carousel {
         position: relative;
         margin-top: 12px;
+        min-height: 190px;
       }
 
       .carousel-track {
@@ -92,7 +104,7 @@
       }
 
       .carousel-card {
-        min-width: 220px;
+        min-width: 200px;
         background: #f7f7f7;
         border-radius: 12px;
         border: 1px solid #e5e5e5;
@@ -107,7 +119,7 @@
 
       .carousel-card img {
         width: 100%;
-        height: 120px;
+        height: 108px;
         object-fit: cover;
         display: block;
         background: #eaeaea;
@@ -153,56 +165,134 @@
       #status {
         margin-top: 10px;
       }
+
+      .intro {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+
+      .form-grid {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 12px;
+      }
+
+      .field {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+
+      .span-2 {
+        grid-column: 1 / -1;
+      }
+
+      @media (min-width: 980px) {
+        main {
+          width: min(100%, 980px);
+          display: grid;
+          grid-template-columns: 0.9fr 1.1fr;
+          gap: 20px;
+          padding: 20px;
+        }
+
+        .intro {
+          gap: 12px;
+        }
+
+        .form-grid {
+          grid-template-columns: 1fr 1fr;
+        }
+
+        #hero {
+          height: 120px;
+        }
+
+        #load-services {
+          align-self: flex-start;
+        }
+      }
     </style>
   </head>
   <body>
     <main>
-      <img id="hero" alt="Salon de coiffure" />
-      <h2 id="welcome-title">Bienvenue chez Steel & Blade</h2>
-      <div id="welcome-subtitle" class="muted">
-        Que puis-je faire pour vous aujourd'hui ?
-      </div>
+      <section class="intro">
+        <img id="hero" alt="Salon de coiffure" />
+        <h2 id="welcome-title">Bienvenue chez Steel & Blade</h2>
+        <div id="welcome-subtitle" class="muted">
+          Que puis-je faire pour vous aujourd'hui ?
+        </div>
 
-      <button id="load-services" type="button">Afficher les services</button>
+        <button id="load-services" type="button">Afficher les services</button>
 
-      <div class="carousel" id="locations-carousel">
-        <button class="carousel-btn prev" id="loc-prev" type="button">‹</button>
-        <div class="carousel-track" id="locations-track"></div>
-        <button class="carousel-btn next" id="loc-next" type="button">›</button>
-      </div>
+        <div class="carousel" id="locations-carousel">
+          <button class="carousel-btn prev" id="loc-prev" type="button">‹</button>
+          <div class="carousel-track" id="locations-track"></div>
+          <button class="carousel-btn next" id="loc-next" type="button">›</button>
+        </div>
+      </section>
 
-      <label for="service">Service</label>
-      <select id="service"></select>
+      <section class="form">
+        <div class="form-grid">
+          <div class="field span-2">
+            <label for="service">Service</label>
+            <select id="service"></select>
+          </div>
 
-      <label for="location">Centre</label>
-      <select id="location"></select>
+          <div class="field span-2">
+            <label for="location">Centre</label>
+            <select id="location"></select>
+          </div>
 
-      <label for="stylist">Styliste</label>
-      <select id="stylist"></select>
+          <div class="field span-2">
+            <label for="stylist">Styliste</label>
+            <select id="stylist"></select>
+          </div>
 
-      <label for="date">Date</label>
-      <input id="date" type="date" />
+          <div class="field">
+            <label for="date">Date</label>
+            <input id="date" type="date" />
+          </div>
 
-      <label for="slot">Horaire</label>
-      <select id="slot"></select>
+          <div class="field">
+            <label for="slot">Horaire</label>
+            <select id="slot"></select>
+          </div>
 
-      <label for="name">Nom</label>
-      <input id="name" type="text" />
+          <div class="field">
+            <label for="name">Nom</label>
+            <input id="name" type="text" />
+          </div>
 
-      <label for="email">Email</label>
-      <input id="email" type="email" />
+          <div class="field">
+            <label for="email">Email</label>
+            <input id="email" type="email" />
+          </div>
 
-      <label for="phone">Telephone</label>
-      <input id="phone" type="tel" />
+          <div class="field">
+            <label for="phone">Telephone</label>
+            <input id="phone" type="tel" />
+          </div>
 
-      <label for="custom-service">Service personnalise</label>
-      <input id="custom-service" type="text" placeholder="Ex: ton concret, coupe speciale..." />
+          <div class="field">
+            <label for="custom-service">Service personnalise</label>
+            <input
+              id="custom-service"
+              type="text"
+              placeholder="Ex: ton concret, coupe speciale..."
+            />
+          </div>
 
-      <label for="notes">Notes</label>
-      <input id="notes" type="text" />
+          <div class="field span-2">
+            <label for="notes">Notes</label>
+            <input id="notes" type="text" />
+          </div>
+        </div>
 
-      <button id="book">Reserver</button>
-      <div id="status" class="muted"></div>
+        <button id="book">Reserver</button>
+        <div id="status" class="muted"></div>
+      </section>
     </main>
 
     <script type="module">
@@ -241,6 +331,20 @@
         slots: [],
       };
 
+      const notifyHeight = () => {
+        if (window.openai?.notifyIntrinsicHeight) {
+          window.openai.notifyIntrinsicHeight();
+        }
+      };
+
+      const scheduleHeight = () => {
+        if (typeof window.requestAnimationFrame === "function") {
+          window.requestAnimationFrame(() => notifyHeight());
+        } else {
+          notifyHeight();
+        }
+      };
+
       const renderOptions = (el, items, getLabel) => {
         el.innerHTML = "";
         items.forEach((item) => {
@@ -259,6 +363,42 @@
         el.appendChild(opt);
       };
 
+      const selectLocation = (locationId) => {
+        if (!locationId) return;
+        ui.location.value = locationId;
+        ui.location.dispatchEvent(new Event("change"));
+      };
+
+      const renderLocationsCarousel = () => {
+        if (!ui.locationsTrack) return;
+        ui.locationsTrack.innerHTML = "";
+        if (!state.locations.length) return;
+
+        state.locations.forEach((location) => {
+          const card = document.createElement("div");
+          card.className = "carousel-card";
+          if (ui.location.value === location.id) {
+            card.classList.add("selected");
+          }
+
+          const img = document.createElement("img");
+          img.alt = location.name;
+          img.src = location.image_url || "";
+          img.addEventListener("load", scheduleHeight, { once: true });
+          card.appendChild(img);
+
+          const body = document.createElement("div");
+          body.className = "card-body";
+          body.innerHTML = `<strong>${location.name}</strong><br/>${location.address || ""}`;
+          card.appendChild(body);
+
+          card.addEventListener("click", () => selectLocation(location.id));
+          ui.locationsTrack.appendChild(card);
+        });
+
+        scheduleHeight();
+      };
+
       const applyToolOutput = (toolOutput) => {
         if (!toolOutput) return;
         if (toolOutput.welcome) state.welcome = toolOutput.welcome;
@@ -274,8 +414,23 @@
           ui.welcomeSubtitle.textContent = state.welcome.subtitle;
         }
         if (state.welcome?.image_url) {
-          ui.hero.src = state.welcome.image_url;
-          ui.hero.style.display = "block";
+          if (ui.hero.src !== state.welcome.image_url) {
+            ui.hero.classList.remove("is-ready");
+            ui.hero.src = state.welcome.image_url;
+          }
+          if (ui.hero.complete) {
+            ui.hero.classList.add("is-ready");
+            scheduleHeight();
+          } else {
+            ui.hero.addEventListener(
+              "load",
+              () => {
+                ui.hero.classList.add("is-ready");
+                scheduleHeight();
+              },
+              { once: true }
+            );
+          }
         }
 
         if (state.services.length) {
@@ -311,6 +466,8 @@
         } else {
           setPlaceholder(ui.slot, "Choisir un horaire");
         }
+
+        scheduleHeight();
       };
 
       const updateFromResponse = (response) => {
@@ -352,6 +509,14 @@
 
       ui.loadServices.addEventListener("click", async () => {
         await callTool("list_services", {});
+      });
+
+      ui.prevBtn.addEventListener("click", () => {
+        ui.locationsTrack.scrollBy({ left: -240, behavior: "smooth" });
+      });
+
+      ui.nextBtn.addEventListener("click", () => {
+        ui.locationsTrack.scrollBy({ left: 240, behavior: "smooth" });
       });
 
       const refreshAvailability = async () => {
@@ -404,43 +569,3 @@
     </script>
   </body>
 </html>
-      const selectLocation = (locationId) => {
-        if (!locationId) return;
-        ui.location.value = locationId;
-        ui.location.dispatchEvent(new Event("change"));
-      };
-
-      const renderLocationsCarousel = () => {
-        if (!ui.locationsTrack) return;
-        ui.locationsTrack.innerHTML = "";
-        if (!state.locations.length) return;
-
-        state.locations.forEach((location) => {
-          const card = document.createElement("div");
-          card.className = "carousel-card";
-          if (ui.location.value === location.id) {
-            card.classList.add("selected");
-          }
-
-          const img = document.createElement("img");
-          img.alt = location.name;
-          img.src = location.image_url || "";
-          card.appendChild(img);
-
-          const body = document.createElement("div");
-          body.className = "card-body";
-          body.innerHTML = `<strong>${location.name}</strong><br/>${location.address || ""}`;
-          card.appendChild(body);
-
-          card.addEventListener("click", () => selectLocation(location.id));
-          ui.locationsTrack.appendChild(card);
-        });
-      };
-
-      ui.prevBtn.addEventListener("click", () => {
-        ui.locationsTrack.scrollBy({ left: -240, behavior: "smooth" });
-      });
-
-      ui.nextBtn.addEventListener("click", () => {
-        ui.locationsTrack.scrollBy({ left: 240, behavior: "smooth" });
-      });

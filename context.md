@@ -70,6 +70,7 @@ Steel & Blade est l’application web de **Coiffure Ciwan**, un salon masculin m
 - `/boutique/checkout` : checkout
 - `/boutique/checkout/success` : confirmation paiement
 - `/boutique/checkout/demo` : page démo (site vitrine)
+- `/chatgpt-preview` : prévisualisation locale du widget ChatGPT (mock data)
 
 ### Admin
 - `/admin` : configuration (services, galerie, stylists, centres, hero)
@@ -98,6 +99,8 @@ Steel & Blade est l’application web de **Coiffure Ciwan**, un salon masculin m
   - Tools exposés : `get_welcome`, `list_services`, `list_locations`, `list_stylists`, `get_availability`, `create_booking`.
   - Réponses utilisent `structuredContent` pour synchroniser le widget (services, centres, stylistes, créneaux, images de centres).
   - `create_booking` appelle `/api/reservation/create` (si l’écriture est bloquée côté plan ChatGPT, le tool renvoie un message d’échec).
+- `GET /api/chatgpt-preview/locations`
+  - Endpoint de preview pour charger les centres (avec images) dans `/chatgpt-preview`.
 
 ### Boutique / Stripe
 - `POST /api/boutique/stripe`
