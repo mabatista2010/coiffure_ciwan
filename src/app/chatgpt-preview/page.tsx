@@ -107,7 +107,7 @@ export default function ChatGPTPreviewPage() {
       } else {
         setDataStatus("Centres reels indisponibles.");
       }
-    } catch (error) {
+    } catch {
       setDataStatus("Centres reels indisponibles.");
     }
   }, []);
