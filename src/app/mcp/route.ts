@@ -2,8 +2,8 @@ import { NextRequest } from "next/server";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { z } from "zod";
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp";
-import { WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/webStandardStreamableHttp";
+import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js";
 import { supabase } from "@/lib/supabase";
 import { getImageUrl } from "@/lib/getImageUrl";
 
