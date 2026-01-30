@@ -98,6 +98,7 @@ Steel & Blade est l’application web de **Coiffure Ciwan**, un salon masculin m
   - Serveur MCP (Apps SDK) avec widget UI intégré (resource `ui://widget/reserva.html`).
   - Tools exposés : `get_welcome`, `list_services`, `list_locations`, `list_stylists`, `get_availability`, `create_booking`.
   - Réponses utilisent `structuredContent` pour synchroniser le widget (centres, stylistes, hero). `get_welcome` renvoie l’image hero configurée + `logo_url`, avec des URLs absolues et `view: "welcome"`. `list_locations` renvoie `view: "locations"` et `list_stylists` renvoie `view: "stylists"` avec des images en URLs absolues. Les tools `list_services`, `get_availability`, `create_booking` n’affichent plus de widget.
+  - Le MCP ne propose pas la modification/annulation de réservation (non disponible pour l’instant).
   - `create_booking` appelle `/api/reservation/create` (si l’écriture est bloquée côté plan ChatGPT, le tool renvoie un message d’échec).
 - `GET /api/chatgpt-preview/locations`
   - Endpoint de preview pour charger les centres (avec images) dans `/chatgpt-preview`.

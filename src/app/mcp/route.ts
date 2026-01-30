@@ -87,6 +87,7 @@ const createReservationServer = (baseUrl: string) => {
       "N'appelle list_locations que si l'utilisateur demande a voir les centres. " +
       "N'appelle list_stylists que si l'utilisateur demande a voir l'equipe. " +
       "N'appelle list_services que si l'utilisateur demande les services ou les prix. " +
+      "Ne propose pas de modifier ou annuler une reservation. Si l'utilisateur le demande, dis que ce n'est pas disponible pour l'instant. " +
       "Utilise get_availability uniquement apres que la date, le centre, le styliste et le service soient connus.",
   });
 
