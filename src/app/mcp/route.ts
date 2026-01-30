@@ -26,7 +26,7 @@ const corsHeaders = {
 };
 
 type ToolResult = {
-  content?: { type: "text"; text: string }[];
+  content: { type: "text"; text: string }[];
   structuredContent?: Record<string, unknown>;
 };
 
