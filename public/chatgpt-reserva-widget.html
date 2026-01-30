@@ -32,6 +32,15 @@
         box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08);
       }
 
+      #hero {
+        width: 100%;
+        height: 160px;
+        object-fit: cover;
+        border-radius: 12px;
+        margin-bottom: 12px;
+        display: none;
+      }
+
       h2 {
         margin: 0 0 10px;
         font-size: 18px;
@@ -65,6 +74,76 @@
         cursor: pointer;
       }
 
+      #load-services {
+        margin-top: 10px;
+      }
+
+      .carousel {
+        position: relative;
+        margin-top: 12px;
+      }
+
+      .carousel-track {
+        display: flex;
+        gap: 12px;
+        overflow-x: auto;
+        scroll-behavior: smooth;
+        padding: 4px 0 8px;
+      }
+
+      .carousel-card {
+        min-width: 220px;
+        background: #f7f7f7;
+        border-radius: 12px;
+        border: 1px solid #e5e5e5;
+        overflow: hidden;
+        cursor: pointer;
+      }
+
+      .carousel-card.selected {
+        border-color: #c8981d;
+        box-shadow: 0 0 0 2px rgba(200, 152, 29, 0.2);
+      }
+
+      .carousel-card img {
+        width: 100%;
+        height: 120px;
+        object-fit: cover;
+        display: block;
+        background: #eaeaea;
+      }
+
+      .carousel-card .card-body {
+        padding: 10px;
+        font-size: 12px;
+        color: #444;
+      }
+
+      .carousel-btn {
+        position: absolute;
+        top: 45px;
+        transform: translateY(-50%);
+        width: 28px;
+        height: 28px;
+        border-radius: 50%;
+        border: none;
+        background: #111;
+        color: #fff;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        opacity: 0.85;
+      }
+
+      .carousel-btn.prev {
+        left: -6px;
+      }
+
+      .carousel-btn.next {
+        right: -6px;
+      }
+
       .muted {
         color: #666;
         font-size: 12px;
@@ -78,9 +157,18 @@
   </head>
   <body>
     <main>
-      <h2>Reservation</h2>
-      <div class="muted">
-        Selectionnez un service, un centre, un styliste et un horaire.
+      <img id="hero" alt="Salon de coiffure" />
+      <h2 id="welcome-title">Bienvenue chez Steel & Blade</h2>
+      <div id="welcome-subtitle" class="muted">
+        Que puis-je faire pour vous aujourd'hui ?
+      </div>
+
+      <button id="load-services" type="button">Afficher les services</button>
+
+      <div class="carousel" id="locations-carousel">
+        <button class="carousel-btn prev" id="loc-prev" type="button">‹</button>
+        <div class="carousel-track" id="locations-track"></div>
+        <button class="carousel-btn next" id="loc-next" type="button">›</button>
       </div>
 
       <label for="service">Service</label>
@@ -107,6 +195,9 @@
       <label for="phone">Telephone</label>
       <input id="phone" type="tel" />
 
+      <label for="custom-service">Service personnalise</label>
+      <input id="custom-service" type="text" placeholder="Ex: ton concret, coupe speciale..." />
+
       <label for="notes">Notes</label>
       <input id="notes" type="text" />
 
@@ -116,6 +207,14 @@
 
     <script type="module">
       const ui = {
+        hero: document.querySelector("#hero"),
+        welcomeTitle: document.querySelector("#welcome-title"),
+        welcomeSubtitle: document.querySelector("#welcome-subtitle"),
+        loadServices: document.querySelector("#load-services"),
+        carousel: document.querySelector("#locations-carousel"),
+        locationsTrack: document.querySelector("#locations-track"),
+        prevBtn: document.querySelector("#loc-prev"),
+        nextBtn: document.querySelector("#loc-next"),
         service: document.querySelector("#service"),
         location: document.querySelector("#location"),
         stylist: document.querySelector("#stylist"),
@@ -124,12 +223,18 @@
         name: document.querySelector("#name"),
         email: document.querySelector("#email"),
         phone: document.querySelector("#phone"),
+        customService: document.querySelector("#custom-service"),
         notes: document.querySelector("#notes"),
         book: document.querySelector("#book"),
         status: document.querySelector("#status"),
       };
 
       let state = {
+        welcome: {
+          title: "Bienvenue chez Steel & Blade",
+          subtitle: "Que puis-je faire pour vous aujourd'hui ?",
+          image_url: "",
+        },
         services: [],
         locations: [],
         stylists: [],
@@ -146,25 +251,53 @@
         });
       };
 
+      const setPlaceholder = (el, label) => {
+        el.innerHTML = "";
+        const opt = document.createElement("option");
+        opt.value = "";
+        opt.textContent = label;
+        el.appendChild(opt);
+      };
+
       const applyToolOutput = (toolOutput) => {
         if (!toolOutput) return;
+        if (toolOutput.welcome) state.welcome = toolOutput.welcome;
         if (toolOutput.services) state.services = toolOutput.services;
         if (toolOutput.locations) state.locations = toolOutput.locations;
         if (toolOutput.stylists) state.stylists = toolOutput.stylists;
         if (toolOutput.slots) state.slots = toolOutput.slots;
 
+        if (state.welcome?.title) {
+          ui.welcomeTitle.textContent = state.welcome.title;
+        }
+        if (state.welcome?.subtitle) {
+          ui.welcomeSubtitle.textContent = state.welcome.subtitle;
+        }
+        if (state.welcome?.image_url) {
+          ui.hero.src = state.welcome.image_url;
+          ui.hero.style.display = "block";
+        }
+
         if (state.services.length) {
           renderOptions(ui.service, state.services, (service) =>
             `${service.name} - ${service.price} EUR`
           );
+        } else {
+          setPlaceholder(ui.service, "Afficher les services");
         }
 
         if (state.locations.length) {
           renderOptions(ui.location, state.locations, (location) => location.name);
+          renderLocationsCarousel();
+        } else {
+          setPlaceholder(ui.location, "Choisir un centre");
+          ui.locationsTrack.innerHTML = "";
         }
 
         if (state.stylists.length) {
           renderOptions(ui.stylist, state.stylists, (stylist) => stylist.name);
+        } else {
+          setPlaceholder(ui.stylist, "Choisir un styliste");
         }
 
         if (state.slots.length) {
@@ -175,6 +308,8 @@
             opt.textContent = slot;
             ui.slot.appendChild(opt);
           });
+        } else {
+          setPlaceholder(ui.slot, "Choisir un horaire");
         }
       };
 
@@ -191,8 +326,12 @@
       };
 
       const bootstrap = async () => {
+        setPlaceholder(ui.service, "Afficher les services");
+        setPlaceholder(ui.location, "Choisir un centre");
+        setPlaceholder(ui.stylist, "Choisir un styliste");
+        setPlaceholder(ui.slot, "Choisir un horaire");
         applyToolOutput(window.openai?.toolOutput);
-        await callTool("list_services", {});
+        await callTool("get_welcome", {});
         await callTool("list_locations", {});
       };
 
@@ -208,10 +347,18 @@
       ui.location.addEventListener("change", async () => {
         const location_id = ui.location.value || null;
         await callTool("list_stylists", { location_id });
+        renderLocationsCarousel();
+      });
+
+      ui.loadServices.addEventListener("click", async () => {
+        await callTool("list_services", {});
       });
 
       const refreshAvailability = async () => {
         if (!ui.date.value) return;
+        if (!ui.service.value) return;
+        if (!ui.location.value) return;
+        if (!ui.stylist.value) return;
         const payload = {
           date: ui.date.value,
           location_id: ui.location.value,
@@ -227,6 +374,11 @@
 
       ui.book.addEventListener("click", async () => {
         ui.status.textContent = "Traitement en cours...";
+        const customService = ui.customService.value.trim();
+        const notesParts = [ui.notes.value.trim()];
+        if (customService) {
+          notesParts.push(`Service personnalise: ${customService}`);
+        }
         const payload = {
           customer_name: ui.name.value,
           customer_email: ui.email.value,
@@ -236,7 +388,7 @@
           stylist_id: ui.stylist.value,
           date: ui.date.value,
           start_time: ui.slot.value,
-          notes: ui.notes.value,
+          notes: notesParts.filter(Boolean).join(" | "),
         };
 
         const response = await callTool("create_booking", payload);
@@ -252,3 +404,43 @@
     </script>
   </body>
 </html>
+      const selectLocation = (locationId) => {
+        if (!locationId) return;
+        ui.location.value = locationId;
+        ui.location.dispatchEvent(new Event("change"));
+      };
+
+      const renderLocationsCarousel = () => {
+        if (!ui.locationsTrack) return;
+        ui.locationsTrack.innerHTML = "";
+        if (!state.locations.length) return;
+
+        state.locations.forEach((location) => {
+          const card = document.createElement("div");
+          card.className = "carousel-card";
+          if (ui.location.value === location.id) {
+            card.classList.add("selected");
+          }
+
+          const img = document.createElement("img");
+          img.alt = location.name;
+          img.src = location.image_url || "";
+          card.appendChild(img);
+
+          const body = document.createElement("div");
+          body.className = "card-body";
+          body.innerHTML = `<strong>${location.name}</strong><br/>${location.address || ""}`;
+          card.appendChild(body);
+
+          card.addEventListener("click", () => selectLocation(location.id));
+          ui.locationsTrack.appendChild(card);
+        });
+      };
+
+      ui.prevBtn.addEventListener("click", () => {
+        ui.locationsTrack.scrollBy({ left: -240, behavior: "smooth" });
+      });
+
+      ui.nextBtn.addEventListener("click", () => {
+        ui.locationsTrack.scrollBy({ left: 240, behavior: "smooth" });
+      });

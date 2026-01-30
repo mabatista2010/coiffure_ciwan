@@ -34,6 +34,7 @@ Flujo:
 ## 2) Tools (MCP) a exponer
 
 MVP recomendado:
+- `get_welcome`
 - `list_services`
 - `list_locations`
 - `list_stylists`
@@ -43,6 +44,18 @@ MVP recomendado:
 Formato de respuestas:
 - Siempre devolver `structuredContent` para que el widget se sincronice.
 - Respuesta de texto opcional en `content`.
+
+### 2.0 get_welcome
+Salida (structuredContent):
+```json
+{
+  "welcome": {
+    "title": "string",
+    "subtitle": "string",
+    "image_url": "string"
+  }
+}
+```
 
 ### 2.1 list_services
 Entrada:
@@ -70,7 +83,14 @@ Salida (structuredContent):
 ```json
 {
   "locations": [
-    { "id": "uuid", "name": "string", "address": "string", "phone": "string" }
+    {
+      "id": "uuid",
+      "name": "string",
+      "address": "string",
+      "phone": "string",
+      "description": "string",
+      "image_url": "string"
+    }
   ]
 }
 ```
@@ -159,8 +179,10 @@ Contenido recomendado (esqueleto):
   </head>
   <body>
     <main>
-      <h2>Reservation</h2>
-      <div class="muted">Selectionnez un service, un centre, un styliste et un horaire.</div>
+      <img id="hero" />
+      <h2 id="welcome-title">Bienvenue chez Steel & Blade</h2>
+      <div id="welcome-subtitle" class="muted">Que puis-je faire pour vous aujourd'hui ?</div>
+      <button id="load-services" type="button">Afficher les services</button>
 
       <label>Service</label>
       <select id="service"></select>
@@ -186,6 +208,8 @@ Contenido recomendado (esqueleto):
       <label>Telephone</label>
       <input id="phone" type="tel" />
 
+      <label>Service personnalise</label>
+      <input id="custom-service" type="text" placeholder="Ex: ton concret, coupe speciale..." />
       <label>Notes</label>
       <input id="notes" type="text" />
 
@@ -195,6 +219,10 @@ Contenido recomendado (esqueleto):
 
     <script type="module">
       const ui = {
+        hero: document.querySelector("#hero"),
+        welcomeTitle: document.querySelector("#welcome-title"),
+        welcomeSubtitle: document.querySelector("#welcome-subtitle"),
+        loadServices: document.querySelector("#load-services"),
         service: document.querySelector("#service"),
         location: document.querySelector("#location"),
         stylist: document.querySelector("#stylist"),
@@ -203,12 +231,14 @@ Contenido recomendado (esqueleto):
         name: document.querySelector("#name"),
         email: document.querySelector("#email"),
         phone: document.querySelector("#phone"),
+        customService: document.querySelector("#custom-service"),
         notes: document.querySelector("#notes"),
         book: document.querySelector("#book"),
         status: document.querySelector("#status"),
       };
 
       let state = {
+        welcome: { title: "", subtitle: "", image_url: "" },
         services: [],
         locations: [],
         stylists: [],
@@ -227,11 +257,15 @@ Contenido recomendado (esqueleto):
 
       const applyToolOutput = (toolOutput) => {
         if (!toolOutput) return;
+        if (toolOutput.welcome) state.welcome = toolOutput.welcome;
         if (toolOutput.services) state.services = toolOutput.services;
         if (toolOutput.locations) state.locations = toolOutput.locations;
         if (toolOutput.stylists) state.stylists = toolOutput.stylists;
         if (toolOutput.slots) state.slots = toolOutput.slots;
 
+        if (state.welcome?.title) ui.welcomeTitle.textContent = state.welcome.title;
+        if (state.welcome?.subtitle) ui.welcomeSubtitle.textContent = state.welcome.subtitle;
+        if (state.welcome?.image_url) ui.hero.src = state.welcome.image_url;
         if (state.services.length) renderOptions(ui.service, state.services, (s) => `${s.name} - ${s.price} EUR`);
         if (state.locations.length) renderOptions(ui.location, state.locations, (l) => l.name);
         if (state.stylists.length) renderOptions(ui.stylist, state.stylists, (s) => s.name);
@@ -253,7 +287,7 @@ Contenido recomendado (esqueleto):
 
       const bootstrap = async () => {
         applyToolOutput(window.openai?.toolOutput);
-        await callTool("list_services", {});
+        await callTool("get_welcome", {});
         await callTool("list_locations", {});
       };
 
@@ -284,6 +318,10 @@ Contenido recomendado (esqueleto):
 
       ui.book.addEventListener("click", async () => {
         ui.status.textContent = "Traitement...";
+        const notes = [ui.notes.value.trim()];
+        if (ui.customService.value.trim()) {
+          notes.push(`Service personnalise: ${ui.customService.value.trim()}`);
+        }
         const payload = {
           customer_name: ui.name.value,
           customer_email: ui.email.value,
@@ -293,7 +331,7 @@ Contenido recomendado (esqueleto):
           stylist_id: ui.stylist.value,
           date: ui.date.value,
           start_time: ui.slot.value,
-          notes: ui.notes.value,
+          notes: notes.filter(Boolean).join(" | "),
         };
         const res = await callTool("create_booking", payload);
         if (res?.structuredContent?.booking?.id) {
@@ -442,3 +480,6 @@ src/app/mcp/route.ts
 2) Crear `public/chatgpt-reserva-widget.html`.
 3) Desplegar en Vercel.
 4) Conectar en Developer Mode y probar.
+      ui.loadServices.addEventListener("click", async () => {
+        await callTool("list_services", {});
+      });

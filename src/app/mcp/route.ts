@@ -71,6 +71,13 @@ const createReservationServer = (baseUrl: string) => {
   const server = new McpServer({
     name: "reservation-app",
     version: "0.1.0",
+  }, {
+    instructions:
+      "Reponds en francais. Accueille l'utilisateur et demande comment aider. " +
+      "N'appelle pas list_services pour un simple bonjour. " +
+      "Utilise get_welcome pour afficher le widget d'accueil avec image. " +
+      "N'appelle list_services que si l'utilisateur demande les services ou les prix. " +
+      "Utilise get_availability uniquement apres que la date, le centre, le styliste et le service soient connus.",
   });
 
   server.registerResource(
@@ -92,10 +99,46 @@ const createReservationServer = (baseUrl: string) => {
   );
 
   server.registerTool(
+    "get_welcome",
+    {
+      title: "Afficher l'accueil",
+      description: "Affiche un message d'accueil et une image de la boutique.",
+      inputSchema: z.object({}),
+      annotations: {
+        title: "Accueil",
+        readOnlyHint: true,
+      },
+      _meta: {
+        "openai/outputTemplate": UI_RESOURCE_URI,
+        "openai/toolInvocation/invoking": "Chargement de l'accueil...",
+        "openai/toolInvocation/invoked": "Accueil charge",
+      },
+    },
+    async () => {
+      const { data, error } = await supabase
+        .from("configuracion")
+        .select("valor")
+        .eq("clave", "hero_image_desktop")
+        .single();
+
+      const heroImageUrl = !error && data?.valor ? getImageUrl(data.valor) : "";
+
+      return reply({
+        welcome: {
+          title: "Bienvenue chez Steel & Blade",
+          subtitle: "Que puis-je faire pour vous aujourd'hui ?",
+          image_url: heroImageUrl,
+        },
+      });
+    }
+  );
+
+  server.registerTool(
     "list_services",
     {
       title: "Lister les services",
-      description: "Retourne la liste des services et des prix.",
+      description:
+        "Retourne la liste des services et des prix. Utiliser uniquement si l'utilisateur demande les services ou les prix.",
       inputSchema: z.object({}),
       annotations: {
         title: "Liste des services",
@@ -135,7 +178,8 @@ const createReservationServer = (baseUrl: string) => {
     "list_locations",
     {
       title: "Lister les centres",
-      description: "Retourne la liste des centres disponibles.",
+      description:
+        "Retourne la liste des centres disponibles pour une reservation.",
       inputSchema: z.object({}),
       annotations: {
         title: "Liste des centres",
@@ -150,7 +194,7 @@ const createReservationServer = (baseUrl: string) => {
     async () => {
       const { data, error } = await supabase
         .from("locations")
-        .select("id,name,address,phone,active")
+        .select("id,name,address,phone,description,image,active")
         .eq("active", true)
         .order("name");
 
@@ -163,6 +207,8 @@ const createReservationServer = (baseUrl: string) => {
         name: location.name,
         address: location.address,
         phone: location.phone,
+        description: location.description || "",
+        image_url: location.image ? getImageUrl(location.image) : "",
       }));
 
       return reply({ locations }, "Centres charges.");
@@ -173,7 +219,8 @@ const createReservationServer = (baseUrl: string) => {
     "list_stylists",
     {
       title: "Lister les stylistes",
-      description: "Retourne les stylistes pour un centre donne.",
+      description:
+        "Retourne les stylistes pour un centre donne. Utiliser apres avoir choisi un centre.",
       inputSchema: listStylistsInputSchema,
       annotations: {
         title: "Liste des stylistes",
@@ -217,7 +264,8 @@ const createReservationServer = (baseUrl: string) => {
     "get_availability",
     {
       title: "Verifier la disponibilite",
-      description: "Retourne les creneaux disponibles pour une date.",
+      description:
+        "Retourne les creneaux disponibles pour une date. Utiliser apres avoir choisi centre, styliste et service.",
       inputSchema: availabilityInputSchema,
       annotations: {
         title: "Disponibilite",

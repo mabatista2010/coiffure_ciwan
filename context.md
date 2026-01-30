@@ -95,8 +95,8 @@ Steel & Blade est l’application web de **Coiffure Ciwan**, un salon masculin m
 ### ChatGPT Apps SDK (MCP)
 - `GET|POST|DELETE /mcp`
   - Serveur MCP (Apps SDK) avec widget UI intégré (resource `ui://widget/reserva.html`).
-  - Tools exposés : `list_services`, `list_locations`, `list_stylists`, `get_availability`, `create_booking`.
-  - Réponses utilisent `structuredContent` pour synchroniser le widget (services, centres, stylistes, créneaux).
+  - Tools exposés : `get_welcome`, `list_services`, `list_locations`, `list_stylists`, `get_availability`, `create_booking`.
+  - Réponses utilisent `structuredContent` pour synchroniser le widget (services, centres, stylistes, créneaux, images de centres).
   - `create_booking` appelle `/api/reservation/create` (si l’écriture est bloquée côté plan ChatGPT, le tool renvoie un message d’échec).
 
 ### Boutique / Stripe
