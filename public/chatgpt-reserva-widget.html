@@ -331,6 +331,9 @@
         slots: [],
       };
 
+      let isBootstrapping = true;
+      let pendingToolOutput = null;
+
       const notifyHeight = () => {
         if (window.openai?.notifyIntrinsicHeight) {
           window.openai.notifyIntrinsicHeight();
@@ -475,10 +478,12 @@
         applyToolOutput(response.structuredContent);
       };
 
-      const callTool = async (name, payload) => {
+      const callTool = async (name, payload, options = { apply: true }) => {
         if (!window.openai?.callTool) return null;
         const response = await window.openai.callTool(name, payload);
-        updateFromResponse(response);
+        if (options.apply) {
+          updateFromResponse(response);
+        }
         return response;
       };
 
@@ -488,14 +493,31 @@
         setPlaceholder(ui.stylist, "Choisir un styliste");
         setPlaceholder(ui.slot, "Choisir un horaire");
         applyToolOutput(window.openai?.toolOutput);
-        await callTool("get_welcome", {});
-        await callTool("list_locations", {});
+        const needWelcome = !window.openai?.toolOutput?.welcome;
+        const needLocations = !(window.openai?.toolOutput?.locations || []).length;
+        const tasks = [];
+        if (needWelcome) {
+          tasks.push(callTool("get_welcome", {}, { apply: false }));
+        }
+        if (needLocations) {
+          tasks.push(callTool("list_locations", {}, { apply: false }));
+        }
+        if (tasks.length) {
+          await Promise.all(tasks);
+        }
+        isBootstrapping = false;
+        applyToolOutput(pendingToolOutput || window.openai?.toolOutput);
+        pendingToolOutput = null;
       };
 
       window.addEventListener(
         "openai:set_globals",
         (event) => {
           const globals = event.detail?.globals;
+          if (isBootstrapping) {
+            pendingToolOutput = globals?.toolOutput || pendingToolOutput;
+            return;
+          }
           applyToolOutput(globals?.toolOutput);
         },
         { passive: true }
