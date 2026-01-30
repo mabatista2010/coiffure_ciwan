@@ -74,7 +74,7 @@ export default function Navbar() {
             >
               <Image 
                 src="/logo.png" 
-                alt="Logo Coiffure Ciwan" 
+                alt="Logo Steel & Blade" 
                 width={160} 
                 height={160} 
                 className="rounded-full object-cover" 

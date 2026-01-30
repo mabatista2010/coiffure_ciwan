@@ -159,7 +159,7 @@ function BoutiqueContent() {
             </motion.div>
             
             <h1 className="text-4xl md:text-6xl font-bold text-primary mb-4 font-decorative">
-              Boutique Coiffure Ciwan
+              Boutique Steel & Blade
             </h1>
             
             <p className="text-lg md:text-xl text-light mb-6 max-w-2xl mx-auto leading-relaxed">

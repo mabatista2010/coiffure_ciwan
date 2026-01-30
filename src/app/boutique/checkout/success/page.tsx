@@ -255,7 +255,7 @@ function CheckoutSuccessContent() {
                 Avez-vous une question concernant votre commande ?
               </p>
               <p className="text-primary font-medium">
-                Contactez-nous : info@coiffureciwan.com
+                Contactez-nous : info@steelandblade.com
               </p>
             </div>
           </div>

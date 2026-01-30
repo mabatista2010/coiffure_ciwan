@@ -19,21 +19,21 @@ const dancingScript = Dancing_Script({
 });
 
 export const metadata: Metadata = {
-  title: "Coiffure Ciwan - Salon de Coiffure Moderne pour Hommes et Enfants",
+  title: "Steel & Blade - Salon de Coiffure Moderne pour Hommes et Enfants",
   description: "Salon de coiffure pour hommes spécialisé dans les coupes modernes, dégradés, barbes et styles pour hommes et enfants. Réservez votre rendez-vous aujourd'hui.",
   keywords: "coiffure hommes, barbier, coupe de cheveux, dégradé, barbe, coiffure enfants",
-  authors: [{ name: "Coiffure Ciwan" }],
+  authors: [{ name: "Steel & Blade" }],
   openGraph: {
-    title: "Coiffure Ciwan - Salon de Coiffure Moderne pour Hommes et Enfants",
+    title: "Steel & Blade - Salon de Coiffure Moderne pour Hommes et Enfants",
     description: "Spécialistes en coupes modernes et styles pour hommes et enfants",
-    url: "https://coiffureciwan.ch",
-    siteName: "Coiffure Ciwan",
+    url: "https://steelandblade.com",
+    siteName: "Steel & Blade",
     images: [
       {
         url: "/og-image.jpg",
         width: 1200,
         height: 630,
-        alt: "Coiffure Ciwan",
+        alt: "Steel & Blade",
       },
     ],
     locale: "fr_FR",

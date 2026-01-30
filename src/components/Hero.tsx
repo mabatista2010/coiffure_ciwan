@@ -117,7 +117,7 @@ export default function Hero() {
         >
           <Image
             src={heroImage.desktop}
-            alt="Coiffure Ciwan - Salon de coiffure moderne pour hommes"
+            alt="Steel & Blade - Salon de coiffure moderne pour hommes"
             layout="fill"
             objectFit="cover"
             priority
@@ -138,7 +138,7 @@ export default function Hero() {
         >
           <Image
             src={heroImage.mobile}
-            alt="Coiffure Ciwan - Salon de coiffure moderne pour hommes"
+            alt="Steel & Blade - Salon de coiffure moderne pour hommes"
             layout="fill"
             objectFit="cover"
             priority

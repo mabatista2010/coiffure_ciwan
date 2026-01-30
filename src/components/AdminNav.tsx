@@ -247,7 +247,7 @@ export default function AdminNav({
             <Link href="/" className="z-50 transition-transform hover:scale-105 py-1">
               <Image 
                 src="/logo.png" 
-                alt="Coiffure Ciwan Logo" 
+                alt="Steel & Blade Logo" 
                 width={44} 
                 height={12} 
                 className="h-auto" 
@@ -287,7 +287,7 @@ export default function AdminNav({
                 <Link href="/" className="flex items-center transition-transform hover:scale-105">
                   <Image 
                     src="/logo.png" 
-                    alt="Coiffure Ciwan Logo" 
+                    alt="Steel & Blade Logo" 
                     width={56} 
                     height={14} 
                     className="h-auto" 
@@ -298,7 +298,7 @@ export default function AdminNav({
                 <Link href="/" className="flex items-center justify-center transition-transform hover:scale-110">
                   <Image 
                     src="/logo.png" 
-                    alt="Coiffure Ciwan Logo" 
+                    alt="Steel & Blade Logo" 
                     width={12} 
                     height={12} 
                     className="h-auto object-contain" 

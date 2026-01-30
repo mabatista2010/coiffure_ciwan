@@ -32,6 +32,7 @@ Steel & Blade est l’application web de **Coiffure Ciwan**, un salon masculin m
 - **Next.js Route Handlers** (`src/app/api`).
 - **Supabase** (DB PostgreSQL, Auth, Storage, RLS) via `@supabase/supabase-js@2.49.1`.
 - **Stripe** via `stripe@18.3.0` avec API `2025-06-30.basil`.
+- **ChatGPT Apps SDK (MCP)** via `@modelcontextprotocol/sdk@1.25.3` + `zod@4.3.6` (endpoint `/mcp`).
 
 ### Outils
 - **ESLint 9** + `eslint-config-next@15.2.1`.
@@ -56,6 +57,7 @@ Steel & Blade est l’application web de **Coiffure Ciwan**, un salon masculin m
 - `src/lib/` : utilitaires (Supabase, Stripe helpers, calendrier, roles).
 - `src/styles/` : `theme.css`, `parallax.css`.
 - `public/` : assets statiques.
+- `public/chatgpt-reserva-widget.html` : widget UI pour l’app ChatGPT (Apps SDK).
 - `setup-guide/` : docs + script SQL de setup.
 - `*.sql` à la racine : scripts Supabase (schémas, fixes, données).
 
@@ -89,6 +91,13 @@ Steel & Blade est l’application web de **Coiffure Ciwan**, un salon masculin m
   - Génère des slots toutes **15 min** en tenant compte de `working_hours`, `time_off`, `bookings` (status `pending|confirmed`) et durée du service.
 - `POST /api/reservation/create`
   - Calcule `end_time` via `servicios.duration`, vérifie chevauchement et horaires.
+
+### ChatGPT Apps SDK (MCP)
+- `GET|POST|DELETE /mcp`
+  - Serveur MCP (Apps SDK) avec widget UI intégré (resource `ui://widget/reserva.html`).
+  - Tools exposés : `list_services`, `list_locations`, `list_stylists`, `get_availability`, `create_booking`.
+  - Réponses utilisent `structuredContent` pour synchroniser le widget (services, centres, stylistes, créneaux).
+  - `create_booking` appelle `/api/reservation/create` (si l’écriture est bloquée côté plan ChatGPT, le tool renvoie un message d’échec).
 
 ### Boutique / Stripe
 - `POST /api/boutique/stripe`

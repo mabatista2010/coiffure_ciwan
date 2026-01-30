@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <title>Reservation</title>
+    <style>
+      :root {
+        color: #111;
+        font-family: system-ui, -apple-system, sans-serif;
+      }
+
+      html,
+      body {
+        width: 100%;
+        min-height: 100%;
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        padding: 16px;
+        background: #f7f7f7;
+      }
+
+      main {
+        width: 100%;
+        max-width: 420px;
+        margin: 0 auto;
+        background: #fff;
+        border-radius: 14px;
+        padding: 16px;
+        box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08);
+      }
+
+      h2 {
+        margin: 0 0 10px;
+        font-size: 18px;
+      }
+
+      label {
+        display: block;
+        margin-top: 12px;
+        font-size: 12px;
+        color: #444;
+      }
+
+      select,
+      input,
+      button {
+        width: 100%;
+        padding: 10px 12px;
+        margin-top: 6px;
+        border-radius: 10px;
+        border: 1px solid #d7d7d7;
+        font-size: 14px;
+        box-sizing: border-box;
+      }
+
+      button {
+        margin-top: 14px;
+        border: none;
+        background: #c8981d;
+        color: #111;
+        font-weight: 600;
+        cursor: pointer;
+      }
+
+      .muted {
+        color: #666;
+        font-size: 12px;
+        margin-bottom: 8px;
+      }
+
+      #status {
+        margin-top: 10px;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h2>Reservation</h2>
+      <div class="muted">
+        Selectionnez un service, un centre, un styliste et un horaire.
+      </div>
+
+      <label for="service">Service</label>
+      <select id="service"></select>
+
+      <label for="location">Centre</label>
+      <select id="location"></select>
+
+      <label for="stylist">Styliste</label>
+      <select id="stylist"></select>
+
+      <label for="date">Date</label>
+      <input id="date" type="date" />
+
+      <label for="slot">Horaire</label>
+      <select id="slot"></select>
+
+      <label for="name">Nom</label>
+      <input id="name" type="text" />
+
+      <label for="email">Email</label>
+      <input id="email" type="email" />
+
+      <label for="phone">Telephone</label>
+      <input id="phone" type="tel" />
+
+      <label for="notes">Notes</label>
+      <input id="notes" type="text" />
+
+      <button id="book">Reserver</button>
+      <div id="status" class="muted"></div>
+    </main>
+
+    <script type="module">
+      const ui = {
+        service: document.querySelector("#service"),
+        location: document.querySelector("#location"),
+        stylist: document.querySelector("#stylist"),
+        date: document.querySelector("#date"),
+        slot: document.querySelector("#slot"),
+        name: document.querySelector("#name"),
+        email: document.querySelector("#email"),
+        phone: document.querySelector("#phone"),
+        notes: document.querySelector("#notes"),
+        book: document.querySelector("#book"),
+        status: document.querySelector("#status"),
+      };
+
+      let state = {
+        services: [],
+        locations: [],
+        stylists: [],
+        slots: [],
+      };
+
+      const renderOptions = (el, items, getLabel) => {
+        el.innerHTML = "";
+        items.forEach((item) => {
+          const opt = document.createElement("option");
+          opt.value = item.id;
+          opt.textContent = getLabel(item);
+          el.appendChild(opt);
+        });
+      };
+
+      const applyToolOutput = (toolOutput) => {
+        if (!toolOutput) return;
+        if (toolOutput.services) state.services = toolOutput.services;
+        if (toolOutput.locations) state.locations = toolOutput.locations;
+        if (toolOutput.stylists) state.stylists = toolOutput.stylists;
+        if (toolOutput.slots) state.slots = toolOutput.slots;
+
+        if (state.services.length) {
+          renderOptions(ui.service, state.services, (service) =>
+            `${service.name} - ${service.price} EUR`
+          );
+        }
+
+        if (state.locations.length) {
+          renderOptions(ui.location, state.locations, (location) => location.name);
+        }
+
+        if (state.stylists.length) {
+          renderOptions(ui.stylist, state.stylists, (stylist) => stylist.name);
+        }
+
+        if (state.slots.length) {
+          ui.slot.innerHTML = "";
+          state.slots.forEach((slot) => {
+            const opt = document.createElement("option");
+            opt.value = slot;
+            opt.textContent = slot;
+            ui.slot.appendChild(opt);
+          });
+        }
+      };
+
+      const updateFromResponse = (response) => {
+        if (!response) return;
+        applyToolOutput(response.structuredContent);
+      };
+
+      const callTool = async (name, payload) => {
+        if (!window.openai?.callTool) return null;
+        const response = await window.openai.callTool(name, payload);
+        updateFromResponse(response);
+        return response;
+      };
+
+      const bootstrap = async () => {
+        applyToolOutput(window.openai?.toolOutput);
+        await callTool("list_services", {});
+        await callTool("list_locations", {});
+      };
+
+      window.addEventListener(
+        "openai:set_globals",
+        (event) => {
+          const globals = event.detail?.globals;
+          applyToolOutput(globals?.toolOutput);
+        },
+        { passive: true }
+      );
+
+      ui.location.addEventListener("change", async () => {
+        const location_id = ui.location.value || null;
+        await callTool("list_stylists", { location_id });
+      });
+
+      const refreshAvailability = async () => {
+        if (!ui.date.value) return;
+        const payload = {
+          date: ui.date.value,
+          location_id: ui.location.value,
+          stylist_id: ui.stylist.value,
+          service_id: Number(ui.service.value),
+        };
+        await callTool("get_availability", payload);
+      };
+
+      ui.date.addEventListener("change", refreshAvailability);
+      ui.stylist.addEventListener("change", refreshAvailability);
+      ui.service.addEventListener("change", refreshAvailability);
+
+      ui.book.addEventListener("click", async () => {
+        ui.status.textContent = "Traitement en cours...";
+        const payload = {
+          customer_name: ui.name.value,
+          customer_email: ui.email.value,
+          customer_phone: ui.phone.value,
+          service_id: Number(ui.service.value),
+          location_id: ui.location.value,
+          stylist_id: ui.stylist.value,
+          date: ui.date.value,
+          start_time: ui.slot.value,
+          notes: ui.notes.value,
+        };
+
+        const response = await callTool("create_booking", payload);
+        const bookingId = response?.structuredContent?.booking?.id;
+        if (bookingId) {
+          ui.status.textContent = `Reservation creee: ${bookingId}`;
+        } else {
+          ui.status.textContent = "Impossible de creer la reservation.";
+        }
+      });
+
+      bootstrap();
+    </script>
+  </body>
+</html>

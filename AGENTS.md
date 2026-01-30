@@ -1,5 +1,8 @@
 # Repository Guidelines
 
+## Communication
+- Siempre responde en español.
+
 ## Project Structure & Module Organization
 - `src/app/` contains Next.js App Router routes, layouts, and pages.
 - `src/components/` holds reusable UI and domain components (e.g., boutique, reservation).
@@ -8,6 +11,11 @@
 - `public/` holds static assets.
 - Root `*.md` files and `setup-guide/` document Stripe/Supabase setup and operational notes.
 - Root `*.sql` files are Supabase schema/data scripts; apply intentionally and track which environment they target.
+
+## Documentation & Context Rules
+- Always read `context.md` at the start of a session.
+- When a change is relevant (DB schema, Supabase tables, API behavior, business logic, auth/roles, Stripe flows, booking logic, etc.), update `context.md` to reflect it.
+- Purely visual tweaks (e.g., color changes) do not require a `context.md` update.
 
 ## Build, Test, and Development Commands
 - `npm run dev`: start local dev server (Next.js, hot reload).
