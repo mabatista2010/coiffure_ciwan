@@ -89,11 +89,12 @@ function OAuthConsentContent() {
 
       if (approval.error) {
         if (approval.error.message === "authorization request cannot be processed") {
-          const { data: refreshed } = await oauthApi.getAuthorizationDetails?.(
-            authorizationId
-          );
-          const fallbackRedirect =
-            refreshed?.redirect_url || refreshed?.redirect_to || "";
+        const refreshedResult = await oauthApi.getAuthorizationDetails?.(
+          authorizationId
+        );
+        const refreshed = refreshedResult?.data;
+        const fallbackRedirect =
+          refreshed?.redirect_url || refreshed?.redirect_to || "";
           if (fallbackRedirect) {
             window.location.href = fallbackRedirect;
             return;
@@ -166,9 +167,12 @@ function OAuthConsentContent() {
 
     if (result.error) {
       if (result.error.message === "authorization request cannot be processed") {
-        const { data: refreshed } = await oauthApi.getAuthorizationDetails?.(authorizationId);
-        const fallbackRedirect =
-          refreshed?.redirect_url || refreshed?.redirect_to || "";
+      const refreshedResult = await oauthApi.getAuthorizationDetails?.(
+        authorizationId
+      );
+      const refreshed = refreshedResult?.data;
+      const fallbackRedirect =
+        refreshed?.redirect_url || refreshed?.redirect_to || "";
         if (fallbackRedirect) {
           window.location.href = fallbackRedirect;
           return;
