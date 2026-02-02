@@ -20,7 +20,7 @@ export async function GET(request: NextRequest) {
     {
       resource,
       authorization_servers: [authorizationServer],
-      scopes_supported: ["email", "profile", "openid", "phone"],
+      scopes_supported: ["email"],
     },
     {
       headers: {

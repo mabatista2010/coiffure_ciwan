@@ -17,8 +17,14 @@ type AuthDetails = {
 
 type OAuthApi = {
   getAuthorizationDetails?: (authorizationId: string) => Promise<{ data?: AuthDetails; error?: { message?: string } }>
-  approveAuthorization?: (authorizationId: string) => Promise<{ data?: { redirect_to?: string }; error?: { message?: string } }>
-  denyAuthorization?: (authorizationId: string) => Promise<{ data?: { redirect_to?: string }; error?: { message?: string } }>
+  approveAuthorization?: (
+    authorizationId: string,
+    options?: { skipBrowserRedirect?: boolean }
+  ) => Promise<{ data?: { redirect_to?: string; redirect_url?: string }; error?: { message?: string } }>
+  denyAuthorization?: (
+    authorizationId: string,
+    options?: { skipBrowserRedirect?: boolean }
+  ) => Promise<{ data?: { redirect_to?: string; redirect_url?: string }; error?: { message?: string } }>
 };
 
 function OAuthConsentContent() {
@@ -65,9 +71,47 @@ function OAuthConsentContent() {
     }
 
     const redirectUrl = data.redirect_url || data.redirect_to;
-    if (data.auto_approved && redirectUrl) {
+    if (redirectUrl) {
       window.location.href = redirectUrl;
       return;
+    }
+
+    if (data.auto_approved) {
+      if (!oauthApi.approveAuthorization) {
+        setErrorMessage("OAuth n'est pas disponible pour le moment.");
+        setLoading(false);
+        return;
+      }
+
+      const approval = await oauthApi.approveAuthorization(authorizationId, {
+        skipBrowserRedirect: true,
+      });
+
+      if (approval.error) {
+        if (approval.error.message === "authorization request cannot be processed") {
+          const { data: refreshed } = await oauthApi.getAuthorizationDetails?.(
+            authorizationId
+          );
+          const fallbackRedirect =
+            refreshed?.redirect_url || refreshed?.redirect_to || "";
+          if (fallbackRedirect) {
+            window.location.href = fallbackRedirect;
+            return;
+          }
+        }
+
+        setErrorMessage(approval.error.message || "Action impossible.");
+        setLoading(false);
+        return;
+      }
+
+      const approvalRedirect =
+        (approval.data as { redirect_url?: string })?.redirect_url ||
+        (approval.data as { redirect_to?: string })?.redirect_to;
+      if (approvalRedirect) {
+        window.location.href = approvalRedirect;
+        return;
+      }
     }
 
     setAuthDetails(data);
@@ -113,10 +157,24 @@ function OAuthConsentContent() {
 
     const result =
       decision === "approve"
-        ? await oauthApi.approveAuthorization(authorizationId)
-        : await oauthApi.denyAuthorization(authorizationId);
+        ? await oauthApi.approveAuthorization(authorizationId, {
+            skipBrowserRedirect: true,
+          })
+        : await oauthApi.denyAuthorization(authorizationId, {
+            skipBrowserRedirect: true,
+          });
 
     if (result.error) {
+      if (result.error.message === "authorization request cannot be processed") {
+        const { data: refreshed } = await oauthApi.getAuthorizationDetails?.(authorizationId);
+        const fallbackRedirect =
+          refreshed?.redirect_url || refreshed?.redirect_to || "";
+        if (fallbackRedirect) {
+          window.location.href = fallbackRedirect;
+          return;
+        }
+      }
+
       setErrorMessage(result.error.message || "Action impossible.");
       setSubmitting(false);
       return;
