@@ -77,10 +77,12 @@ export default function AdminLayout({
 
   if (isAuthenticated === null) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-dark">
-        <div className="w-full max-w-md p-8 space-y-8 bg-secondary rounded-lg shadow-md">
-          <div className="text-center">
-            <h1 className="text-2xl font-bold text-primary">Chargement...</h1>
+      <div className="admin-scope">
+        <div className="min-h-screen flex items-center justify-center bg-dark">
+          <div className="w-full max-w-md p-8 space-y-8 bg-secondary rounded-lg shadow-md">
+            <div className="text-center">
+              <h1 className="text-2xl font-bold text-primary">Chargement...</h1>
+            </div>
           </div>
         </div>
       </div>
@@ -89,55 +91,57 @@ export default function AdminLayout({
 
   if (isAuthenticated === false) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-dark">
-        <div className="w-full max-w-md p-8 space-y-8 bg-secondary rounded-lg shadow-md">
-          <div className="text-center">
-            <h1 className="text-2xl font-bold text-primary">Panel de administración</h1>
-            <p className="mt-2 text-light">Por favor, inicia sesión para acceder al panel de administración</p>
+      <div className="admin-scope">
+        <div className="min-h-screen flex items-center justify-center bg-dark">
+          <div className="w-full max-w-md p-8 space-y-8 bg-secondary rounded-lg shadow-md">
+            <div className="text-center">
+              <h1 className="text-2xl font-bold text-primary">Panel de administración</h1>
+              <p className="mt-2 text-light">Por favor, inicia sesión para acceder al panel de administración</p>
+            </div>
+            
+            {errorMessage && (
+              <div className="p-4 mb-4 text-sm text-red-700 bg-red-100 rounded-lg">
+                {errorMessage}
+              </div>
+            )}
+            
+            <form className="mt-8 space-y-6" onSubmit={handleLogin}>
+              <div>
+                <label htmlFor="email" className="block text-sm font-medium text-light">Email</label>
+                <input
+                  id="email"
+                  name="email"
+                  type="email"
+                  required
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary bg-dark text-light"
+                />
+              </div>
+              
+              <div>
+                <label htmlFor="password" className="block text-sm font-medium text-light">Contraseña</label>
+                <input
+                  id="password"
+                  name="password"
+                  type="password"
+                  required
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary bg-dark text-light"
+                />
+              </div>
+              
+              <div>
+                <button
+                  type="submit"
+                  className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-dark bg-primary hover:bg-opacity-90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary"
+                >
+                  Iniciar sesión
+                </button>
+              </div>
+            </form>
           </div>
-          
-          {errorMessage && (
-            <div className="p-4 mb-4 text-sm text-red-700 bg-red-100 rounded-lg">
-              {errorMessage}
-            </div>
-          )}
-          
-          <form className="mt-8 space-y-6" onSubmit={handleLogin}>
-            <div>
-              <label htmlFor="email" className="block text-sm font-medium text-light">Email</label>
-              <input
-                id="email"
-                name="email"
-                type="email"
-                required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary bg-dark text-light"
-              />
-            </div>
-            
-            <div>
-              <label htmlFor="password" className="block text-sm font-medium text-light">Contraseña</label>
-              <input
-                id="password"
-                name="password"
-                type="password"
-                required
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary bg-dark text-light"
-              />
-            </div>
-            
-            <div>
-              <button
-                type="submit"
-                className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-dark bg-primary hover:bg-opacity-90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary"
-              >
-                Iniciar sesión
-              </button>
-            </div>
-          </form>
         </div>
       </div>
     );
@@ -150,17 +154,19 @@ export default function AdminLayout({
     
     if (!isAllowed) {
       return (
-        <div className="min-h-screen flex items-center justify-center bg-dark">
-          <div className="w-full max-w-md p-8 space-y-8 bg-secondary rounded-lg shadow-md">
-            <div className="text-center">
-              <h1 className="text-2xl font-bold text-primary">Acceso denegado</h1>
-              <p className="mt-2 text-light">No tienes permisos para acceder a esta sección</p>
-              <button
-                onClick={() => router.push('/admin/reservations')}
-                className="mt-4 px-4 py-2 bg-primary text-dark rounded-md hover:bg-opacity-90"
-              >
-                Ir a reservas
-              </button>
+        <div className="admin-scope">
+          <div className="min-h-screen flex items-center justify-center bg-dark">
+            <div className="w-full max-w-md p-8 space-y-8 bg-secondary rounded-lg shadow-md">
+              <div className="text-center">
+                <h1 className="text-2xl font-bold text-primary">Acceso denegado</h1>
+                <p className="mt-2 text-light">No tienes permisos para acceder a esta sección</p>
+                <button
+                  onClick={() => router.push('/admin/reservations')}
+                  className="mt-4 px-4 py-2 bg-primary text-dark rounded-md hover:bg-opacity-90"
+                >
+                  Ir a reservas
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -169,11 +175,11 @@ export default function AdminLayout({
   }
 
   return (
-    <>
+    <div className="admin-scope">
       <AdminNav />
       <main className="min-h-screen bg-dark">
         {children}
       </main>
-    </>
+    </div>
   );
-} 
+}

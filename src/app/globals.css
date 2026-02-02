@@ -118,6 +118,29 @@ table td {
   color: #4a4a4a;
 }
 
+/* Admin: aislar las reglas de contraste global */
+.admin-scope {
+  color: var(--color-text-light);
+}
+
+:where(.admin-scope) h1,
+:where(.admin-scope) h2,
+:where(.admin-scope) h3,
+:where(.admin-scope) h4,
+:where(.admin-scope) h5,
+:where(.admin-scope) h6,
+:where(.admin-scope) p,
+:where(.admin-scope) span,
+:where(.admin-scope) div,
+:where(.admin-scope) label,
+:where(.admin-scope) input,
+:where(.admin-scope) textarea,
+:where(.admin-scope) select,
+:where(.admin-scope) table th,
+:where(.admin-scope) table td {
+  color: inherit;
+}
+
 /* Estilos para textos en fondos oscuros */
 .bg-secondary text-light {
   color: #ffffff;

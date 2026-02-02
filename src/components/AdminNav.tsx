@@ -240,7 +240,7 @@ export default function AdminNav({
   return (
     <>
       {/* Barra de navegación superior (solo visible en móvil) */}
-      <nav className="fixed w-full z-40 bg-secondary text-light md:hidden">
+      <nav className="fixed w-full z-40 bg-secondary text-white md:hidden">
         <div className="container mx-auto px-4">
           <div className="flex justify-between items-center py-2">
             {/* Logo */}
@@ -276,7 +276,7 @@ export default function AdminNav({
       <div className="hidden md:block">
         <div 
           id="desktop-sidebar"
-          className={`fixed top-0 left-0 h-full bg-secondary text-light z-40 transition-all duration-300 ${
+          className={`fixed top-0 left-0 h-full bg-secondary text-white z-40 transition-all duration-300 ${
             sidebarOpen ? 'w-64' : 'w-20'
           }`}
         >
@@ -327,8 +327,8 @@ export default function AdminNav({
                       key={`sidebar-nav-${item.href}-${index}`}
                       href={item.href} 
                       className={`flex items-center px-4 py-3 ${
-                        isActive ? 'bg-dark text-primary' : 'text-light hover:bg-dark hover:text-primary'
-                      } transition-all duration-200 ${sidebarOpen ? '' : 'justify-center'} cursor-pointer hover:text-primary`}
+                        isActive ? 'bg-dark text-primary' : 'text-white hover:bg-dark hover:text-primary'
+                      } transition-all duration-200 ${sidebarOpen ? '' : 'justify-center'} cursor-pointer hover:text-primary group`}
                       onMouseEnter={(e) => {
                         const iconElement = e.currentTarget.querySelector('svg');
                         if (iconElement) iconElement.style.color = '#FFD700';
@@ -344,7 +344,11 @@ export default function AdminNav({
                         {isActive ? React.cloneElement(item.icon, { color: '#FFD700' }) : 
                                    React.cloneElement(item.icon, { color: '#FFFFFF' })}
                       </span>
-                      {sidebarOpen && <span className="ml-3">{item.label}</span>}
+                      {sidebarOpen && (
+                        <span className={`ml-3 ${isActive ? 'text-primary' : 'text-white group-hover:text-primary'}`}>
+                          {item.label}
+                        </span>
+                      )}
                     </Link>
                   );
                 })}
@@ -367,8 +371,8 @@ export default function AdminNav({
                           key={`sidebar-config-${item.id}-${index}`}
                           onClick={() => handleConfigClick(item.id)}
                           className={`flex items-center w-full text-left px-4 py-3 ${
-                            isActive ? 'bg-dark text-primary' : 'text-light hover:bg-dark hover:text-primary'
-                          } transition-all duration-200 ${sidebarOpen ? '' : 'justify-center'} cursor-pointer`}
+                            isActive ? 'bg-dark text-primary' : 'text-white hover:bg-dark hover:text-primary'
+                          } transition-all duration-200 ${sidebarOpen ? '' : 'justify-center'} cursor-pointer group`}
                           onMouseEnter={(e) => {
                             const iconElement = e.currentTarget.querySelector('svg');
                             if (iconElement) iconElement.style.color = '#FFD700';
@@ -384,13 +388,17 @@ export default function AdminNav({
                             {isActive ? React.cloneElement(item.icon, { color: '#FFD700' }) : 
                                        React.cloneElement(item.icon, { color: '#FFFFFF' })}
                           </span>
-                          {sidebarOpen && <span className="ml-3">{item.label}</span>}
+                          {sidebarOpen && (
+                            <span className={`ml-3 ${isActive ? 'text-primary' : 'text-white group-hover:text-primary'}`}>
+                              {item.label}
+                            </span>
+                          )}
                         </button>
                       ) : (
                         <Link 
                           key={`sidebar-config-${item.id}-${index}`}
                           href={`/admin?section=${item.id}`} 
-                          className={`flex items-center px-4 py-3 text-light hover:bg-dark hover:text-primary transition-all duration-200 ${sidebarOpen ? '' : 'justify-center'} cursor-pointer`}
+                          className={`flex items-center px-4 py-3 text-white hover:bg-dark hover:text-primary transition-all duration-200 ${sidebarOpen ? '' : 'justify-center'} cursor-pointer group`}
                           onMouseEnter={(e) => {
                             const iconElement = e.currentTarget.querySelector('svg');
                             if (iconElement) iconElement.style.color = '#FFD700';
@@ -403,7 +411,11 @@ export default function AdminNav({
                           <span className="flex-shrink-0">
                             {React.cloneElement(item.icon, { color: '#FFFFFF' })}
                           </span>
-                          {sidebarOpen && <span className="ml-3">{item.label}</span>}
+                          {sidebarOpen && (
+                            <span className="ml-3 text-white group-hover:text-primary">
+                              {item.label}
+                            </span>
+                          )}
                         </Link>
                       )
                     );
@@ -416,7 +428,7 @@ export default function AdminNav({
             <div className="p-4 border-t border-dark">
               <button 
                 onClick={handleSignOut}
-                className={`flex items-center text-light hover:text-primary p-2 rounded transition-all duration-200 ${sidebarOpen ? '' : 'justify-center w-full'} cursor-pointer`}
+                className={`flex items-center text-white hover:text-primary p-2 rounded transition-all duration-200 ${sidebarOpen ? '' : 'justify-center w-full'} cursor-pointer group`}
                 onMouseEnter={(e) => {
                   const iconElement = e.currentTarget.querySelector('svg');
                   if (iconElement) iconElement.style.color = '#FFD700';
@@ -427,7 +439,9 @@ export default function AdminNav({
                 }}
               >
                 <FaSignOutAlt color="#FFFFFF" size={20} />
-                {sidebarOpen && <span className="ml-3">Déconnexion</span>}
+                {sidebarOpen && (
+                  <span className="ml-3 text-white group-hover:text-primary">Déconnexion</span>
+                )}
               </button>
             </div>
           </div>
@@ -461,15 +475,17 @@ export default function AdminNav({
                         className={`flex flex-col items-center justify-center p-4 rounded-lg transition-all duration-300 ${
                           pathname === item.href 
                             ? 'bg-dark text-primary border-2 border-primary' 
-                            : 'bg-dark/50 text-light hover:bg-dark hover:text-primary'
-                        }`}
+                            : 'bg-dark/50 text-white hover:bg-dark hover:text-primary'
+                        } group`}
                         onClick={() => setIsOpen(false)}
                       >
                         <div className="text-center">
                           <div className="flex justify-center mb-2">
                             {item.icon}
                           </div>
-                          <span className="text-sm font-medium">{item.label}</span>
+                          <span className={`text-sm font-medium ${pathname === item.href ? 'text-primary' : 'text-white group-hover:text-primary'}`}>
+                            {item.label}
+                          </span>
                         </div>
                       </Link>
                     )
@@ -490,28 +506,32 @@ export default function AdminNav({
                               className={`flex flex-col items-center justify-center p-4 rounded-lg transition-all duration-300 ${
                                 activeSection === item.id 
                                   ? 'bg-dark text-primary border-2 border-primary' 
-                                  : 'bg-dark/50 text-light hover:bg-dark hover:text-primary'
-                              }`}
+                                  : 'bg-dark/50 text-white hover:bg-dark hover:text-primary'
+                              } group`}
                             >
                               <div className="text-center">
                                 <div className="flex justify-center mb-2">
                                   {item.icon}
                                 </div>
-                                <span className="text-sm font-medium">{item.label}</span>
+                                <span className={`text-sm font-medium ${activeSection === item.id ? 'text-primary' : 'text-white group-hover:text-primary'}`}>
+                                  {item.label}
+                                </span>
                               </div>
                             </button>
                           ) : (
                             <Link 
                               key={`mobile-config-${item.id}-${index}`}
                               href={`/admin?section=${item.id}`}
-                              className="flex flex-col items-center justify-center p-4 rounded-lg bg-dark/50 text-light hover:bg-dark hover:text-primary transition-all duration-300"
+                              className="flex flex-col items-center justify-center p-4 rounded-lg bg-dark/50 text-white hover:bg-dark hover:text-primary transition-all duration-300 group"
                               onClick={() => setIsOpen(false)}
                             >
                               <div className="text-center">
                                 <div className="flex justify-center mb-2">
                                   {item.icon}
                                 </div>
-                                <span className="text-sm font-medium">{item.label}</span>
+                                <span className="text-sm font-medium text-white group-hover:text-primary">
+                                  {item.label}
+                                </span>
                               </div>
                             </Link>
                           )
