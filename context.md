@@ -102,6 +102,7 @@ Steel & Blade est l’application web de **Coiffure Ciwan**, un salon masculin m
   - Le MCP ne propose pas la modification/annulation de réservation (non disponible pour l’instant).
   - Auth admin ChatGPT: metadata OAuth à `/.well-known/oauth-protected-resource` + consentement via `/oauth/consent` (Supabase OAuth Server).
   - `/.well-known/oauth-protected-resource` annonce `authorization_servers` sur l’issuer Supabase (`<supabaseUrl>/auth/v1`).
+  - La page `/oauth/consent` redirige automatiquement si l’autorisation est `auto_approved` et qu’un `redirect_url` est fourni.
   - `create_booking` appelle `/api/reservation/create` (si l’écriture est bloquée côté plan ChatGPT, le tool renvoie un message d’échec).
 - `GET /api/chatgpt-preview/locations`
   - Endpoint de preview pour charger les centres (avec images) dans `/chatgpt-preview`.

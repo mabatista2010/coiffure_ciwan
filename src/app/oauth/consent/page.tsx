@@ -10,6 +10,9 @@ type AuthDetails = {
   };
   redirect_uri?: string;
   scopes?: string[];
+  auto_approved?: boolean;
+  redirect_url?: string;
+  redirect_to?: string;
 };
 
 type OAuthApi = {
@@ -58,6 +61,12 @@ function OAuthConsentContent() {
     if (error || !data) {
       setErrorMessage(error?.message || "Requete d'autorisation invalide.");
       setLoading(false);
+      return;
+    }
+
+    const redirectUrl = data.redirect_url || data.redirect_to;
+    if (data.auto_approved && redirectUrl) {
+      window.location.href = redirectUrl;
       return;
     }
 
