@@ -3,7 +3,11 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { z } from "zod";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { createClient } from "@supabase/supabase-js";
+import { normalizeObjectSchema } from "@modelcontextprotocol/sdk/server/zod-compat.js";
+import { toJsonSchemaCompat } from "@modelcontextprotocol/sdk/server/zod-json-schema-compat.js";
 import { WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js";
+import { ListToolsRequestSchema } from "@modelcontextprotocol/sdk/types.js";
 import { supabase } from "@/lib/supabase";
 import { getImageUrl } from "@/lib/getImageUrl";
 
@@ -25,14 +29,40 @@ const corsHeaders = {
   "Access-Control-Expose-Headers": "Mcp-Session-Id",
 };
 
+const EMPTY_OBJECT_JSON_SCHEMA = {
+  type: "object",
+  properties: {},
+};
+
 type ToolResult = {
   content: { type: "text"; text: string }[];
   structuredContent?: Record<string, unknown>;
+  _meta?: Record<string, unknown>;
+  isError?: boolean;
+};
+
+type SecurityScheme = { type: "noauth" | "oauth2"; scopes?: string[] };
+
+type RegisteredTool = {
+  title?: string;
+  description?: string;
+  inputSchema?: unknown;
+  outputSchema?: unknown;
+  annotations?: Record<string, unknown>;
+  execution?: Record<string, unknown>;
+  _meta?: Record<string, unknown>;
+  enabled?: boolean;
 };
 
 const reply = (structuredContent: Record<string, unknown>, message?: string): ToolResult => ({
   content: message ? [{ type: "text", text: message }] : [],
   structuredContent,
+});
+
+const replyError = (message: string, meta?: Record<string, unknown>): ToolResult => ({
+  content: [{ type: "text", text: message }],
+  _meta: meta,
+  isError: true,
 });
 
 const toAbsoluteUrl = (url: string, baseUrl: string) => {
@@ -42,6 +72,35 @@ const toAbsoluteUrl = (url: string, baseUrl: string) => {
   if (url.startsWith("/")) return `${baseUrl}${url}`;
   return `${baseUrl}/${url}`;
 };
+
+const getBearerToken = (extra: { requestInfo?: { headers?: { get?: (name: string) => string | null } } }) => {
+  const header = extra.requestInfo?.headers?.get?.("authorization") || "";
+  const match = header.match(/^Bearer\\s+(.+)$/i);
+  return match ? match[1] : null;
+};
+
+const authChallenge = (baseUrl: string, description: string) =>
+  replyError("Authentification requise.", {
+    "mcp/www_authenticate": [
+      `Bearer resource_metadata="${baseUrl}/.well-known/oauth-protected-resource", error="insufficient_scope", error_description="${description}"`,
+    ],
+  });
+
+const createAuthedSupabase = (token: string) =>
+  createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL || "",
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "",
+    {
+      global: {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      },
+      auth: {
+        persistSession: false,
+      },
+    }
+  );
 
 const getBaseUrl = (request: NextRequest) => {
   const host =
@@ -74,6 +133,60 @@ const createBookingInputSchema = z.object({
   start_time: z.string().min(1),
   notes: z.string().optional(),
 });
+
+const adminBookingsInputSchema = z.object({
+  date: z.string().optional(),
+});
+
+const registerToolListHandler = (
+  server: McpServer,
+  securitySchemes: Record<string, SecurityScheme[]>
+) => {
+  const getRegisteredTools = () =>
+    (server as unknown as { _registeredTools: Record<string, RegisteredTool> })
+      ._registeredTools;
+
+  server.server.setRequestHandler(ListToolsRequestSchema, () => ({
+    tools: Object.entries(getRegisteredTools())
+      .filter(([, tool]) => tool.enabled)
+      .map(([name, tool]) => {
+        const obj = normalizeObjectSchema(tool.inputSchema as never);
+        const inputSchema = obj
+          ? toJsonSchemaCompat(obj, {
+              strictUnions: true,
+              pipeStrategy: "input",
+            })
+          : EMPTY_OBJECT_JSON_SCHEMA;
+
+        const toolDefinition: Record<string, unknown> = {
+          name,
+          title: tool.title,
+          description: tool.description,
+          inputSchema,
+          annotations: tool.annotations,
+          execution: tool.execution,
+          _meta: tool._meta,
+        };
+
+        if (tool.outputSchema) {
+          const outputObj = normalizeObjectSchema(tool.outputSchema as never);
+          if (outputObj) {
+            toolDefinition.outputSchema = toJsonSchemaCompat(outputObj, {
+              strictUnions: true,
+              pipeStrategy: "output",
+            });
+          }
+        }
+
+        const schemes = securitySchemes[name];
+        if (schemes) {
+          toolDefinition.securitySchemes = schemes;
+        }
+
+        return toolDefinition;
+      }),
+  }));
+};
 
 const createReservationServer = (baseUrl: string) => {
   const server = new McpServer({
@@ -279,6 +392,129 @@ const createReservationServer = (baseUrl: string) => {
   );
 
   server.registerTool(
+    "admin_bookings_day",
+    {
+      title: "Agenda du jour (admin)",
+      description:
+        "Retourne les reservations pour une date donnee. Utiliser pour l'administration.",
+      inputSchema: adminBookingsInputSchema,
+      annotations: {
+        title: "Agenda admin",
+        readOnlyHint: true,
+      },
+    },
+    async ({ date }, extra) => {
+      const token = getBearerToken(extra);
+      if (!token) {
+        return authChallenge(baseUrl, "Vous devez vous connecter pour continuer.");
+      }
+
+      const { data: userData, error: userError } = await supabase.auth.getUser(token);
+      if (userError || !userData?.user) {
+        return authChallenge(baseUrl, "Session invalide ou expiree.");
+      }
+
+      const authedSupabase = createAuthedSupabase(token);
+      const { data: roleData, error: roleError } = await authedSupabase
+        .from("user_roles")
+        .select("role")
+        .eq("id", userData.user.id)
+        .single();
+
+      if (roleError || roleData?.role !== "admin") {
+        return replyError("Acces reserve au proprietaire.");
+      }
+
+      const targetDate = date || new Date().toISOString().slice(0, 10);
+      const { data, error } = await authedSupabase
+        .from("bookings")
+        .select(
+          `
+          id,
+          booking_date,
+          start_time,
+          end_time,
+          status,
+          customer_name,
+          customer_email,
+          customer_phone,
+          service:servicios(nombre),
+          stylist:stylists(name),
+          location:locations(name)
+        `
+        )
+        .eq("booking_date", targetDate)
+        .order("start_time");
+
+      if (error) {
+        return replyError("Erreur lors du chargement des reservations.");
+      }
+
+      const bookings = (data || []).map((booking) => {
+        const readField = (value: unknown, field: string) => {
+          if (!value) return "";
+          if (Array.isArray(value)) {
+            return (value[0] as Record<string, unknown>)?.[field] ?? "";
+          }
+          if (typeof value === "object") {
+            return (value as Record<string, unknown>)[field] ?? "";
+          }
+          return "";
+        };
+
+        const serviceName = readField(booking.service, "nombre");
+        const stylistName = readField(booking.stylist, "name");
+        const locationName = readField(booking.location, "name");
+
+        return {
+          id: booking.id,
+          date: booking.booking_date,
+        start_time: booking.start_time,
+        end_time: booking.end_time,
+        status: booking.status,
+        customer: {
+          name: booking.customer_name,
+          email: booking.customer_email,
+          phone: booking.customer_phone,
+        },
+        service: serviceName || "",
+        stylist: stylistName || "",
+        location: locationName || "",
+        };
+      });
+
+      const counts = bookings.reduce(
+        (acc, booking) => {
+          acc.total += 1;
+          const status = (booking.status || "pending") as
+            | "pending"
+            | "confirmed"
+            | "completed"
+            | "cancelled";
+          acc[status] += 1;
+          return acc;
+        },
+        {
+          total: 0,
+          pending: 0,
+          confirmed: 0,
+          completed: 0,
+          cancelled: 0,
+        }
+      );
+
+      return reply(
+        {
+          date: targetDate,
+          counts,
+          bookings,
+        },
+        `Reservations chargees pour ${targetDate}.`
+      );
+    }
+  );
+
+  server.registerTool(
     "get_availability",
     {
       title: "Verifier la disponibilite",
@@ -385,6 +621,16 @@ const createReservationServer = (baseUrl: string) => {
       );
     }
   );
+
+  registerToolListHandler(server, {
+    get_welcome: [{ type: "noauth" }],
+    list_services: [{ type: "noauth" }],
+    list_locations: [{ type: "noauth" }],
+    list_stylists: [{ type: "noauth" }],
+    get_availability: [{ type: "noauth" }],
+    create_booking: [{ type: "noauth" }],
+    admin_bookings_day: [{ type: "oauth2", scopes: ["email"] }],
+  });
 
   return server;
 };

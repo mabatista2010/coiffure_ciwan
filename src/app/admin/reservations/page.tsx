@@ -758,7 +758,7 @@ export default function AdminBookingsPage() {
                           else if (day && partiallyBookedDays.includes(dateStr)) {
                             bgColor = 'bg-primary bg-opacity-20';
                             hoverColor = 'hover:bg-primary hover:bg-opacity-30';
-                            textColor = 'text-primary';
+                            textColor = 'text-dark';
                             dotColor = 'bg-primary';
                           }
                           // Para días disponibles, usamos un verde más adaptado al tema
