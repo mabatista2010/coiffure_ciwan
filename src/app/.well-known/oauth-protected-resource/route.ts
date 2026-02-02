@@ -14,7 +14,7 @@ export async function GET(request: NextRequest) {
 
   const url = new URL(request.url);
   const resource = `${url.protocol}//${url.host}`;
-  const authorizationServer = `${supabaseUrl.replace(/\/$/, "")}/.well-known/oauth-authorization-server/auth/v1`;
+  const authorizationServer = `${supabaseUrl.replace(/\/$/, "")}/auth/v1`;
 
   return NextResponse.json(
     {
