@@ -98,7 +98,7 @@ Steel & Blade est l’application web de **Coiffure Ciwan**, un salon masculin m
   - Serveur MCP (Apps SDK) avec widget UI intégré (resource `ui://widget/reserva.html`).
   - Tools exposés : `get_welcome`, `list_services`, `list_locations`, `list_stylists`, `get_availability`, `create_booking`, `admin_bookings_day` (OAuth requis).
   - Réponses utilisent `structuredContent` pour synchroniser le widget (centres, stylistes, hero). `get_welcome` renvoie l’image hero configurée + `logo_url`, avec des URLs absolues et `view: "welcome"`. `list_locations` renvoie `view: "locations"` et `list_stylists` renvoie `view: "stylists"` avec des images en URLs absolues. Les tools `list_services`, `get_availability`, `create_booking` n’affichent plus de widget.
-  - La liste des tools est personnalisée pour inclure `securitySchemes` (noauth vs oauth2) afin d’activer l’auth OAuth par tool dans ChatGPT.
+  - La liste des tools est personnalisée pour inclure `securitySchemes` (noauth vs oauth2) afin d’activer l’auth OAuth par tool dans ChatGPT (admin avec scopes `openid`, `email`, `profile`).
   - Le MCP ne propose pas la modification/annulation de réservation (non disponible pour l’instant).
   - Auth admin ChatGPT: metadata OAuth à `/.well-known/oauth-protected-resource` + consentement via `/oauth/consent` (Supabase OAuth Server).
   - `/.well-known/oauth-protected-resource` annonce `authorization_servers` sur l’issuer Supabase (`<supabaseUrl>/auth/v1`).

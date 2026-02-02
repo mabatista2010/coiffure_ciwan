@@ -629,7 +629,9 @@ const createReservationServer = (baseUrl: string) => {
     list_stylists: [{ type: "noauth" }],
     get_availability: [{ type: "noauth" }],
     create_booking: [{ type: "noauth" }],
-    admin_bookings_day: [{ type: "oauth2", scopes: ["email"] }],
+    admin_bookings_day: [
+      { type: "oauth2", scopes: ["openid", "email", "profile"] },
+    ],
   });
 
   return server;

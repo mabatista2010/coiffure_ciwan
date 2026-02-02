@@ -113,9 +113,11 @@ function OAuthConsentContent() {
       return;
     }
 
-    const redirectTo = result.data?.redirect_to;
-    if (redirectTo) {
-      window.location.href = redirectTo;
+    const redirectUrl =
+      (result.data as { redirect_url?: string })?.redirect_url ||
+      (result.data as { redirect_to?: string })?.redirect_to;
+    if (redirectUrl) {
+      window.location.href = redirectUrl;
     } else {
       setErrorMessage("Redirection introuvable.");
       setSubmitting(false);
