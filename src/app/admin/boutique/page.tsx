@@ -4,6 +4,18 @@ import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import Image from 'next/image';
 import { Plus, Edit, Trash2, Eye, EyeOff, Package, ShoppingCart, CheckCircle, Clock, AlertCircle } from 'lucide-react';
+import { AdminCard, AdminCardContent, AdminCardHeader, SectionHeader } from '@/components/admin/ui';
+import { Badge, type BadgeProps } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Textarea } from '@/components/ui/textarea';
 
 interface Producto {
   id: number;
@@ -286,16 +298,16 @@ export default function BoutiqueAdminPage() {
     }
   };
 
-  const getStatusColor = (estado: string) => {
+  const getStatusVariant = (estado: string): BadgeProps['variant'] => {
     switch (estado) {
       case 'en_traitement':
-        return 'bg-yellow-600 text-white';
+        return 'warning';
       case 'traite':
-        return 'bg-green-600 text-white';
+        return 'success';
       case 'pendiente':
-        return 'bg-red-600 text-white';
+        return 'destructive';
       default:
-        return 'bg-gray-600 text-white';
+        return 'secondary';
     }
   };
 
@@ -311,455 +323,493 @@ export default function BoutiqueAdminPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-dark flex items-center justify-center">
-        <div className="text-primary text-xl">Chargement...</div>
+      <div className="admin-scope min-h-screen bg-dark px-4 py-8 text-zinc-100">
+        <div className="mx-auto flex w-full max-w-7xl flex-col gap-6">
+          <AdminCard>
+            <AdminCardContent className="flex min-h-56 items-center justify-center gap-3 text-zinc-300">
+              <div className="h-5 w-5 animate-spin rounded-full border-2 border-primary/30 border-t-primary" />
+              Chargement de la boutique...
+            </AdminCardContent>
+          </AdminCard>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-dark p-6">
-      <div className="max-w-7xl mx-auto">
-        {/* Header */}
-        <div className="flex justify-between items-center mb-8">
-          <h1 className="text-3xl font-bold text-primary">Gestion de la Boutique</h1>
-          {activeTab === 'productos' && (
-            <button
-              onClick={() => {
-                setShowForm(true);
-                setEditingProduct(null);
-                resetForm();
-              }}
-              className="bg-primary text-secondary px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-yellow-400 transition-colors"
-            >
-              <Plus size={20} />
-              Nouveau Produit
-            </button>
-          )}
-        </div>
+    <div className="admin-scope min-h-screen bg-dark px-4 py-8 text-zinc-100">
+      <div className="mx-auto flex w-full max-w-7xl flex-col gap-6">
+        <SectionHeader
+          title="Gestion de la Boutique"
+          description="Produits, synchronisation Stripe et suivi des commandes."
+          actions={
+            activeTab === 'productos' ? (
+              <Button
+                type="button"
+                onClick={() => {
+                  setShowForm(true);
+                  setEditingProduct(null);
+                  resetForm();
+                }}
+              >
+                <Plus size={20} />
+                Nouveau Produit
+              </Button>
+            ) : null
+          }
+        />
 
-        {/* Tabs */}
-        <div className="flex border-b border-gray-600 mb-6">
-          <button
+        <div className="flex flex-wrap gap-2 rounded-2xl border border-white/10 bg-black/30 p-2">
+          <Button
+            type="button"
+            variant={activeTab === 'productos' ? 'default' : 'ghost'}
             onClick={() => setActiveTab('productos')}
-            className={`flex items-center gap-2 px-6 py-3 font-medium transition-colors ${
-              activeTab === 'productos'
-                ? 'text-primary border-b-2 border-primary'
-                : 'text-text-medium hover:text-light'
-            }`}
+            className="flex-1 justify-center sm:flex-none"
           >
             <Package size={20} />
             Produits
-          </button>
-          <button
+          </Button>
+          <Button
+            type="button"
+            variant={activeTab === 'pedidos' ? 'default' : 'ghost'}
             onClick={() => setActiveTab('pedidos')}
-            className={`flex items-center gap-2 px-6 py-3 font-medium transition-colors ${
-              activeTab === 'pedidos'
-                ? 'text-primary border-b-2 border-primary'
-                : 'text-text-medium hover:text-light'
-            }`}
+            className="flex-1 justify-center sm:flex-none"
           >
             <ShoppingCart size={20} />
             Commandes
-          </button>
+          </Button>
         </div>
 
-        {/* Tab Content */}
-        {activeTab === 'productos' && (
-          <>
-            {/* Información de Stripe */}
-            <div className="bg-blue-900/20 border border-blue-500/30 rounded-lg p-4 mb-6">
-              <div className="flex items-center gap-2 mb-2">
-                <div className="w-2 h-2 bg-blue-400 rounded-full animate-pulse"></div>
-                <h3 className="text-blue-400 font-semibold">Synchronisation avec Stripe</h3>
-              </div>
-              <p className="text-blue-300 text-sm">
-                Les produits se synchronisent automatiquement avec Stripe. Lors de la création, modification ou suppression d&apos;un produit ici, 
-                les changements se refléteront automatiquement dans votre compte Stripe pour traiter les paiements.
-              </p>
-            </div>
+        {activeTab === 'productos' ? (
+          <div className="space-y-6">
+            <AdminCard tone="highlight">
+              <AdminCardContent className="space-y-3 py-5">
+                <div className="flex items-center gap-2">
+                  <div className="h-2 w-2 animate-pulse rounded-full bg-sky-400" />
+                  <h3 className="text-sm font-semibold uppercase tracking-wide text-sky-300">
+                    Synchronisation avec Stripe
+                  </h3>
+                </div>
+                <p className="text-sm text-zinc-300">
+                  Toute création, édition ou suppression d&apos;un produit est
+                  synchronisée automatiquement avec Stripe.
+                </p>
+              </AdminCardContent>
+            </AdminCard>
 
-            {/* Formulario de Productos */}
-            {showForm && (
-              <motion.div
-                initial={{ opacity: 0, y: -20 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="bg-secondary rounded-lg p-6 mb-8"
-              >
-                <h2 className="text-xl font-semibold text-light mb-4">
-                  {editingProduct ? 'Modifier le Produit' : 'Nouveau Produit'}
-                </h2>
-                
-                <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-light mb-2">Nom *</label>
-                    <input
-                      type="text"
-                      name="nombre"
-                      value={formData.nombre}
-                      onChange={handleInputChange}
-                      required
-                      className="w-full px-3 py-2 bg-dark border border-gray-600 rounded text-light focus:border-primary focus:outline-none"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-light mb-2">Catégorie</label>
-                    <select
-                      name="categoria"
-                      value={formData.categoria}
-                      onChange={handleInputChange}
-                      className="w-full px-3 py-2 bg-dark border border-gray-600 rounded text-light focus:border-primary focus:outline-none"
-                    >
-                      <option value="">Sélectionner une catégorie</option>
-                      <option value="productos_cabello">Produits Cheveux</option>
-                      <option value="kits">Kits</option>
-                      <option value="accesorios">Accessoires</option>
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-light mb-2">Prix (€) *</label>
-                    <input
-                      type="number"
-                      name="precio"
-                      value={formData.precio}
-                      onChange={handleInputChange}
-                      step="0.01"
-                      min="0"
-                      required
-                      className="w-full px-3 py-2 bg-dark border border-gray-600 rounded text-light focus:border-primary focus:outline-none"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-light mb-2">Prix Original (€)</label>
-                    <input
-                      type="number"
-                      name="precio_original"
-                      value={formData.precio_original}
-                      onChange={handleInputChange}
-                      step="0.01"
-                      min="0"
-                      className="w-full px-3 py-2 bg-dark border border-gray-600 rounded text-light focus:border-primary focus:outline-none"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-light mb-2">Stock</label>
-                    <input
-                      type="number"
-                      name="stock"
-                      value={formData.stock}
-                      onChange={handleInputChange}
-                      min="0"
-                      className="w-full px-3 py-2 bg-dark border border-gray-600 rounded text-light focus:border-primary focus:outline-none"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-light mb-2">Ordre</label>
-                    <input
-                      type="number"
-                      name="orden"
-                      value={formData.orden}
-                      onChange={handleInputChange}
-                      min="0"
-                      className="w-full px-3 py-2 bg-dark border border-gray-600 rounded text-light focus:border-primary focus:outline-none"
-                    />
-                  </div>
-
-                  <div className="md:col-span-2">
-                    <label className="block text-light mb-2">Description</label>
-                    <textarea
-                      name="descripcion"
-                      value={formData.descripcion}
-                      onChange={handleInputChange}
-                      rows={3}
-                      className="w-full px-3 py-2 bg-dark border border-gray-600 rounded text-light focus:border-primary focus:outline-none resize-none"
-                    />
-                  </div>
-
-                  <div className="md:col-span-2">
-                    <label className="block text-light mb-2">URL de l&apos;Image</label>
-                    <input
-                      type="url"
-                      name="imagen_url"
-                      value={formData.imagen_url}
-                      onChange={handleInputChange}
-                      className="w-full px-3 py-2 bg-dark border border-gray-600 rounded text-light focus:border-primary focus:outline-none"
-                    />
-                  </div>
-
-                  <div className="flex items-center gap-4">
-                    <label className="flex items-center gap-2 text-light">
-                      <input
-                        type="checkbox"
-                        name="activo"
-                        checked={formData.activo}
-                        onChange={handleInputChange}
-                        className="w-4 h-4 text-primary bg-dark border-gray-600 rounded focus:ring-primary focus:ring-2"
-                      />
-                      Actif
-                    </label>
-                    <label className="flex items-center gap-2 text-light">
-                      <input
-                        type="checkbox"
-                        name="destacado"
-                        checked={formData.destacado}
-                        onChange={handleInputChange}
-                        className="w-4 h-4 text-primary bg-dark border-gray-600 rounded focus:ring-primary focus:ring-2"
-                      />
-                      Vedette
-                    </label>
-                  </div>
-
-                  <div className="md:col-span-2 flex gap-4">
-                    <button
-                      type="submit"
-                      className="bg-primary text-secondary px-6 py-2 rounded hover:bg-yellow-400 transition-colors"
-                    >
-                      {editingProduct ? 'Mettre à jour' : 'Créer'}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setShowForm(false);
-                        setEditingProduct(null);
-                        resetForm();
-                      }}
-                      className="bg-gray-600 text-light px-6 py-2 rounded hover:bg-gray-700 transition-colors"
-                    >
-                      Annuler
-                    </button>
-                  </div>
-                </form>
-              </motion.div>
-            )}
-
-            {/* Lista de Productos */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {productos.map((producto) => (
-                <motion.div
-                  key={producto.id}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className="bg-secondary rounded-lg overflow-hidden shadow-lg"
-                >
-                  <div className="relative h-48">
-                    <Image
-                      src={producto.imagen_url || '/placeholder-profile.jpg'}
-                      alt={producto.nombre}
-                      fill
-                      className="object-cover"
-                    />
-                    <div className="absolute top-2 right-2 flex gap-1">
-                      {producto.activo ? (
-                        <Eye className="text-green-400" size={16} />
-                      ) : (
-                        <EyeOff className="text-red-400" size={16} />
-                      )}
-                      {producto.destacado && (
-                        <div className="bg-primary text-secondary text-xs px-2 py-1 rounded">
-                          Vedette
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                  
-                  <div className="p-4">
-                    <h3 className="text-lg font-semibold text-light mb-2">{producto.nombre}</h3>
-                    <p className="text-text-medium text-sm mb-3 line-clamp-2">{producto.descripcion}</p>
-                    
-                    <div className="flex items-center justify-between mb-3">
-                      <div className="flex items-center gap-2">
-                        <span className="text-primary font-bold">{producto.precio.toFixed(2)}€</span>
-                        {producto.precio_original && (
-                          <span className="text-text-medium line-through text-sm">
-                            {producto.precio_original.toFixed(2)}€
-                          </span>
-                        )}
+            {showForm ? (
+              <motion.div initial={{ opacity: 0, y: -18 }} animate={{ opacity: 1, y: 0 }}>
+                <AdminCard>
+                  <AdminCardHeader>
+                    <h3 className="text-xl font-semibold text-zinc-100">
+                      {editingProduct ? 'Modifier le produit' : 'Nouveau produit'}
+                    </h3>
+                    <p className="text-sm text-zinc-400">
+                      Les champs marqués d&apos;une étoile sont obligatoires.
+                    </p>
+                  </AdminCardHeader>
+                  <AdminCardContent>
+                    <form onSubmit={handleSubmit} className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium text-zinc-200">Nom *</label>
+                        <Input
+                          type="text"
+                          name="nombre"
+                          value={formData.nombre}
+                          onChange={handleInputChange}
+                          required
+                        />
                       </div>
-                      <span className="text-text-medium text-sm">Stock: {producto.stock}</span>
-                    </div>
-                    
-                    {/* Indicador de sincronización con Stripe */}
-                    <div className="flex items-center gap-2 mb-3">
-                      {producto.stripe_product_id ? (
-                        <div className="flex items-center gap-1 text-green-400 text-xs">
-                          <div className="w-2 h-2 bg-green-400 rounded-full"></div>
-                          Synchronisé avec Stripe
-                        </div>
-                      ) : (
-                        <div className="flex items-center gap-1 text-yellow-400 text-xs">
-                          <div className="w-2 h-2 bg-yellow-400 rounded-full animate-pulse"></div>
-                          En attente de synchronisation
-                        </div>
-                      )}
-                    </div>
-                    
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => handleEdit(producto)}
-                        className="flex-1 bg-primary text-secondary py-2 rounded text-sm hover:bg-yellow-400 transition-colors flex items-center justify-center gap-1"
-                      >
-                        <Edit size={14} />
-                        Modifier
-                      </button>
-                      <button
-                        onClick={() => handleToggleActive(producto)}
-                        className={`py-2 px-3 rounded text-sm transition-colors ${
-                          producto.activo 
-                            ? 'bg-yellow-600 text-white hover:bg-yellow-700' 
-                            : 'bg-green-600 text-white hover:bg-green-700'
-                        }`}
-                        title={producto.activo ? 'Désactiver le produit' : 'Activer le produit'}
-                      >
-                        {producto.activo ? 'Désactiver' : 'Activer'}
-                      </button>
-                      <button
-                        onClick={() => handleDelete(producto.id)}
-                        className="bg-red-600 text-white py-2 px-3 rounded text-sm hover:bg-red-700 transition-colors"
-                        title="Supprimer le produit définitivement"
-                      >
-                        <Trash2 size={14} />
-                      </button>
-                    </div>
-                  </div>
-                </motion.div>
-              ))}
-            </div>
 
-            {productos.length === 0 && (
-              <div className="text-center py-12">
-                <p className="text-text-medium text-lg">Aucun produit disponible</p>
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium text-zinc-200">Catégorie</label>
+                        <Select
+                          value={formData.categoria}
+                          onValueChange={(value) =>
+                            setFormData((prev) => ({
+                              ...prev,
+                              categoria: value,
+                            }))
+                          }
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Sélectionner une catégorie" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="productos_cabello">Produits cheveux</SelectItem>
+                            <SelectItem value="kits">Kits</SelectItem>
+                            <SelectItem value="accesorios">Accessoires</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium text-zinc-200">Prix (€) *</label>
+                        <Input
+                          type="number"
+                          name="precio"
+                          value={formData.precio}
+                          onChange={handleInputChange}
+                          step="0.01"
+                          min="0"
+                          required
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium text-zinc-200">Prix original (€)</label>
+                        <Input
+                          type="number"
+                          name="precio_original"
+                          value={formData.precio_original}
+                          onChange={handleInputChange}
+                          step="0.01"
+                          min="0"
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium text-zinc-200">Stock</label>
+                        <Input
+                          type="number"
+                          name="stock"
+                          value={formData.stock}
+                          onChange={handleInputChange}
+                          min="0"
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium text-zinc-200">Ordre</label>
+                        <Input
+                          type="number"
+                          name="orden"
+                          value={formData.orden}
+                          onChange={handleInputChange}
+                          min="0"
+                        />
+                      </div>
+
+                      <div className="space-y-2 md:col-span-2">
+                        <label className="text-sm font-medium text-zinc-200">Description</label>
+                        <Textarea
+                          name="descripcion"
+                          value={formData.descripcion}
+                          onChange={handleInputChange}
+                          rows={3}
+                          className="resize-none"
+                        />
+                      </div>
+
+                      <div className="space-y-2 md:col-span-2">
+                        <label className="text-sm font-medium text-zinc-200">URL de l&apos;image</label>
+                        <Input
+                          type="url"
+                          name="imagen_url"
+                          value={formData.imagen_url}
+                          onChange={handleInputChange}
+                        />
+                      </div>
+
+                      <div className="flex flex-wrap items-center gap-5 md:col-span-2">
+                        <label className="inline-flex items-center gap-2 text-sm text-zinc-200">
+                          <input
+                            type="checkbox"
+                            name="activo"
+                            checked={formData.activo}
+                            onChange={handleInputChange}
+                            className="h-4 w-4 rounded border-white/25 bg-black/30 text-primary focus:ring-primary/40"
+                          />
+                          Actif
+                        </label>
+                        <label className="inline-flex items-center gap-2 text-sm text-zinc-200">
+                          <input
+                            type="checkbox"
+                            name="destacado"
+                            checked={formData.destacado}
+                            onChange={handleInputChange}
+                            className="h-4 w-4 rounded border-white/25 bg-black/30 text-primary focus:ring-primary/40"
+                          />
+                          Vedette
+                        </label>
+                      </div>
+
+                      <div className="flex flex-wrap gap-3 md:col-span-2">
+                        <Button type="submit">
+                          {editingProduct ? 'Mettre à jour' : 'Créer'}
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="secondary"
+                          onClick={() => {
+                            setShowForm(false);
+                            setEditingProduct(null);
+                            resetForm();
+                          }}
+                        >
+                          Annuler
+                        </Button>
+                      </div>
+                    </form>
+                  </AdminCardContent>
+                </AdminCard>
+              </motion.div>
+            ) : null}
+
+            {productos.length === 0 ? (
+              <AdminCard>
+                <AdminCardContent className="py-12 text-center text-zinc-400">
+                  Aucun produit disponible.
+                </AdminCardContent>
+              </AdminCard>
+            ) : (
+              <div className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3">
+                {productos.map((producto) => (
+                  <motion.div
+                    key={producto.id}
+                    initial={{ opacity: 0, y: 16 }}
+                    animate={{ opacity: 1, y: 0 }}
+                  >
+                    <AdminCard className="h-full overflow-hidden">
+                      <div className="relative h-52">
+                        <Image
+                          src={producto.imagen_url || '/placeholder-profile.jpg'}
+                          alt={producto.nombre}
+                          fill
+                          className="object-cover"
+                        />
+                      </div>
+                      <AdminCardContent className="space-y-4 pt-5">
+                        <div className="space-y-2">
+                          <div className="flex flex-wrap items-center justify-between gap-2">
+                            <h3 className="text-lg font-semibold text-zinc-100">
+                              {producto.nombre}
+                            </h3>
+                            <div className="flex flex-wrap gap-2">
+                              <Badge
+                                variant={producto.activo ? 'success' : 'destructive'}
+                                className="normal-case tracking-normal"
+                              >
+                                {producto.activo ? (
+                                  <Eye className="h-3.5 w-3.5" />
+                                ) : (
+                                  <EyeOff className="h-3.5 w-3.5" />
+                                )}
+                                {producto.activo ? 'Actif' : 'Inactif'}
+                              </Badge>
+                              {producto.destacado ? (
+                                <Badge variant="outline" className="normal-case tracking-normal">
+                                  Vedette
+                                </Badge>
+                              ) : null}
+                            </div>
+                          </div>
+                          <p className="line-clamp-2 text-sm text-zinc-400">
+                            {producto.descripcion || 'Sans description.'}
+                          </p>
+                        </div>
+
+                        <div className="flex items-center justify-between rounded-xl border border-white/10 bg-black/20 px-3 py-2">
+                          <div className="flex items-center gap-2">
+                            <span className="text-lg font-semibold text-primary">
+                              {producto.precio.toFixed(2)}€
+                            </span>
+                            {producto.precio_original ? (
+                              <span className="text-sm text-zinc-500 line-through">
+                                {producto.precio_original.toFixed(2)}€
+                              </span>
+                            ) : null}
+                          </div>
+                          <span className="text-sm text-zinc-300">Stock: {producto.stock}</span>
+                        </div>
+
+                        <Badge
+                          variant={producto.stripe_product_id ? 'success' : 'warning'}
+                          className="w-fit gap-2 normal-case tracking-normal"
+                        >
+                          <span
+                            className={`h-2 w-2 rounded-full ${
+                              producto.stripe_product_id ? 'bg-emerald-400' : 'animate-pulse bg-amber-400'
+                            }`}
+                          />
+                          {producto.stripe_product_id
+                            ? 'Synchronisé avec Stripe'
+                            : 'En attente de synchronisation'}
+                        </Badge>
+
+                        <div className="flex flex-wrap gap-2">
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="secondary"
+                            className="flex-1"
+                            onClick={() => handleEdit(producto)}
+                          >
+                            <Edit size={14} />
+                            Modifier
+                          </Button>
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant={producto.activo ? 'outline' : 'default'}
+                            onClick={() => handleToggleActive(producto)}
+                            title={producto.activo ? 'Désactiver le produit' : 'Activer le produit'}
+                          >
+                            {producto.activo ? 'Désactiver' : 'Activer'}
+                          </Button>
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="destructive"
+                            onClick={() => handleDelete(producto.id)}
+                            title="Supprimer le produit définitivement"
+                          >
+                            <Trash2 size={14} />
+                          </Button>
+                        </div>
+                      </AdminCardContent>
+                    </AdminCard>
+                  </motion.div>
+                ))}
               </div>
             )}
-          </>
-        )}
-
-        {activeTab === 'pedidos' && (
-          <>
-            {/* Lista de Pedidos */}
-            <div className="space-y-6">
-              {pedidos.map((pedido) => (
+          </div>
+        ) : (
+          <div className="space-y-6">
+            {pedidos.length === 0 ? (
+              <AdminCard>
+                <AdminCardContent className="py-12 text-center text-zinc-400">
+                  Aucune commande disponible.
+                </AdminCardContent>
+              </AdminCard>
+            ) : (
+              pedidos.map((pedido) => (
                 <motion.div
                   key={pedido.id}
-                  initial={{ opacity: 0, y: 20 }}
+                  initial={{ opacity: 0, y: 16 }}
                   animate={{ opacity: 1, y: 0 }}
-                  className="bg-secondary rounded-lg p-6 shadow-lg"
                 >
-                  <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-4">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-3 mb-2">
-                        <h3 className="text-xl font-semibold text-light">
-                          Commande #{pedido.id}
-                        </h3>
-                        <span className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(pedido.estado)}`}>
-                          {getStatusIcon(pedido.estado)}
-                          <span className="ml-1">{getStatusText(pedido.estado)}</span>
-                        </span>
-                      </div>
-                      
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-                        <div>
-                          <p className="text-text-medium">Client:</p>
-                          <p className="text-light font-medium">{pedido.cliente_nombre}</p>
-                          <p className="text-text-medium">{pedido.cliente_email}</p>
-                          {pedido.cliente_telefono && (
-                            <p className="text-text-medium">{pedido.cliente_telefono}</p>
-                          )}
-                        </div>
-                        <div>
-                          <p className="text-text-medium">Adresse:</p>
-                          <p className="text-light">{pedido.cliente_direccion || 'Non spécifiée'}</p>
-                        </div>
-                      </div>
-                    </div>
-                    
-                    <div className="text-right">
-                      <p className="text-2xl font-bold text-primary">{parseFloat(pedido.total).toFixed(2)}€</p>
-                      <p className="text-text-medium text-sm">
-                        {formatDate(pedido.created_at)}
-                      </p>
-                    </div>
-                  </div>
+                  <AdminCard>
+                    <AdminCardContent className="space-y-5 pt-6">
+                      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                        <div className="space-y-3">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <h3 className="text-xl font-semibold text-zinc-100">
+                              Commande #{pedido.id}
+                            </h3>
+                            <Badge
+                              variant={getStatusVariant(pedido.estado)}
+                              className="gap-1 normal-case tracking-normal"
+                            >
+                              {getStatusIcon(pedido.estado)}
+                              {getStatusText(pedido.estado)}
+                            </Badge>
+                          </div>
 
-                  {/* Items del pedido */}
-                  {pedido.items && pedido.items.length > 0 && (
-                    <div className="border-t border-gray-600 pt-4 mb-4">
-                      <h4 className="text-lg font-semibold text-light mb-3">Articles commandés:</h4>
-                      <div className="space-y-2">
-                        {pedido.items.map((item) => (
-                          <div key={item.id} className="flex items-center gap-3 p-3 bg-dark rounded">
-                            {item.producto && (
-                              <div className="relative w-12 h-12">
-                                <Image
-                                  src={item.producto.imagen_url || '/placeholder-profile.jpg'}
-                                  alt={item.producto.nombre}
-                                  fill
-                                  className="object-cover rounded"
-                                />
-                              </div>
-                            )}
-                            <div className="flex-1">
-                              <p className="text-light font-medium">
-                                {item.producto?.nombre || `Produit #${item.producto_id}`}
-                              </p>
-                              <p className="text-text-medium text-sm">
-                                Quantité: {item.cantidad} × {parseFloat(item.precio_unitario).toFixed(2)}€
-                              </p>
+                          <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                            <div className="rounded-xl border border-white/10 bg-black/20 p-3 text-sm">
+                              <p className="text-xs uppercase tracking-wide text-zinc-500">Client</p>
+                              <p className="mt-1 font-medium text-zinc-100">{pedido.cliente_nombre}</p>
+                              <p className="mt-1 text-zinc-400">{pedido.cliente_email}</p>
+                              {pedido.cliente_telefono ? (
+                                <p className="text-zinc-400">{pedido.cliente_telefono}</p>
+                              ) : null}
                             </div>
-                            <div className="text-right">
-                              <p className="text-primary font-semibold">
-                                {parseFloat(item.subtotal).toFixed(2)}€
+                            <div className="rounded-xl border border-white/10 bg-black/20 p-3 text-sm">
+                              <p className="text-xs uppercase tracking-wide text-zinc-500">Adresse</p>
+                              <p className="mt-1 text-zinc-200">
+                                {pedido.cliente_direccion || 'Non spécifiée'}
                               </p>
                             </div>
                           </div>
-                        ))}
+                        </div>
+
+                        <div className="rounded-xl border border-primary/25 bg-primary/10 px-4 py-3 text-right">
+                          <p className="text-2xl font-semibold text-primary">
+                            {parseFloat(pedido.total).toFixed(2)}€
+                          </p>
+                          <p className="text-xs text-zinc-400">{formatDate(pedido.created_at)}</p>
+                        </div>
                       </div>
-                    </div>
-                  )}
 
-                  {/* Actions */}
-                  <div className="flex flex-col sm:flex-row gap-3 pt-4 border-t border-gray-600">
-                    <div className="flex-1">
-                      <label className="block text-light mb-2">Statut de la commande:</label>
-                      <select
-                        value={pedido.estado}
-                        onChange={(e) => handleUpdatePedidoStatus(pedido.id, e.target.value)}
-                        className="w-full px-3 py-2 bg-dark border border-gray-600 rounded text-light focus:border-primary focus:outline-none"
-                      >
-                        <option value="pendiente">En Attente</option>
-                        <option value="en_traitement">En Traitement</option>
-                        <option value="traite">Traité</option>
-                      </select>
-                    </div>
-                    
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => {
-                          // Aquí podrías implementar la funcionalidad para ver detalles completos
-                          alert(`Détails de la commande #${pedido.id}\n\nClient: ${pedido.cliente_nombre}\nEmail: ${pedido.cliente_email}\nTotal: ${pedido.total}€\nStatut: ${getStatusText(pedido.estado)}`);
-                        }}
-                        className="bg-primary text-secondary px-4 py-2 rounded hover:bg-yellow-400 transition-colors"
-                      >
-                        Voir Détails
-                      </button>
-                    </div>
-                  </div>
+                      {pedido.items && pedido.items.length > 0 ? (
+                        <div className="space-y-2 border-t border-white/10 pt-4">
+                          <h4 className="text-sm font-semibold uppercase tracking-wide text-zinc-300">
+                            Articles commandés
+                          </h4>
+                          <div className="space-y-2">
+                            {pedido.items.map((item) => (
+                              <div
+                                key={item.id}
+                                className="flex items-center gap-3 rounded-xl border border-white/10 bg-black/20 p-3"
+                              >
+                                {item.producto ? (
+                                  <div className="relative h-12 w-12 overflow-hidden rounded-lg">
+                                    <Image
+                                      src={item.producto.imagen_url || '/placeholder-profile.jpg'}
+                                      alt={item.producto.nombre}
+                                      fill
+                                      className="object-cover"
+                                    />
+                                  </div>
+                                ) : null}
+                                <div className="flex-1">
+                                  <p className="font-medium text-zinc-100">
+                                    {item.producto?.nombre || `Produit #${item.producto_id}`}
+                                  </p>
+                                  <p className="text-sm text-zinc-400">
+                                    Quantité: {item.cantidad} × {parseFloat(item.precio_unitario).toFixed(2)}€
+                                  </p>
+                                </div>
+                                <p className="font-semibold text-primary">
+                                  {parseFloat(item.subtotal).toFixed(2)}€
+                                </p>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      ) : null}
+
+                      <div className="flex flex-col gap-3 border-t border-white/10 pt-4 md:flex-row md:items-end md:justify-between">
+                        <div className="w-full md:max-w-xs">
+                          <label className="mb-2 block text-sm font-medium text-zinc-200">
+                            Statut de la commande
+                          </label>
+                          <Select
+                            value={pedido.estado}
+                            onValueChange={(value) => handleUpdatePedidoStatus(pedido.id, value)}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Statut de la commande" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="pendiente">En attente</SelectItem>
+                              <SelectItem value="en_traitement">En traitement</SelectItem>
+                              <SelectItem value="traite">Traité</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+
+                        <Button
+                          type="button"
+                          variant="secondary"
+                          onClick={() => {
+                            alert(
+                              `Détails de la commande #${pedido.id}\n\nClient: ${pedido.cliente_nombre}\nEmail: ${pedido.cliente_email}\nTotal: ${pedido.total}€\nStatut: ${getStatusText(pedido.estado)}`
+                            );
+                          }}
+                        >
+                          Voir détails
+                        </Button>
+                      </div>
+                    </AdminCardContent>
+                  </AdminCard>
                 </motion.div>
-              ))}
-            </div>
-
-            {pedidos.length === 0 && (
-              <div className="text-center py-12">
-                <p className="text-text-medium text-lg">Aucune commande disponible</p>
-              </div>
+              ))
             )}
-          </>
+          </div>
         )}
       </div>
     </div>
   );
-} 
+}

@@ -5,11 +5,56 @@ import { supabase } from '@/lib/supabase';
 import type { Booking, Location, Service, Stylist } from '@/lib/supabase';
 import { FaCalendarAlt, FaCalendarDay } from 'react-icons/fa';
 import { useRouter } from 'next/navigation';
+import { AdminCard, AdminCardContent, AdminDateInput, ReservationStatusSelect, SectionHeader } from '@/components/admin/ui';
+import { Button } from '@/components/ui/button';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 
 type BookingWithDetails = Booking & {
   stylist?: Stylist;
   location?: Location;
   service?: Service;
+};
+
+type CalendarDayStatus = "empty" | "available" | "partial" | "full";
+
+type CalendarDayStyle = {
+  backgroundColor: string;
+  borderColor: string;
+  textColor: string;
+  dotColor: string;
+};
+
+const calendarDayStyles: Record<CalendarDayStatus, CalendarDayStyle> = {
+  empty: {
+    backgroundColor: "rgba(18, 18, 18, 0.3)",
+    borderColor: "rgba(255, 255, 255, 0.08)",
+    textColor: "rgba(255, 255, 255, 0)",
+    dotColor: "transparent",
+  },
+  available: {
+    backgroundColor: "rgba(34, 197, 94, 0.26)",
+    borderColor: "rgba(74, 222, 128, 0.45)",
+    textColor: "#dcfce7",
+    dotColor: "#4ade80",
+  },
+  partial: {
+    backgroundColor: "rgba(212, 160, 23, 0.3)",
+    borderColor: "rgba(234, 179, 8, 0.6)",
+    textColor: "#fef3c7",
+    dotColor: "#facc15",
+  },
+  full: {
+    backgroundColor: "rgba(231, 111, 81, 0.32)",
+    borderColor: "rgba(231, 111, 81, 0.7)",
+    textColor: "#ffe2d9",
+    dotColor: "#ff8f73",
+  },
 };
 
 // Definir un tipo para errores
@@ -417,21 +462,6 @@ export default function AdminBookingsPage() {
     return time.substring(0, 5);
   };
   
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'pending':
-        return 'border-primary bg-primary bg-opacity-50 text-black';
-      case 'confirmed':
-        return 'border-blue-500 bg-blue-500 bg-opacity-50 text-white';
-      case 'completed':
-        return 'border-green-500 bg-green-500 bg-opacity-50 text-white';
-      case 'cancelled':
-        return 'border-coral bg-coral bg-opacity-50 text-white';
-      default:
-        return 'border-gray-400 bg-gray-400 bg-opacity-50 text-black';
-    }
-  };
-  
   const generateCalendarData = () => {
     const year = currentMonth.getFullYear();
     const month = currentMonth.getMonth();
@@ -541,13 +571,16 @@ export default function AdminBookingsPage() {
   };
 
   return (
-    <div className="min-h-screen bg-dark text-light">
+    <div className="admin-scope min-h-screen bg-dark text-light">
       <div className="transition-all duration-300">
         <main className="flex-grow container mx-auto px-4 py-8">
-          <h1 className="text-3xl font-bold mb-6 text-primary border-b-2 border-primary border-opacity-40 pb-2">Gestion des Réservations</h1>
-          
-          {/* Contenido principal */}
-          <div className="bg-secondary rounded-lg shadow-lg p-4 md:p-6">
+          <SectionHeader
+            title="Gestion des Réservations"
+            description="Calendrier, filtres croisés et gestion de statut des réservations."
+          />
+
+          <AdminCard className="mt-6">
+            <AdminCardContent className="p-4 md:p-6">
             {/* Layout principal con grid para separar filtros y contenido */}
             <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
               {/* Panel de filtros - ocupa 1 columna en escritorio y toda la anchura en móvil */}
@@ -556,7 +589,7 @@ export default function AdminBookingsPage() {
                   <div className="flex justify-between items-center mb-4">
                     <h2 className="text-lg font-semibold text-primary">Filtres</h2>
                     {/* Botón para colapsar/expandir filtros en móvil */}
-                    <button 
+                    <Button 
                       className="lg:hidden text-light hover:text-primary"
                       onClick={() => {
                         const filtersContent = document.getElementById('filters-content');
@@ -569,89 +602,91 @@ export default function AdminBookingsPage() {
                       <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" className="w-6 h-6">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
                       </svg>
-                    </button>
+                    </Button>
                   </div>
                   
                   {/* Contenido de filtros - colapsable en móvil */}
                   <div id="filters-content" className="hidden lg:block">
                     <div className="flex flex-col gap-4">
                       <div>
-                        <label htmlFor="location-select" className="block text-sm font-medium text-primary mb-1">
+                        <label className="mb-1 block text-sm font-medium text-primary">
                           Centre
                         </label>
-                        <select
-                          id="location-select"
-                          className="w-full pl-3 pr-10 py-2 text-base border border-primary border-opacity-50 focus:outline-none focus:ring-primary focus:border-primary sm:text-sm rounded-md bg-dark text-light"
-                          value={selectedLocation}
-                          onChange={(e) => setSelectedLocation(e.target.value)}
-                        >
-                          <option value="all">Tous les centres</option>
-                          {locations.map((location) => (
-                            <option key={location.id} value={location.id}>
-                              {location.name}
-                            </option>
-                          ))}
-                        </select>
+                        <Select value={selectedLocation} onValueChange={setSelectedLocation}>
+                          <SelectTrigger className="w-full rounded-md border-primary/50 bg-dark text-light">
+                            <SelectValue placeholder="Tous les centres" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="all">Tous les centres</SelectItem>
+                            {locations.map((location) => (
+                              <SelectItem key={location.id} value={location.id}>
+                                {location.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
                       </div>
                       
                       <div>
-                        <label htmlFor="stylist-select" className="block text-sm font-medium text-primary mb-1">
+                        <label className="mb-1 block text-sm font-medium text-primary">
                           Styliste
                         </label>
-                        <select
-                          id="stylist-select"
-                          className={`w-full pl-3 pr-10 py-2 text-base border border-primary border-opacity-50 focus:outline-none focus:ring-primary focus:border-primary sm:text-sm rounded-md bg-dark text-light ${selectedStylist !== 'all' ? 'border-2 border-primary' : ''}`}
-                          value={selectedStylist}
-                          onChange={(e) => setSelectedStylist(e.target.value)}
-                        >
-                          <option value="all">Tous les stylistes</option>
-                          {stylists.map((stylist) => {
-                            // Contar cuántas reservas tiene este estilista en la fecha seleccionada
-                            const stylistBookingsCount = bookings.filter(
-                              booking => booking.stylist_id === stylist.id
-                            ).length;
-                            
-                            return (
-                              <option key={stylist.id} value={stylist.id}>
-                                {stylist.name} {stylistBookingsCount > 0 ? `(${stylistBookingsCount})` : ''}
-                              </option>
-                            );
-                          })}
-                        </select>
+                        <Select value={selectedStylist} onValueChange={setSelectedStylist}>
+                          <SelectTrigger
+                            className={`w-full rounded-md bg-dark text-light ${
+                              selectedStylist !== 'all' ? 'border-primary' : 'border-primary/50'
+                            }`}
+                          >
+                            <SelectValue placeholder="Tous les stylistes" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="all">Tous les stylistes</SelectItem>
+                            {stylists.map((stylist) => {
+                              const stylistBookingsCount = bookings.filter(
+                                booking => booking.stylist_id === stylist.id
+                              ).length;
+
+                              return (
+                                <SelectItem key={stylist.id} value={stylist.id}>
+                                  {stylist.name} {stylistBookingsCount > 0 ? `(${stylistBookingsCount})` : ''}
+                                </SelectItem>
+                              );
+                            })}
+                          </SelectContent>
+                        </Select>
                       </div>
                   
                       <div>
                         <label htmlFor="date-select" className="block text-sm font-medium text-primary mb-1">
                           Date
                         </label>
-                        <input
-                          type="date"
+                        <AdminDateInput
                           id="date-select"
-                          className="w-full pl-3 pr-10 py-2 text-base border border-primary border-opacity-50 focus:outline-none focus:ring-primary focus:border-primary sm:text-sm rounded-md bg-dark text-light"
+                          className="w-full rounded-md border-primary/50 bg-dark text-light"
                           value={selectedDate}
                           onChange={(e) => setSelectedDate(e.target.value)}
                         />
                       </div>
                 
                       <div className="flex flex-col gap-2 mt-4">
-                        <button
+                        <Button
                           className="flex items-center justify-center gap-2 bg-dark hover:bg-opacity-80 text-primary font-medium py-2 px-4 rounded-md transition-all w-full border border-primary border-opacity-30"
                           onClick={backToCalendar}
                         >
                           <FaCalendarAlt className="text-primary" size={16} />
                           Calendrier
-                        </button>
+                        </Button>
                     
-                        <button
+                        <Button
                           className="flex items-center justify-center gap-2 bg-dark hover:bg-opacity-80 text-primary font-medium py-2 px-4 rounded-md transition-all w-full border border-primary border-opacity-30"
                           onClick={goToToday}
                         >
                           <FaCalendarDay className="text-primary" size={16} />
                           Aujourd&apos;hui
-                        </button>
+                        </Button>
                           
                         {(selectedLocation !== 'all' || selectedStylist !== 'all') && (
-                          <button
+                          <Button
                             className="flex items-center justify-center gap-2 bg-coral hover:bg-opacity-80 text-white font-medium py-2 px-4 rounded-md transition-all w-full"
                             onClick={() => {
                               setSelectedLocation('all');
@@ -659,15 +694,15 @@ export default function AdminBookingsPage() {
                             }}
                           >
                             Effacer les filtres
-                          </button>
+                          </Button>
                         )}
                     
-                        <button
+                        <Button
                           onClick={() => router.push('/admin/reservations/nueva')}
                           className="flex items-center justify-center gap-2 bg-primary hover:bg-opacity-80 text-secondary font-medium py-2 px-4 rounded-md transition-all w-full"
                         >
                           + Nouvelle Réservation
-                        </button>
+                        </Button>
                       </div>
                     </div>
                   </div>
@@ -687,23 +722,23 @@ export default function AdminBookingsPage() {
                         }
                       </h2>
                       <div className="flex items-center space-x-3 mb-4">
-                        <button 
+                        <Button 
                           onClick={prevMonth}
                           className="p-3 rounded-md bg-dark hover:bg-opacity-80 flex items-center justify-center text-primary"
                           aria-label="Mois précédent"
                         >
                           &larr;
-                        </button>
+                        </Button>
                         <span className="font-medium text-primary text-xl min-w-[160px] text-center">
                           {currentMonth.toLocaleString('fr-FR', { month: 'long', year: 'numeric' })}
                         </span>
-                        <button 
+                        <Button 
                           onClick={nextMonth}
                           className="p-3 rounded-md bg-dark hover:bg-opacity-80 flex items-center justify-center text-primary"
                           aria-label="Mois suivant"
                         >
                           &rarr;
-                        </button>
+                        </Button>
                       </div>
                     </div>
                 
@@ -722,6 +757,48 @@ export default function AdminBookingsPage() {
                           </div>
                         ))}
                       </div>
+
+                      <div className="mb-3 flex flex-wrap items-center justify-center gap-2 text-xs">
+                        <span
+                          className="inline-flex items-center gap-1 rounded-full border px-2 py-1"
+                          style={{
+                            borderColor: calendarDayStyles.available.borderColor,
+                            color: calendarDayStyles.available.textColor,
+                          }}
+                        >
+                          <span
+                            className="h-2 w-2 rounded-full"
+                            style={{ backgroundColor: calendarDayStyles.available.dotColor }}
+                          />
+                          Sans réservations
+                        </span>
+                        <span
+                          className="inline-flex items-center gap-1 rounded-full border px-2 py-1"
+                          style={{
+                            borderColor: calendarDayStyles.partial.borderColor,
+                            color: calendarDayStyles.partial.textColor,
+                          }}
+                        >
+                          <span
+                            className="h-2 w-2 rounded-full"
+                            style={{ backgroundColor: calendarDayStyles.partial.dotColor }}
+                          />
+                          Avec réservations
+                        </span>
+                        <span
+                          className="inline-flex items-center gap-1 rounded-full border px-2 py-1"
+                          style={{
+                            borderColor: calendarDayStyles.full.borderColor,
+                            color: calendarDayStyles.full.textColor,
+                          }}
+                        >
+                          <span
+                            className="h-2 w-2 rounded-full"
+                            style={{ backgroundColor: calendarDayStyles.full.dotColor }}
+                          />
+                          Complet / Fermé
+                        </span>
+                      </div>
                   
                       {/* Cuadrícula del calendario con días */}
                       <div className="grid grid-cols-7 gap-1 sm:gap-2">
@@ -729,63 +806,48 @@ export default function AdminBookingsPage() {
                           const dateStr = day ? 
                             `${currentMonth.getFullYear()}-${String(currentMonth.getMonth() + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}` 
                             : '';
-                        
-                          // Determinar el color según la disponibilidad
-                          let bgColor = 'bg-green-100'; // Por defecto, verde (disponible)
-                          let hoverColor = 'hover:bg-green-200';
-                          let textColor = 'text-green-800';
-                          let dotColor = 'bg-green-500';
-                        
-                          // Rojo para días cerrados
-                          if (day && closedDays.includes(dateStr)) {
-                            bgColor = 'bg-coral bg-opacity-20';
-                            hoverColor = 'hover:bg-coral hover:bg-opacity-30';
-                            textColor = 'text-coral';
-                            dotColor = 'bg-coral';
-                          } 
-                          // Rojo también para días completamente ocupados
-                          else if (day && fullyBookedDays.includes(dateStr)) {
-                            bgColor = 'bg-coral bg-opacity-20';
-                            hoverColor = 'hover:bg-coral hover:bg-opacity-30';
-                            textColor = 'text-coral';
-                            dotColor = 'bg-coral';
-                          }
-                          // Amarillo para días parcialmente ocupados
-                          else if (day && partiallyBookedDays.includes(dateStr)) {
-                            bgColor = 'bg-primary bg-opacity-20';
-                            hoverColor = 'hover:bg-primary hover:bg-opacity-30';
-                            textColor = 'text-dark';
-                            dotColor = 'bg-primary';
-                          }
-                          // Para días disponibles, usamos un verde más adaptado al tema
-                          else if (day) {
-                            bgColor = 'bg-green-100 bg-opacity-80'; 
-                            hoverColor = 'hover:bg-green-200';
-                            textColor = 'text-dark';
-                          }
-                        
                           const hasBookings = day && daysWithBookings.includes(dateStr);
                           const isToday = day && new Date().getDate() === day && 
                                       new Date().getMonth() === currentMonth.getMonth() && 
                                       new Date().getFullYear() === currentMonth.getFullYear();
-                        
+                          const isSelectedDate = day && selectedDate === dateStr;
+
+                          let dayStatus: CalendarDayStatus = day ? "available" : "empty";
+
+                          if (day && (closedDays.includes(dateStr) || fullyBookedDays.includes(dateStr))) {
+                            dayStatus = "full";
+                          } else if (day && partiallyBookedDays.includes(dateStr)) {
+                            dayStatus = "partial";
+                          }
+
+                          const dayStyle = calendarDayStyles[dayStatus];
+
                           return (
                             <button
+                              type="button"
                               key={index}
                               onClick={() => day && selectDay(day)}
                               disabled={!day}
                               className={`
-                                h-10 sm:h-12 flex flex-col items-center justify-center rounded-md transition-colors text-xs sm:text-sm
-                                ${!day ? 'bg-secondary bg-opacity-40' : `${bgColor} ${hoverColor} cursor-pointer ${textColor}`}
+                                h-10 sm:h-12 flex flex-col items-center justify-center rounded-md border transition-all text-xs sm:text-sm
+                                ${!day ? 'cursor-default opacity-40' : 'cursor-pointer hover:brightness-110'}
                                 ${isToday ? 'ring-2 ring-primary ring-opacity-100 font-bold' : ''}
-                                ${day && selectedDate === dateStr ? 'ring-2 ring-primary ring-opacity-100 font-bold shadow-md' : ''}
+                                ${isSelectedDate ? 'ring-2 ring-primary ring-opacity-100 font-bold shadow-md' : ''}
                               `}
+                              style={{
+                                backgroundColor: dayStyle.backgroundColor,
+                                borderColor: dayStyle.borderColor,
+                                color: dayStyle.textColor,
+                              }}
                             >
                               {day && (
                                 <>
-                                  <span>{day}</span>
+                                  <span className="leading-none">{day}</span>
                                   {hasBookings && (
-                                    <span className="h-1 w-1 sm:h-1.5 sm:w-1.5 rounded-full mt-0.5" style={{backgroundColor: dotColor}}></span>
+                                    <span
+                                      className="mt-0.5 h-1 w-1 rounded-full sm:h-1.5 sm:w-1.5"
+                                      style={{ backgroundColor: dayStyle.dotColor }}
+                                    />
                                   )}
                                 </>
                               )}
@@ -806,12 +868,12 @@ export default function AdminBookingsPage() {
                       {/* Encabezado con fecha y botones */}
                       <div className="flex flex-col sm:flex-row justify-between items-center bg-secondary p-4 rounded-t-lg">
                         <div className="flex items-center mb-3 sm:mb-0">
-                          <button 
+                          <Button 
                             onClick={backToCalendar} 
                             className="mr-3 p-2 rounded bg-dark hover:bg-opacity-80 text-primary"
                           >
                             &larr;
-                          </button>
+                          </Button>
                           <h3 className="text-xl font-semibold text-primary">
                             {new Date(selectedDate).toLocaleDateString('fr-FR', { 
                               weekday: 'long', 
@@ -822,12 +884,12 @@ export default function AdminBookingsPage() {
                           </h3>
                         </div>
                         <div className="flex space-x-2">
-                          <button 
+                          <Button 
                             onClick={goToToday}
                             className="px-4 py-2 bg-primary text-secondary rounded hover:bg-opacity-80 font-medium"
                           >
                             Aujourd&apos;hui
-                          </button>
+                          </Button>
                         </div>
                       </div>
                       
@@ -857,17 +919,11 @@ export default function AdminBookingsPage() {
                                   </div>
                                   {/* Desplegable visible solo en pantallas medianas o más grandes */}
                                   <div className="hidden md:block">
-                                    <select
+                                    <ReservationStatusSelect
                                       value={booking.status}
-                                      onChange={(e) => handleStatusChange(booking.id, e.target.value as 'pending' | 'confirmed' | 'cancelled' | 'completed')}
-                                      className={`text-sm rounded-full px-3 py-1 font-medium cursor-pointer border-2 outline-none appearance-none ${getStatusColor(booking.status)}`}
-                                      style={{ backgroundImage: 'url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns=\'http://www.w3.org/2000/svg\' viewBox=\'0 0 24 24\' fill=\'none\' stroke=\'white\' stroke-width=\'2\' stroke-linecap=\'round\' stroke-linejoin=\'round\'%3e%3cpolyline points=\'6 9 12 15 18 9\'%3e%3c/polyline%3e%3c/svg%3e")', backgroundRepeat: 'no-repeat', backgroundPosition: 'right 0.5rem center', backgroundSize: '1.2em 1.2em', paddingRight: '2.5rem' }}
-                                    >
-                                      <option value="pending" className="bg-primary bg-opacity-80 text-black font-medium px-2 py-1">En attente</option>
-                                      <option value="confirmed" className="bg-blue-500 bg-opacity-80 text-white font-medium px-2 py-1">Confirmé</option>
-                                      <option value="completed" className="bg-green-500 bg-opacity-80 text-white font-medium px-2 py-1">Terminé</option>
-                                      <option value="cancelled" className="bg-coral bg-opacity-80 text-white font-medium px-2 py-1">Annulé</option>
-                                    </select>
+                                      onChange={(status) => handleStatusChange(booking.id, status)}
+                                      className="min-w-44"
+                                    />
                                   </div>
                                 </div>
                             
@@ -908,17 +964,11 @@ export default function AdminBookingsPage() {
                                     <label className="block text-xs font-medium text-light opacity-70 mb-1">
                                       Statut de la réservation:
                                     </label>
-                                    <select
+                                    <ReservationStatusSelect
                                       value={booking.status}
-                                      onChange={(e) => handleStatusChange(booking.id, e.target.value as 'pending' | 'confirmed' | 'cancelled' | 'completed')}
-                                      className={`w-full text-sm rounded-md py-2 px-3 font-medium cursor-pointer border-2 outline-none appearance-none ${getStatusColor(booking.status)}`}
-                                      style={{ backgroundImage: 'url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns=\'http://www.w3.org/2000/svg\' viewBox=\'0 0 24 24\' fill=\'none\' stroke=\'white\' stroke-width=\'2\' stroke-linecap=\'round\' stroke-linejoin=\'round\'%3e%3cpolyline points=\'6 9 12 15 18 9\'%3e%3c/polyline%3e%3c/svg%3e")', backgroundRepeat: 'no-repeat', backgroundPosition: 'right 0.75rem center', backgroundSize: '1.2em 1.2em', paddingRight: '2.5rem' }}
-                                    >
-                                      <option value="pending" className="bg-primary bg-opacity-80 text-black font-medium px-2 py-1">En attente</option>
-                                      <option value="confirmed" className="bg-blue-500 bg-opacity-80 text-white font-medium px-2 py-1">Confirmé</option>
-                                      <option value="completed" className="bg-green-500 bg-opacity-80 text-white font-medium px-2 py-1">Terminé</option>
-                                      <option value="cancelled" className="bg-coral bg-opacity-80 text-white font-medium px-2 py-1">Annulé</option>
-                                    </select>
+                                      onChange={(status) => handleStatusChange(booking.id, status)}
+                                      className="w-full"
+                                    />
                                   </div>
                                 </div>
                               </div>
@@ -931,7 +981,8 @@ export default function AdminBookingsPage() {
                 )}
               </div>
             </div>
-          </div>
+            </AdminCardContent>
+          </AdminCard>
         </main>
       </div>
     </div>

@@ -5,6 +5,17 @@ import { supabase, Location, Stylist, AvailabilitySlot, Service, StylistService 
 import { FaUser, FaMapMarkerAlt, FaCalendarDay, FaArrowLeft, FaCheck, FaFilter, FaSyncAlt } from 'react-icons/fa';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
+import { AdminCard, AdminCardContent, SectionHeader } from '@/components/admin/ui';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Textarea } from '@/components/ui/textarea';
 
 export default function NuevaReservacion() {
   const router = useRouter();
@@ -735,54 +746,64 @@ export default function NuevaReservacion() {
   }
 
   return (
-    <main className="min-h-screen flex flex-col bg-dark">
+    <main className="admin-scope min-h-screen flex flex-col bg-dark">
       <div className="flex-grow pt-24 pb-12">
         <div className="container mx-auto px-4">
-          <div className="mb-8 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-            <div>
-              <h1 className="text-3xl font-bold text-primary mb-2">Nouvelle Réservation</h1>
-              <p className="text-light">Créez un nouveau rendez-vous en sélectionnant un styliste, un centre et une date</p>
-            </div>
-            <div className="flex w-full md:w-auto gap-3 mt-2 md:mt-0">
-              <button 
-                onClick={resetAllFilters}
-                className="flex-1 md:flex-initial flex items-center justify-center bg-secondary hover:bg-opacity-80 text-light px-4 py-2 rounded-md transition-colors"
-                title="Réinitialiser les filtres"
-              >
-                <FaSyncAlt className="mr-2" /> <span className="whitespace-nowrap">Réinitialiser</span>
-              </button>
-              <button 
-                onClick={() => router.push('/admin/reservations')}
-                className="flex-1 md:flex-initial flex items-center justify-center bg-secondary hover:bg-opacity-80 text-light px-4 py-2 rounded-md transition-colors"
-              >
-                <FaArrowLeft className="mr-2" /> <span className="whitespace-nowrap">Retour</span>
-              </button>
-            </div>
-          </div>
+          <SectionHeader
+            title="Nouvelle Réservation"
+            description="Créez un nouveau rendez-vous en sélectionnant un styliste, un centre et une date."
+            actions={
+              <div className="flex w-full gap-3 md:w-auto">
+                <Button
+                  onClick={resetAllFilters}
+                  variant="secondary"
+                  className="flex-1 md:flex-initial"
+                  title="Réinitialiser les filtres"
+                >
+                  <FaSyncAlt className="mr-2" />
+                  <span className="whitespace-nowrap">Réinitialiser</span>
+                </Button>
+                <Button
+                  onClick={() => router.push('/admin/reservations')}
+                  variant="outline"
+                  className="flex-1 md:flex-initial"
+                >
+                  <FaArrowLeft className="mr-2" />
+                  <span className="whitespace-nowrap">Retour</span>
+                </Button>
+              </div>
+            }
+          />
 
           {/* Filtres supérieurs */}
-          <div className="bg-secondary rounded-lg shadow-md p-4 md:p-6 mb-6">
+          <AdminCard className="mt-6 mb-6">
+            <AdminCardContent className="p-4 md:p-6">
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {/* Selector de Styliste */}
               <div>
                 <label className="block text-sm font-medium text-light mb-1">
                   <FaUser className="inline mr-2" /> Styliste
                 </label>
-                <select
+                <Select
                   value={selectedStylist}
-                  onChange={(e) => setSelectedStylist(e.target.value)}
-                  className={`w-full p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-primary bg-dark text-light ${
-                    stylists.length === 0 ? 'border-coral' : 'border-primary'
-                  }`}
+                  onValueChange={setSelectedStylist}
                   disabled={stylists.length === 0}
                 >
-                  <option value="">Sélectionnez un styliste</option>
-                  {stylists.map(stylist => (
-                    <option key={stylist.id} value={stylist.id}>
-                      {stylist.name}
-                    </option>
-                  ))}
-                </select>
+                  <SelectTrigger
+                    className={`w-full rounded-md bg-dark text-light ${
+                      stylists.length === 0 ? 'border-coral' : 'border-primary'
+                    }`}
+                  >
+                    <SelectValue placeholder="Sélectionnez un styliste" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {stylists.map(stylist => (
+                      <SelectItem key={stylist.id} value={stylist.id}>
+                        {stylist.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
                 {stylists.length === 0 && (
                   <p className="text-xs text-coral mt-1">
                     Aucun styliste disponible con los filtros actuales
@@ -795,21 +816,26 @@ export default function NuevaReservacion() {
                 <label className="block text-sm font-medium text-light mb-1">
                   <FaMapMarkerAlt className="inline mr-2" /> Centre
                 </label>
-                <select
+                <Select
                   value={selectedLocation}
-                  onChange={(e) => setSelectedLocation(e.target.value)}
-                  className={`w-full p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-primary bg-dark text-light ${
-                    locations.length === 0 ? 'border-coral' : 'border-primary'
-                  }`}
+                  onValueChange={setSelectedLocation}
                   disabled={locations.length === 0}
                 >
-                  <option value="">Sélectionnez un centro</option>
-                  {locations.map(location => (
-                    <option key={location.id} value={location.id}>
-                      {location.name}
-                    </option>
-                  ))}
-                </select>
+                  <SelectTrigger
+                    className={`w-full rounded-md bg-dark text-light ${
+                      locations.length === 0 ? 'border-coral' : 'border-primary'
+                    }`}
+                  >
+                    <SelectValue placeholder="Sélectionnez un centre" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {locations.map(location => (
+                      <SelectItem key={location.id} value={location.id}>
+                        {location.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
                 {locations.length === 0 && (
                   <p className="text-xs text-coral mt-1">
                     Aucun centro disponible con los filtros actuales
@@ -822,21 +848,26 @@ export default function NuevaReservacion() {
                 <label className="block text-sm font-medium text-light mb-1">
                   <FaCalendarDay className="inline mr-2" /> Servicio
                 </label>
-                <select
+                <Select
                   value={selectedService}
-                  onChange={(e) => setSelectedService(e.target.value)}
-                  className={`w-full p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-primary bg-dark text-light ${
-                    services.length === 0 ? 'border-coral' : 'border-primary'
-                  }`}
+                  onValueChange={setSelectedService}
                   disabled={services.length === 0}
                 >
-                  <option value="">Sélectionnez un servicio</option>
-                  {services.map(service => (
-                    <option key={service.id} value={service.id.toString()}>
-                      {service.nombre} - {service.precio}€
-                    </option>
-                  ))}
-                </select>
+                  <SelectTrigger
+                    className={`w-full rounded-md bg-dark text-light ${
+                      services.length === 0 ? 'border-coral' : 'border-primary'
+                    }`}
+                  >
+                    <SelectValue placeholder="Sélectionnez un service" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {services.map(service => (
+                      <SelectItem key={service.id} value={service.id.toString()}>
+                        {service.nombre} - {service.precio}€
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
                 {services.length === 0 && (
                   <p className="text-xs text-coral mt-1">
                     Aucun servicio disponible con los filtros actuales
@@ -860,7 +891,8 @@ export default function NuevaReservacion() {
                 </div>
               </div>
             )}
-          </div>
+            </AdminCardContent>
+          </AdminCard>
 
           {/* Contenedor principal del grid */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
@@ -870,23 +902,23 @@ export default function NuevaReservacion() {
                 <div className="flex justify-between items-center">
                   <h2 className="text-lg font-semibold text-primary">Calendrier</h2>
                   <div className="flex space-x-2">
-                    <button 
+                    <Button 
                       onClick={prevMonth}
                       className="p-2 rounded-md bg-dark hover:bg-opacity-80 flex items-center justify-center text-light"
                       aria-label="Mois précédent"
                     >
                       &larr;
-                    </button>
+                    </Button>
                     <span className="font-medium text-light min-w-[140px] text-center">
                       {currentMonth.toLocaleString('fr-FR', { month: 'long', year: 'numeric' })}
                     </span>
-                    <button 
+                    <Button 
                       onClick={nextMonth}
                       className="p-2 rounded-md bg-dark hover:bg-opacity-80 flex items-center justify-center text-light"
                       aria-label="Mois suivant"
                     >
                       &rarr;
-                    </button>
+                    </Button>
                   </div>
                 </div>
               </div>
@@ -945,7 +977,7 @@ export default function NuevaReservacion() {
                     const hasBookings = daysWithBookings.includes(dateStr);
                     
                     return (
-                      <button
+                      <Button
                         key={index}
                         onClick={() => isClosed ? null : selectDate(day)}
                         disabled={isClosed}
@@ -955,7 +987,7 @@ export default function NuevaReservacion() {
                         {hasBookings && (
                           <span className="h-1 w-1 sm:h-1.5 sm:w-1.5 rounded-full mt-0.5" style={{backgroundColor: dotColor}}></span>
                         )}
-                      </button>
+                      </Button>
                     );
                   })}
                 </div>
@@ -1103,7 +1135,7 @@ export default function NuevaReservacion() {
             ) : (
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 my-4">
                 {availableSlots.map((slot, index) => (
-                  <button
+                  <Button
                     key={index}
                     onClick={() => bookAppointment(slot.time)}
                     disabled={!slot.available}
@@ -1115,18 +1147,18 @@ export default function NuevaReservacion() {
                     `}
                   >
                     {slot.time}
-                  </button>
+                  </Button>
                 ))}
               </div>
             )}
             
             <div className="flex justify-end mt-4">
-              <button
+              <Button
                 onClick={() => setShowTimeModal(false)}
                 className="px-4 py-2 bg-dark hover:bg-opacity-80 rounded-md text-light"
               >
                 Cerrar
-              </button>
+              </Button>
             </div>
           </div>
         </div>
@@ -1147,7 +1179,7 @@ export default function NuevaReservacion() {
                   <label className="block text-sm font-medium text-light mb-1">
                     Nombre completo*
                   </label>
-                  <input
+                  <Input
                     type="text"
                     value={customerName}
                     onChange={(e) => setCustomerName(e.target.value)}
@@ -1160,7 +1192,7 @@ export default function NuevaReservacion() {
                   <label className="block text-sm font-medium text-light mb-1">
                     Email
                   </label>
-                  <input
+                  <Input
                     type="email"
                     value={customerEmail}
                     onChange={(e) => setCustomerEmail(e.target.value)}
@@ -1172,7 +1204,7 @@ export default function NuevaReservacion() {
                   <label className="block text-sm font-medium text-light mb-1">
                     Teléfono*
                   </label>
-                  <input
+                  <Input
                     type="tel"
                     value={customerPhone}
                     onChange={(e) => setCustomerPhone(e.target.value)}
@@ -1185,24 +1217,24 @@ export default function NuevaReservacion() {
                   <label className="block text-sm font-medium text-light mb-1">
                     Notes supplémentaires
                   </label>
-                  <textarea
+                  <Textarea
                     value={notes}
                     onChange={(e) => setNotes(e.target.value)}
                     rows={3}
                     className="w-full p-2 border border-primary rounded-md bg-dark text-light focus:outline-none focus:ring-2 focus:ring-primary"
-                  ></textarea>
+                  ></Textarea>
                 </div>
               </div>
               
               <div className="flex justify-between mt-6">
-                <button
+                <Button
                   type="button"
                   onClick={() => setShowCustomerModal(false)}
                   className="px-4 py-2 border border-primary bg-dark text-light rounded-md hover:bg-opacity-80"
                 >
                   Annuler
-                </button>
-                <button
+                </Button>
+                <Button
                   type="submit"
                   className="px-4 py-2 bg-primary text-light rounded-md hover:bg-opacity-90"
                   disabled={bookingInProgress}
@@ -1215,7 +1247,7 @@ export default function NuevaReservacion() {
                   ) : (
                     'Confirmer la réservation'
                   )}
-                </button>
+                </Button>
               </div>
             </form>
           </div>
@@ -1232,7 +1264,7 @@ export default function NuevaReservacion() {
             <p className="text-light mb-6">
               La réservation a été créée avec succès
             </p>
-            <button
+            <Button
               onClick={() => {
                 setBookingSuccess(false);
                 router.push('/admin/reservations');
@@ -1240,7 +1272,7 @@ export default function NuevaReservacion() {
               className="px-6 py-2 bg-primary text-light font-medium rounded-md"
             >
               Retourner au calendrier
-            </button>
+            </Button>
           </div>
         </div>
       )}
@@ -1255,12 +1287,12 @@ export default function NuevaReservacion() {
             <p className="text-light mb-6">
               {bookingError}
             </p>
-            <button
+            <Button
               onClick={() => setBookingError(null)}
               className="px-6 py-2 bg-coral text-white font-medium rounded-md"
             >
               Essayer à nouveau
-            </button>
+            </Button>
           </div>
         </div>
       )}

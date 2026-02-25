@@ -4,6 +4,10 @@ import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 import Image from 'next/image';
 import { v4 as uuidv4 } from 'uuid';
+import { AdminCard, AdminCardContent, AdminCardHeader, SectionHeader } from '@/components/admin/ui';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 
 // Definir días de la semana
 const weekdays = [
@@ -461,34 +465,37 @@ export default function LocationManagement() {
   };
 
   return (
-    <div className="bg-dark text-light p-6">
-      <h1 className="text-3xl font-bold text-primary mb-6">Gestion des Centres</h1>
-      
-      {/* Botón desplegable para agregar nuevo centro */}
-      {!editingLocation && (
-        <button 
-          onClick={() => setShowAddForm(!showAddForm)}
-          className="bg-secondary text-light px-6 py-2 rounded-md mb-6 hover:bg-dark hover:text-primary transition-colors border-2 border-primary font-bold"
-        >
-          {showAddForm ? 'Fermer le formulaire' : 'Ajouter un Nouveau Centre'} 
-        </button>
-      )}
+    <div className="admin-scope bg-dark text-light p-6">
+      <SectionHeader
+        title="Gestion des Centres"
+        description="CRUD centres, images et plages horaires multi-slot."
+        actions={
+          !editingLocation ? (
+            <Button
+              onClick={() => setShowAddForm(!showAddForm)}
+              variant={showAddForm ? 'outline' : 'default'}
+            >
+              {showAddForm ? 'Fermer le formulaire' : 'Ajouter un Nouveau Centre'}
+            </Button>
+          ) : null
+        }
+      />
       
       {/* Formulario para agregar/editar centro */}
       {(showAddForm || editingLocation) && (
-        <div className="bg-secondary shadow-lg rounded-lg overflow-hidden mb-8 border border-primary">
-          <div className="p-6">
-            <h2 className="text-xl font-bold text-primary mb-4">
+        <AdminCard tone="highlight" className="mb-8">
+          <AdminCardHeader>
+            <h2 className="text-xl font-semibold text-primary">
               {editingLocation ? 'Modifier un Centre' : 'Ajouter un Nouveau Centre'}
             </h2>
-            
-            <form onSubmit={handleFormSubmit} className="mb-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-                <div>
-                  <label className="block text-light text-sm font-bold mb-2">Nom</label>
-                  <input
+          </AdminCardHeader>
+          <AdminCardContent>
+            <form onSubmit={handleFormSubmit} className="space-y-6">
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                <div className="space-y-2">
+                  <label className="text-xs font-semibold uppercase tracking-wide text-zinc-400">Nom</label>
+                  <Input
                     type="text"
-                    className="w-full px-3 py-2 border border-gray-600 rounded bg-dark text-light"
                     value={editingLocation ? editingLocation.name : newLocation.name}
                     onChange={(e) => editingLocation 
                       ? setEditingLocation({...editingLocation, name: e.target.value}) 
@@ -498,11 +505,10 @@ export default function LocationManagement() {
                   />
                 </div>
                 
-                <div>
-                  <label className="block text-light text-sm font-bold mb-2">Adresse</label>
-                  <input
+                <div className="space-y-2">
+                  <label className="text-xs font-semibold uppercase tracking-wide text-zinc-400">Adresse</label>
+                  <Input
                     type="text"
-                    className="w-full px-3 py-2 border border-gray-600 rounded bg-dark text-light"
                     value={editingLocation ? editingLocation.address : newLocation.address}
                     onChange={(e) => editingLocation 
                       ? setEditingLocation({...editingLocation, address: e.target.value}) 
@@ -512,11 +518,10 @@ export default function LocationManagement() {
                   />
                 </div>
                 
-                <div>
-                  <label className="block text-light text-sm font-bold mb-2">Téléphone</label>
-                  <input
+                <div className="space-y-2">
+                  <label className="text-xs font-semibold uppercase tracking-wide text-zinc-400">Téléphone</label>
+                  <Input
                     type="tel"
-                    className="w-full px-3 py-2 border border-gray-600 rounded bg-dark text-light"
                     value={editingLocation ? editingLocation.phone || '' : newLocation.phone || ''}
                     onChange={(e) => editingLocation 
                       ? setEditingLocation({...editingLocation, phone: e.target.value}) 
@@ -525,11 +530,10 @@ export default function LocationManagement() {
                   />
                 </div>
                 
-                <div>
-                  <label className="block text-light text-sm font-bold mb-2">Email</label>
-                  <input
+                <div className="space-y-2">
+                  <label className="text-xs font-semibold uppercase tracking-wide text-zinc-400">Email</label>
+                  <Input
                     type="email"
-                    className="w-full px-3 py-2 border border-gray-600 rounded bg-dark text-light"
                     value={editingLocation ? editingLocation.email || '' : newLocation.email || ''}
                     onChange={(e) => editingLocation 
                       ? setEditingLocation({...editingLocation, email: e.target.value}) 
@@ -538,11 +542,11 @@ export default function LocationManagement() {
                   />
                 </div>
                 
-                <div className="md:col-span-2">
-                  <label className="block text-light text-sm font-bold mb-2">Description</label>
-                  <textarea
-                    className="w-full px-3 py-2 border border-gray-600 rounded bg-dark text-light"
+                <div className="space-y-2 md:col-span-2">
+                  <label className="text-xs font-semibold uppercase tracking-wide text-zinc-400">Description</label>
+                  <Textarea
                     rows={3}
+                    className="min-h-[110px]"
                     value={editingLocation ? editingLocation.description || '' : newLocation.description || ''}
                     onChange={(e) => editingLocation 
                       ? setEditingLocation({...editingLocation, description: e.target.value}) 
@@ -551,31 +555,29 @@ export default function LocationManagement() {
                   />
                 </div>
                 
-                <div className="md:col-span-2">
-                  <label className="block text-light text-sm font-bold mb-2">Image</label>
-                  <div className="flex flex-col sm:flex-row gap-4 w-full items-center">
-                    <div className="w-full">
-                      <div className="w-full flex justify-center sm:justify-start">
-                        <input
-                          type="file"
-                          accept="image/*"
-                          onChange={handleFileChange}
-                          className="w-full max-w-xs sm:max-w-full p-2 rounded text-light bg-dark border border-gray-600 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-primary file:text-secondary"
-                        />
-                      </div>
-                      <p className="text-sm mt-2 text-gray-400 text-center sm:text-left">
+                <div className="space-y-2 md:col-span-2">
+                  <label className="text-xs font-semibold uppercase tracking-wide text-zinc-400">Image</label>
+                  <div className="grid gap-3 md:grid-cols-[1fr_auto] md:items-end">
+                    <div className="space-y-2">
+                      <Input
+                        ref={locationImageInputRef}
+                        type="file"
+                        accept="image/*"
+                        onChange={handleFileChange}
+                        className="h-auto py-2 file:mr-3 file:rounded-lg file:border file:border-primary/45 file:bg-primary/12 file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-primary"
+                      />
+                      <p className="text-xs text-zinc-500">
                         Format recommandé: JPEG ou PNG, taille maximale 2MB
                       </p>
                     </div>
                     
                     {locationImagePreview && (
-                      <div className="w-24 h-24 relative flex-shrink-0">
+                      <div className="relative h-24 w-24 overflow-hidden rounded-xl border border-primary/45">
                         <Image
                           src={locationImagePreview}
-                          alt="Vista previa"
-                          className="rounded object-cover w-full h-full border-2 border-primary"
-                          width={96}
-                          height={96}
+                          alt="Aperçu du centre"
+                          fill
+                          className="object-cover"
                         />
                       </div>
                     )}
@@ -584,37 +586,37 @@ export default function LocationManagement() {
               </div>
               
               {/* Sección de horarios */}
-              <div className="mb-6">
-                <h3 className="text-lg font-bold text-primary mb-4">Horaires du Centre</h3>
+              <div className="space-y-4">
+                <h3 className="text-lg font-semibold text-primary">Horaires du Centre</h3>
                 
-                <div className="p-3 rounded bg-dark border-l-4 border-primary mb-4">
-                  <p className="text-sm text-light">
+                <div className="rounded-xl border border-primary/30 bg-black/30 p-3">
+                  <p className="text-sm text-zinc-300">
                     <strong>Information importante:</strong> Configure les horaires d&apos;ouverture pour chaque jour. Vous pouvez ajouter plusieurs plages horaires par jour (par exemple, matin et soir).
                   </p>
                 </div>
                 
                 {weekdays.map((day) => (
-                  <div key={day.id} className="mb-4 p-4 border border-gray-700 rounded bg-secondary">
-                    <h4 className="font-bold mb-2 text-primary">{day.name}</h4>
+                  <div key={day.id} className="rounded-xl border border-white/10 bg-black/25 p-4">
+                    <h4 className="mb-2 font-semibold text-primary">{day.name}</h4>
                     
                     {locationHours[day.id]?.map((slot, slotIndex) => (
-                      <div key={slotIndex} className="flex flex-col sm:flex-row items-start sm:items-center mb-3 space-y-2 sm:space-y-0 sm:space-x-4 bg-dark p-3 rounded border border-gray-700">
-                        <div className="flex items-center w-full sm:w-auto">
-                          <span className="text-light mr-2 w-10">De</span>
-                          <input
+                      <div key={slotIndex} className="mb-3 flex flex-col items-start space-y-2 rounded-lg border border-white/10 bg-black/30 p-3 sm:flex-row sm:items-center sm:space-x-4 sm:space-y-0">
+                        <div className="flex w-full items-center sm:w-auto">
+                          <span className="mr-2 w-10 text-zinc-300">De</span>
+                          <Input
                             type="time"
-                            className="px-3 py-2 border border-gray-600 rounded bg-dark text-light w-full sm:w-auto"
+                            className="w-full sm:w-auto"
                             value={slot.start}
                             onChange={(e) => updateTimeSlot(day.id, slotIndex, 'start', e.target.value)}
                             required
                           />
                         </div>
                         
-                        <div className="flex items-center w-full sm:w-auto">
-                          <span className="text-light mr-2 w-10">a</span>
-                          <input
+                        <div className="flex w-full items-center sm:w-auto">
+                          <span className="mr-2 w-10 text-zinc-300">a</span>
+                          <Input
                             type="time"
-                            className="px-3 py-2 border border-gray-600 rounded bg-dark text-light w-full sm:w-auto"
+                            className="w-full sm:w-auto"
                             value={slot.end}
                             onChange={(e) => updateTimeSlot(day.id, slotIndex, 'end', e.target.value)}
                             required
@@ -622,50 +624,53 @@ export default function LocationManagement() {
                         </div>
                         
                         {locationHours[day.id].length > 1 && (
-                          <button
+                          <Button
                             type="button"
                             onClick={() => removeTimeSlot(day.id, slotIndex)}
-                            className="mt-2 sm:mt-0 px-3 py-1 bg-red-600 text-white rounded hover:bg-red-700 transition-colors"
+                            variant="destructive"
+                            size="sm"
+                            className="mt-2 sm:mt-0"
                             aria-label="Eliminar franja horaria"
                           >
                             <span>Eliminar</span>
-                          </button>
+                          </Button>
                         )}
                       </div>
                     ))}
                     
-                    <button
+                    <Button
                       type="button"
                       onClick={() => addTimeSlot(day.id)}
-                      className="px-3 py-1 mt-2 bg-dark text-light rounded hover:bg-gray-700 transition-colors border border-gray-600"
+                      variant="secondary"
+                      size="sm"
+                      className="mt-2"
                     >
                       + Ajouter une plage horaire
-                    </button>
+                    </Button>
                   </div>
                 ))}
               </div>
               
-              <div className="flex flex-col sm:flex-row gap-3 justify-center sm:justify-start">
-                <button
+              <div className="flex flex-wrap items-center gap-3">
+                <Button
                   type="submit"
-                  className="bg-primary px-6 py-2 rounded font-bold text-secondary hover:bg-yellow-400 transition-colors w-full sm:w-auto"
                   disabled={isUploading}
                 >
                   {isUploading ? 'Téléchargement...' : (editingLocation ? 'Mise à jour du Centre' : 'Créer un Nouveau Centre')}
-                </button>
+                </Button>
                 
-                <button
+                <Button
                   type="button"
                   onClick={cancelEdit}
-                  className="bg-gray-600 text-white px-6 py-2 rounded hover:bg-gray-700 transition-colors w-full sm:w-auto"
+                  variant="secondary"
                   disabled={isUploading}
                 >
                   Annuler
-                </button>
+                </Button>
               </div>
             </form>
-          </div>
-        </div>
+          </AdminCardContent>
+        </AdminCard>
       )}
       
       {/* Lista de centros existentes */}
@@ -722,20 +727,23 @@ export default function LocationManagement() {
                   </div>
                 </div>
                 
-                <div className="flex border-t border-gray-700">
-                  <button
+                <div className="flex gap-2 border-t border-white/10 p-4">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="flex-1"
                     onClick={() => handleEditLocation(location)}
-                    className="flex-1 text-center py-3 font-medium text-light hover:bg-dark hover:text-primary transition-colors"
                   >
                     Modifier
-                  </button>
-                  <div className="w-px bg-gray-700"></div>
-                  <button
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="destructive"
+                    className="flex-1"
                     onClick={() => handleDeleteLocation(location.id)}
-                    className="flex-1 text-center py-3 font-medium text-light hover:bg-dark hover:text-primary transition-colors"
                   >
                     Supprimer
-                  </button>
+                  </Button>
                 </div>
               </div>
             ))

@@ -3,6 +3,15 @@
 import { useState } from "react";
 import { Sparkles } from "lucide-react";
 
+import {
+  AdminCard,
+  AdminCardContent,
+  AdminCardHeader,
+  FilterBar,
+  SectionHeader,
+  StatusBadge,
+} from "@/components/admin/ui";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -23,9 +32,25 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 
 export default function UiTestPage() {
   const [nombre, setNombre] = useState("");
+  const [estado, setEstado] = useState("pending");
 
   return (
     <main className="admin-scope relative min-h-screen overflow-hidden bg-[radial-gradient(circle_at_12%_12%,rgba(212,160,23,0.18),transparent_42%),radial-gradient(circle_at_88%_12%,rgba(212,160,23,0.12),transparent_34%),linear-gradient(180deg,#0f0f0f_0%,#060606_100%)] px-6 py-10 text-foreground md:py-14">
@@ -64,14 +89,22 @@ export default function UiTestPage() {
                   Secondaire
                 </Button>
                 <Button type="button" variant="outline">
-                  Outline
+                  Contour
                 </Button>
                 <Button type="button" variant="ghost">
-                  Ghost
+                  Minimal
                 </Button>
                 <Button type="button" variant="destructive">
                   Supprimer
                 </Button>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <Badge>Defaut</Badge>
+                <Badge variant="secondary">Secondaire</Badge>
+                <Badge variant="outline">Contour</Badge>
+                <Badge variant="success">Succes</Badge>
+                <Badge variant="warning">Alerte</Badge>
+                <Badge variant="info">Info</Badge>
               </div>
             </CardContent>
             <CardFooter className="text-sm text-muted-foreground">
@@ -92,10 +125,62 @@ export default function UiTestPage() {
                 onChange={(event) => setNombre(event.target.value)}
                 placeholder="Nom du client"
               />
+              <Select value={estado} onValueChange={setEstado}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Etat de reservation" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="pending">En attente</SelectItem>
+                  <SelectItem value="confirmed">Confirmee</SelectItem>
+                  <SelectItem value="completed">Terminee</SelectItem>
+                  <SelectItem value="cancelled">Annulee</SelectItem>
+                </SelectContent>
+              </Select>
               <p>
                 Valeur saisie:{" "}
                 <span className="text-primary">{nombre || "aucune"}</span>
               </p>
+              <p>
+                Etat actuel: <StatusBadge status={estado} />
+              </p>
+            </CardContent>
+          </Card>
+        </section>
+
+        <section className="animate-in fade-in slide-in-from-bottom-4 duration-800">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-foreground">Table</CardTitle>
+              <CardDescription>
+                Verification de la densite visuelle sur les listes admin.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Client</TableHead>
+                    <TableHead>Service</TableHead>
+                    <TableHead>Statut</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  <TableRow>
+                    <TableCell>Lucas Martin</TableCell>
+                    <TableCell>Coupe + Barbe</TableCell>
+                    <TableCell>
+                      <StatusBadge status="confirmed" />
+                    </TableCell>
+                  </TableRow>
+                  <TableRow>
+                    <TableCell>Hugo Bernard</TableCell>
+                    <TableCell>Coloration</TableCell>
+                    <TableCell>
+                      <StatusBadge status="pending" />
+                    </TableCell>
+                  </TableRow>
+                </TableBody>
+              </Table>
             </CardContent>
           </Card>
         </section>
@@ -142,6 +227,48 @@ export default function UiTestPage() {
               </Dialog>
             </CardContent>
           </Card>
+        </section>
+
+        <section className="animate-in fade-in slide-in-from-bottom-4 duration-[1100ms]">
+          <SectionHeader
+            title="Composants admin"
+            description="Apercu de la couche reusable au-dessus de shadcn."
+            actions={<Button variant="outline">Action exemple</Button>}
+          />
+          <div className="mt-4 grid gap-4">
+            <FilterBar
+              actions={
+                <>
+                  <Button variant="ghost">Reinitialiser</Button>
+                  <Button>Appliquer</Button>
+                </>
+              }
+            >
+              <Input placeholder="Client" />
+              <Select defaultValue="all">
+                <SelectTrigger>
+                  <SelectValue placeholder="Statut" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Tous</SelectItem>
+                  <SelectItem value="pending">En attente</SelectItem>
+                  <SelectItem value="confirmed">Confirmee</SelectItem>
+                </SelectContent>
+              </Select>
+            </FilterBar>
+            <AdminCard tone="highlight">
+              <AdminCardHeader>
+                <CardTitle className="text-foreground">AdminCard</CardTitle>
+                <CardDescription>
+                  Composant de conteneur unifie pour les blocs admin.
+                </CardDescription>
+              </AdminCardHeader>
+              <AdminCardContent className="text-sm text-muted-foreground">
+                Structure cible: `SectionHeader` + `FilterBar` + `AdminCard` +
+                composants de formulaire/table.
+              </AdminCardContent>
+            </AdminCard>
+          </div>
         </section>
       </div>
     </main>

@@ -7,6 +7,10 @@ import Image from 'next/image';
 import { useSearchParams } from 'next/navigation';
 import StylistManagement from './stylist-management';
 import LocationManagement from './location-management';
+import { AdminCard, AdminCardContent, AdminCardHeader, SectionHeader } from '@/components/admin/ui';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 
 // Definir la interfaz Location
 interface Location {
@@ -557,28 +561,30 @@ export default function AdminPage() {
   };
 
   return (
-    <div className="min-h-screen bg-dark text-light">
+    <div className="admin-scope min-h-screen bg-dark text-light">
       <div className="container mx-auto px-4 py-8">
         {/* Mensaje de error si existe */}
         {errorMessage && (
           <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4 relative">
             <span className="block sm:inline">{errorMessage}</span>
-            <button 
+            <Button 
               className="absolute top-0 bottom-0 right-0 px-4 py-3"
               onClick={() => setErrorMessage('')}
             >
               <span className="text-xl">&times;</span>
-            </button>
+            </Button>
           </div>
         )}
         
         {/* Contenido según la sección activa */}
         {activeSection === 'services' && (
-          <div className="space-y-8">
-            <h1 className="text-3xl font-bold text-primary">Gestion des Services</h1>
-            
-            {/* Botón para mostrar/ocultar el formulario */}
-            <button 
+          <div className="space-y-6">
+            <SectionHeader
+              title="Gestion des Services"
+              description="CRUD des services et gestion d'images."
+            />
+
+            <Button
               onClick={() => {
                 if (showServiceForm) {
                   cancelServiceForm();
@@ -586,173 +592,181 @@ export default function AdminPage() {
                   setShowServiceForm(true);
                 }
               }}
-              className="bg-secondary text-light px-6 py-2 rounded-md mb-6 hover:bg-dark hover:text-primary transition-colors border-2 border-primary font-bold"
+              variant={showServiceForm ? 'outline' : 'default'}
             >
               {showServiceForm ? 'Fermer formulaire' : 'Ajouter nouveau service'}
-            </button>
-            
-            {/* Formulario condicional */}
+            </Button>
+
             {showServiceForm && (
-              <div className="bg-secondary shadow-lg rounded-lg overflow-hidden mb-8">
-                <div className="p-6">
-                  <h2 className="text-xl font-bold text-primary mb-4">
-                    {editingServiceId ? 'Editer service' : 'Ajouter nouveau service'}
+              <AdminCard tone="highlight">
+                <AdminCardHeader>
+                  <h2 className="text-xl font-semibold text-primary">
+                    {editingServiceId ? 'Éditer service' : 'Ajouter nouveau service'}
                   </h2>
-                  
-                  <form onSubmit={handleAddService} className="mb-6 grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-light text-sm font-bold mb-2">Nom</label>
-                      <input
+                </AdminCardHeader>
+                <AdminCardContent>
+                  <form onSubmit={handleAddService} className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                    <div className="space-y-2">
+                      <label className="text-xs font-semibold uppercase tracking-wide text-zinc-400">
+                        Nom
+                      </label>
+                      <Input
                         type="text"
-                        className="w-full px-3 py-2 border border-gray-600 rounded bg-dark text-light"
                         value={newService.nombre}
                         onChange={(e) => setNewService({ ...newService, nombre: e.target.value })}
                         required
                       />
                     </div>
-                    
-                    <div>
-                      <label className="block text-light text-sm font-bold mb-2">Prix (CHF)</label>
-                      <input
+
+                    <div className="space-y-2">
+                      <label className="text-xs font-semibold uppercase tracking-wide text-zinc-400">
+                        Prix (CHF)
+                      </label>
+                      <Input
                         type="number"
-                        className="w-full px-3 py-2 border border-gray-600 rounded bg-dark text-light"
                         value={newService.precio}
                         onChange={(e) => setNewService({ ...newService, precio: Number(e.target.value) })}
                         required
                       />
                     </div>
-                    
-                    <div className="md:col-span-2">
-                      <label className="block text-light text-sm font-bold mb-2">Description</label>
-                      <textarea
-                        className="w-full px-3 py-2 border border-gray-600 rounded bg-dark text-light"
-                        rows={2}
+
+                    <div className="space-y-2 md:col-span-2">
+                      <label className="text-xs font-semibold uppercase tracking-wide text-zinc-400">
+                        Description
+                      </label>
+                      <Textarea
+                        rows={3}
+                        className="min-h-[110px]"
                         value={newService.descripcion}
                         onChange={(e) => setNewService({ ...newService, descripcion: e.target.value })}
                         required
                       />
                     </div>
-                    
-                    <div className="md:col-span-2">
-                      <label className="block text-light text-sm font-bold mb-2">Image</label>
-                      <div className="flex flex-col sm:flex-row gap-4 w-full items-center">
-                        <div className="w-full">
-                          <div className="w-full flex justify-center sm:justify-start">
-                            <input
-                              ref={serviceImageInputRef}
-                              type="file"
-                              accept="image/*"
-                              className="w-full max-w-xs sm:max-w-full p-2 rounded text-light bg-dark border border-gray-600 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-primary file:text-secondary"
-                              onChange={(e) => handleFileChange(e, setServiceImageFile, setServiceImagePreview)}
-                            />
-                          </div>
-                          <p className="text-sm mt-2 text-gray-400 text-center sm:text-left">
+
+                    <div className="space-y-2 md:col-span-2">
+                      <label className="text-xs font-semibold uppercase tracking-wide text-zinc-400">
+                        Image
+                      </label>
+                      <div className="grid gap-3 md:grid-cols-[1fr_auto] md:items-end">
+                        <div className="space-y-2">
+                          <Input
+                            ref={serviceImageInputRef}
+                            type="file"
+                            accept="image/*"
+                            className="h-auto py-2 file:mr-3 file:rounded-lg file:border file:border-primary/45 file:bg-primary/12 file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-primary"
+                            onChange={(e) => handleFileChange(e, setServiceImageFile, setServiceImagePreview)}
+                          />
+                          <p className="text-xs text-zinc-500">
                             Format recommandé: JPEG ou PNG, taille maximale 2MB
                           </p>
                         </div>
-                        
+
                         {serviceImagePreview && (
-                          <div className="w-24 h-24 relative flex-shrink-0">
+                          <div className="relative h-24 w-24 overflow-hidden rounded-xl border border-primary/45">
                             <Image
                               src={serviceImagePreview}
-                              alt="Vista previa"
-                              className="rounded object-cover w-full h-full border-2 border-primary"
-                              width={96}
-                              height={96}
+                              alt="Aperçu du service"
+                              fill
+                              className="object-cover"
                             />
                           </div>
                         )}
                       </div>
                     </div>
-                    
-                    <div className="md:col-span-2 flex flex-col sm:flex-row gap-3 pt-4 justify-center sm:justify-start">
-                      <button
-                        type="submit"
-                        className="bg-primary px-6 py-2 rounded font-bold text-secondary hover:bg-yellow-400 transition-colors w-full sm:w-auto"
-                        disabled={isUploading}
-                      >
-                        {isUploading ? 'Téléchargent' : (editingServiceId ? 'Mise à jour' : 'Ajouter service')}
-                      </button>
-                      <button
+
+                    <div className="flex flex-wrap items-center gap-3 pt-2 md:col-span-2">
+                      <Button type="submit" disabled={isUploading}>
+                        {isUploading ? 'Téléchargement...' : editingServiceId ? 'Mise à jour' : 'Ajouter service'}
+                      </Button>
+                      <Button
                         type="button"
+                        variant="secondary"
                         onClick={cancelServiceForm}
-                        className="bg-gray-600 text-white px-6 py-2 rounded hover:bg-gray-700 transition-colors w-full sm:w-auto"
                       >
                         Annuler
-                      </button>
+                      </Button>
                     </div>
                   </form>
-                </div>
-              </div>
+                </AdminCardContent>
+              </AdminCard>
             )}
-            
-            {/* Componente principal con la lista de servicios */}
-            <div className="bg-secondary shadow-lg rounded-lg overflow-hidden mb-8">
-              <div className="p-6">
-                <h2 className="text-xl font-bold text-primary mb-4">Liste de services</h2>
-                
-                {/* Vista de tarjetas para todas las pantallas */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {services.map((service) => (
-                    <div key={service.id} className="rounded-lg border border-primary shadow-md hover:shadow-lg transition-all bg-secondary overflow-hidden">
-                      {/* Imagen en la parte superior ocupando todo el ancho */}
-                      <div className="relative w-full h-48 sm:h-64">
-                        {service.imagen_url ? (
-                          <Image 
-                            src={service.imagen_url} 
-                            alt={service.nombre} 
-                            fill
-                            className="object-cover"
-                          />
-                        ) : (
-                          <div className="w-full h-full flex items-center justify-center bg-dark">
-                            <span className="text-4xl sm:text-6xl font-bold text-primary">
-                              {service.nombre.charAt(0)}
-                            </span>
-                          </div>
-                        )}
-                      </div>
-                      
-                      {/* Contenido debajo de la imagen */}
-                      <div className="p-5">
-                        <div className="flex justify-between items-center mb-2">
-                          <h3 className="text-xl font-bold text-primary">{service.nombre}</h3>
-                          <p className="text-primary font-bold">{service.precio}€</p>
+
+            <AdminCard>
+              <AdminCardHeader>
+                <h2 className="text-xl font-semibold text-primary">Liste de services</h2>
+              </AdminCardHeader>
+              <AdminCardContent>
+                {services.length === 0 ? (
+                  <div className="rounded-xl border border-white/10 bg-black/25 p-6 text-sm text-zinc-400">
+                    Aucun service disponible.
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3">
+                    {services.map((service) => (
+                      <article
+                        key={service.id}
+                        className="overflow-hidden rounded-2xl border border-white/10 bg-black/25 shadow-[0_18px_35px_-26px_rgba(0,0,0,0.95)]"
+                      >
+                        <div className="relative h-48 w-full">
+                          {service.imagen_url ? (
+                            <Image
+                              src={service.imagen_url}
+                              alt={service.nombre}
+                              fill
+                              className="object-cover"
+                            />
+                          ) : (
+                            <div className="flex h-full w-full items-center justify-center bg-black/55">
+                              <span className="text-5xl font-bold text-primary">
+                                {service.nombre.charAt(0)}
+                              </span>
+                            </div>
+                          )}
                         </div>
-                        
-                        <p className="text-sm text-light mb-2">{service.descripcion}</p>
-                      </div>
-                      
-                      {/* Botones de acción */}
-                      <div className="flex border-t border-gray-700">
-                        <button
-                          onClick={() => handleEditService(service)}
-                          className="flex-1 text-center py-3 font-medium text-light hover:bg-dark hover:text-primary transition-colors"
-                        >
-                          Modifier
-                        </button>
-                        <div className="w-px bg-gray-700"></div>
-                        <button
-                          onClick={() => handleDeleteService(service.id)}
-                          className="flex-1 text-center py-3 font-medium text-light hover:bg-dark hover:text-primary transition-colors"
-                        >
-                          Supprimer
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
+
+                        <div className="space-y-3 p-5">
+                          <div className="flex items-start justify-between gap-3">
+                            <h3 className="text-lg font-semibold text-zinc-100">{service.nombre}</h3>
+                            <p className="text-sm font-semibold text-primary">{service.precio} CHF</p>
+                          </div>
+                          <p className="text-sm leading-relaxed text-zinc-400">{service.descripcion}</p>
+                        </div>
+
+                        <div className="flex gap-2 border-t border-white/10 p-4">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            className="flex-1"
+                            onClick={() => handleEditService(service)}
+                          >
+                            Modifier
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="destructive"
+                            className="flex-1"
+                            onClick={() => handleDeleteService(service.id)}
+                          >
+                            Supprimer
+                          </Button>
+                        </div>
+                      </article>
+                    ))}
+                  </div>
+                )}
+              </AdminCardContent>
+            </AdminCard>
           </div>
         )}
         
         {activeSection === 'gallery' && (
-          <div className="space-y-8">
-            <h1 className="text-3xl font-bold text-primary">Gestion de la Galerie</h1>
+          <div className="space-y-6">
+            <SectionHeader
+              title="Gestion de la Galerie"
+              description="Ajout, édition et suppression des médias de la galerie."
+            />
             
-            {/* Botón para mostrar/ocultar el formulario */}
-            <button 
+            <Button
               onClick={() => {
                 if (showGalleryForm) {
                   cancelGalleryForm();
@@ -760,141 +774,152 @@ export default function AdminPage() {
                   setShowGalleryForm(true);
                 }
               }}
-              className="bg-secondary text-light px-6 py-2 rounded-md mb-6 hover:bg-dark hover:text-primary transition-colors border-2 border-primary font-bold"
+              variant={showGalleryForm ? 'outline' : 'default'}
             >
               {showGalleryForm ? 'Fermer' : 'Ajouter nouvelle image'}
-            </button>
+            </Button>
             
-            {/* Formulario condicional */}
             {showGalleryForm && (
-              <div className="bg-secondary shadow-lg rounded-lg overflow-hidden mb-8">
-                <div className="p-6">
-                  <h2 className="text-xl font-bold text-primary mb-4">
-                    {editingGalleryId ? 'Editer image' : 'Ajouter nouvelle image'}
+              <AdminCard tone="highlight">
+                <AdminCardHeader>
+                  <h2 className="text-xl font-semibold text-primary">
+                    {editingGalleryId ? 'Éditer image' : 'Ajouter nouvelle image'}
                   </h2>
-                  
-                  <form onSubmit={handleAddImage} className="mb-6 grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-light text-sm font-bold mb-2">Description</label>
-                      <input
+                </AdminCardHeader>
+                <AdminCardContent>
+                  <form onSubmit={handleAddImage} className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                    <div className="space-y-2">
+                      <label className="text-xs font-semibold uppercase tracking-wide text-zinc-400">
+                        Description
+                      </label>
+                      <Input
                         type="text"
-                        className="w-full px-3 py-2 border border-gray-600 rounded bg-dark text-light"
                         value={newImage.descripcion}
                         onChange={(e) => setNewImage({ ...newImage, descripcion: e.target.value })}
                         required
                       />
                     </div>
                     
-                    <div>
-                      <label className="block text-light text-sm font-bold mb-2">Date</label>
-                      <input
+                    <div className="space-y-2">
+                      <label className="text-xs font-semibold uppercase tracking-wide text-zinc-400">
+                        Date
+                      </label>
+                      <Input
                         type="date"
-                        className="w-full px-3 py-2 border border-gray-600 rounded bg-dark text-light"
                         value={newImage.fecha}
                         onChange={(e) => setNewImage({ ...newImage, fecha: e.target.value })}
                         required
                       />
                     </div>
                     
-                    <div className="md:col-span-2">
-                      <label className="block text-light text-sm font-bold mb-2">Image pour la galerie</label>
-                      <div className="flex flex-col sm:flex-row gap-4 w-full items-center">
-                        <div className="w-full">
-                          <div className="w-full flex justify-center sm:justify-start">
-                            <input
-                              ref={galleryImageInputRef}
-                              type="file"
-                              accept="image/*"
-                              className="w-full max-w-xs sm:max-w-full p-2 rounded text-light bg-dark border border-gray-600 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-primary file:text-secondary"
-                              onChange={(e) => handleFileChange(e, setGalleryImageFile, setGalleryImagePreview)}
-                              required={!editingGalleryId}
-                            />
-                          </div>
-                          <p className="text-sm mt-2 text-gray-400 text-center sm:text-left">
+                    <div className="space-y-2 md:col-span-2">
+                      <label className="text-xs font-semibold uppercase tracking-wide text-zinc-400">
+                        Image pour la galerie
+                      </label>
+                      <div className="grid gap-3 md:grid-cols-[1fr_auto] md:items-end">
+                        <div className="space-y-2">
+                          <Input
+                            ref={galleryImageInputRef}
+                            type="file"
+                            accept="image/*"
+                            className="h-auto py-2 file:mr-3 file:rounded-lg file:border file:border-primary/45 file:bg-primary/12 file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-primary"
+                            onChange={(e) => handleFileChange(e, setGalleryImageFile, setGalleryImagePreview)}
+                            required={!editingGalleryId}
+                          />
+                          <p className="text-xs text-zinc-500">
                             Format recommandé: JPEG ou PNG, taille maximale 2MB
                           </p>
                         </div>
                         
                         {galleryImagePreview && (
-                          <div className="w-24 h-24 relative flex-shrink-0">
+                          <div className="relative h-24 w-24 overflow-hidden rounded-xl border border-primary/45">
                             <Image
                               src={galleryImagePreview}
-                              alt="Vista previa"
-                              className="rounded object-cover w-full h-full border-2 border-primary"
-                              width={96}
-                              height={96}
+                              alt="Aperçu de la galerie"
+                              fill
+                              className="object-cover"
                             />
                           </div>
                         )}
                       </div>
                     </div>
                     
-                    <div className="md:col-span-2 flex flex-col sm:flex-row gap-3 pt-4 justify-center sm:justify-start">
-                      <button
+                    <div className="flex flex-wrap items-center gap-3 pt-2 md:col-span-2">
+                      <Button
                         type="submit"
-                        className="bg-primary px-6 py-2 rounded font-bold text-secondary hover:bg-yellow-400 transition-colors w-full sm:w-auto"
                         disabled={isUploading}
                       >
-                        {isUploading ? 'Téléchargent' : (editingGalleryId ? 'Mise à jour' : 'Ajouter image')}
-                      </button>
-                      <button
+                        {isUploading ? 'Téléchargement...' : (editingGalleryId ? 'Mise à jour' : 'Ajouter image')}
+                      </Button>
+                      <Button
                         type="button"
+                        variant="secondary"
                         onClick={cancelGalleryForm}
-                        className="bg-gray-600 text-white px-6 py-2 rounded hover:bg-gray-700 transition-colors w-full sm:w-auto"
                       >
                         Annuler
-                      </button>
+                      </Button>
                     </div>
                   </form>
-                </div>
-              </div>
+                </AdminCardContent>
+              </AdminCard>
             )}
             
-            {/* Componente principal con galería */}
-            <div className="bg-secondary shadow-lg rounded-lg overflow-hidden">
-              <div className="p-6">
-                <h2 className="text-xl font-bold text-primary mb-4">Images de la Galerie</h2>
-                
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {galleryImages.map((image) => (
-                    <div key={image.id} className="rounded-lg border border-primary shadow-md hover:shadow-lg transition-all bg-secondary overflow-hidden">
-                      {/* Imagen en la parte superior ocupando todo el ancho */}
-                      <div className="relative w-full h-48 sm:h-64">
-                        <Image 
-                          src={image.imagen_url} 
-                          alt={image.descripcion} 
-                          fill
-                          className="object-cover"
-                        />
-                      </div>
-                      
-                      {/* Contenido debajo de la imagen */}
-                      <div className="p-4">
-                        <h3 className="font-bold text-light mb-1">{image.descripcion}</h3>
-                        <p className="text-xs text-gray-400">{new Date(image.fecha).toLocaleDateString('fr-FR')}</p>
-                      </div>
-                      
-                      {/* Botones de acción */}
-                      <div className="flex border-t border-gray-700">
-                        <button
-                          onClick={() => handleEditImage(image)}
-                          className="flex-1 text-center py-3 font-medium text-light hover:bg-dark hover:text-primary transition-colors"
-                        >
-                          Modifier
-                        </button>
-                        <div className="w-px bg-gray-700"></div>
-                        <button
-                          onClick={() => handleDeleteImage(image.id)}
-                          className="flex-1 text-center py-3 font-medium text-light hover:bg-dark hover:text-primary transition-colors"
-                        >
-                          Supprimer
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
+            <AdminCard>
+              <AdminCardHeader>
+                <h2 className="text-xl font-semibold text-primary">Images de la Galerie</h2>
+              </AdminCardHeader>
+              <AdminCardContent>
+                {galleryImages.length === 0 ? (
+                  <div className="rounded-xl border border-white/10 bg-black/25 p-6 text-sm text-zinc-400">
+                    Aucune image disponible.
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-3">
+                    {galleryImages.map((image) => (
+                      <article
+                        key={image.id}
+                        className="overflow-hidden rounded-2xl border border-white/10 bg-black/25 shadow-[0_18px_35px_-26px_rgba(0,0,0,0.95)]"
+                      >
+                        <div className="relative h-48 w-full">
+                          <Image
+                            src={image.imagen_url}
+                            alt={image.descripcion}
+                            fill
+                            className="object-cover"
+                          />
+                        </div>
+
+                        <div className="space-y-2 p-5">
+                          <h3 className="text-base font-semibold text-zinc-100">{image.descripcion}</h3>
+                          <p className="text-xs text-zinc-400">
+                            {new Date(image.fecha).toLocaleDateString('fr-FR')}
+                          </p>
+                        </div>
+                        
+                        <div className="flex gap-2 border-t border-white/10 p-4">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            className="flex-1"
+                            onClick={() => handleEditImage(image)}
+                          >
+                            Modifier
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="destructive"
+                            className="flex-1"
+                            onClick={() => handleDeleteImage(image.id)}
+                          >
+                            Supprimer
+                          </Button>
+                        </div>
+                      </article>
+                    ))}
+                  </div>
+                )}
+              </AdminCardContent>
+            </AdminCard>
           </div>
         )}
         
@@ -912,7 +937,10 @@ export default function AdminPage() {
         
         {activeSection === 'hero' && (
           <div className="space-y-8">
-            <h1 className="text-3xl font-bold text-primary">Configuration du Hero</h1>
+            <SectionHeader
+              title="Configuration du Hero"
+              description="Gestion des images desktop/mobile et fonds de section services."
+            />
             
             <div className="bg-secondary shadow-lg rounded-lg overflow-hidden mb-8">
               <div className="p-6">
@@ -926,7 +954,7 @@ export default function AdminPage() {
                     
                     <div className="mb-4">
                       <label className="block text-light text-sm font-bold mb-2">Sélectionner une image</label>
-                      <input
+                      <Input
                         ref={heroDesktopInputRef}
                         type="file"
                         accept="image/*"
@@ -938,25 +966,27 @@ export default function AdminPage() {
                     {heroDesktopPreview && (
                       <div className="mt-4 w-full">
                         <p className="text-sm font-medium text-light mb-2">Prévisualisation:</p>
-                        <div className="border rounded-lg overflow-hidden">
-                          <Image 
-                            src={heroDesktopPreview} 
-                            alt="Prévisualisation de l'image pour l'ordinateur" 
-                            width={400}
-                            height={200}
-                            className="w-full h-auto object-cover"
-                          />
+                        <div className="flex justify-center md:justify-start">
+                          <div className="relative h-44 w-full max-w-[360px] overflow-hidden rounded-lg border border-gray-700 bg-black/35">
+                            <Image 
+                              src={heroDesktopPreview} 
+                              alt="Prévisualisation de l'image pour l'ordinateur" 
+                              fill
+                              sizes="(max-width: 768px) 90vw, 360px"
+                              className="object-contain p-1"
+                            />
+                          </div>
                         </div>
                       </div>
                     )}
                     
-                    <button 
+                    <Button 
                       onClick={() => updateConfigImage('hero_image_desktop', heroDesktopFile, heroDesktopImage)}
                       className="bg-primary text-secondary font-bold py-2 px-4 rounded hover:bg-yellow-400 transition duration-300 disabled:opacity-50 mt-4"
                       disabled={isUploading}
                     >
                       {isUploading ? 'Téléchargement...' : 'Mise à jour de l\'image'}
-                    </button>
+                    </Button>
                   </div>
                   
                   {/* Image mobile */}
@@ -966,7 +996,7 @@ export default function AdminPage() {
                     
                     <div className="mb-4">
                       <label className="block text-light text-sm font-bold mb-2">Sélectionner une image</label>
-                      <input
+                      <Input
                         ref={heroMobileInputRef}
                         type="file"
                         accept="image/*"
@@ -978,25 +1008,27 @@ export default function AdminPage() {
                     {heroMobilePreview && (
                       <div className="mt-4 w-full">
                         <p className="text-sm font-medium text-light mb-2">Prévisualisation:</p>
-                        <div className="border rounded-lg overflow-hidden">
-                          <Image 
-                            src={heroMobilePreview} 
-                            alt="Prévisualisation de l'image pour le mobile" 
-                            width={400}
-                            height={200}
-                            className="w-full h-auto object-cover"
-                          />
+                        <div className="flex justify-center md:justify-start">
+                          <div className="relative h-60 w-full max-w-[220px] overflow-hidden rounded-lg border border-gray-700 bg-black/35">
+                            <Image 
+                              src={heroMobilePreview} 
+                              alt="Prévisualisation de l'image pour le mobile" 
+                              fill
+                              sizes="220px"
+                              className="object-contain p-1"
+                            />
+                          </div>
                         </div>
                       </div>
                     )}
                     
-                    <button 
+                    <Button 
                       onClick={() => updateConfigImage('hero_image_mobile', heroMobileFile, heroMobileImage)}
                       className="bg-primary text-secondary font-bold py-2 px-4 rounded hover:bg-yellow-400 transition duration-300 disabled:opacity-50 mt-4"
                       disabled={isUploading}
                     >
                       {isUploading ? 'Téléchargement...' : 'Mise à jour de l\'image'}
-                    </button>
+                    </Button>
                   </div>
                 </div>
               </div>
@@ -1012,7 +1044,7 @@ export default function AdminPage() {
                   
                   <div className="mb-4">
                     <label className="block text-light text-sm font-bold mb-2">Sélectionner une image</label>
-                    <input
+                    <Input
                       ref={servicesBackgroundInputRef}
                       type="file"
                       accept="image/*"
@@ -1024,25 +1056,27 @@ export default function AdminPage() {
                   {servicesBackgroundPreview && (
                     <div className="mt-4 w-full">
                       <p className="text-sm font-medium text-light mb-2">Prévisualisation:</p>
-                      <div className="border rounded-lg overflow-hidden">
-                        <Image 
-                          src={servicesBackgroundPreview} 
-                          alt="Prévisualisation de l'image de fond des services" 
-                          width={400}
-                          height={200}
-                          className="w-full h-auto object-cover"
-                        />
+                      <div className="flex justify-center md:justify-start">
+                        <div className="relative h-44 w-full max-w-[360px] overflow-hidden rounded-lg border border-gray-700 bg-black/35">
+                          <Image 
+                            src={servicesBackgroundPreview} 
+                            alt="Prévisualisation de l'image de fond des services" 
+                            fill
+                            sizes="(max-width: 768px) 90vw, 360px"
+                            className="object-contain p-1"
+                          />
+                        </div>
                       </div>
                     </div>
                   )}
                   
-                  <button 
+                  <Button 
                     onClick={() => updateConfigImage('services_background', servicesBackgroundFile, servicesBackgroundImage)}
                     className="bg-primary text-secondary font-bold py-2 px-4 rounded hover:bg-yellow-400 transition duration-300 disabled:opacity-50 mt-4"
                     disabled={isUploading}
                   >
                     {isUploading ? 'Téléchargement...' : 'Mise à jour de l\'image'}
-                  </button>
+                  </Button>
                 </div>
                 
                 <div className="border border-primary rounded-lg p-4 bg-dark">
@@ -1051,7 +1085,7 @@ export default function AdminPage() {
                   
                   <div className="mb-4">
                     <label className="block text-light text-sm font-bold mb-2">Sélectionner une image</label>
-                    <input
+                    <Input
                       ref={servicesBackgroundMobileInputRef}
                       type="file"
                       accept="image/*"
@@ -1063,25 +1097,27 @@ export default function AdminPage() {
                   {servicesBackgroundMobilePreview && (
                     <div className="mt-4 w-full">
                       <p className="text-sm font-medium text-light mb-2">Prévisualisation:</p>
-                      <div className="border rounded-lg overflow-hidden">
-                        <Image 
-                          src={servicesBackgroundMobilePreview} 
-                          alt="Prévisualisation de l'image de fond des services (mobile)" 
-                          width={400}
-                          height={200}
-                          className="w-full h-auto object-cover"
-                        />
+                      <div className="flex justify-center md:justify-start">
+                        <div className="relative h-60 w-full max-w-[220px] overflow-hidden rounded-lg border border-gray-700 bg-black/35">
+                          <Image 
+                            src={servicesBackgroundMobilePreview} 
+                            alt="Prévisualisation de l'image de fond des services (mobile)" 
+                            fill
+                            sizes="220px"
+                            className="object-contain p-1"
+                          />
+                        </div>
                       </div>
                     </div>
                   )}
                   
-                  <button 
+                  <Button 
                     onClick={() => updateConfigImage('services_background_mobile', servicesBackgroundMobileFile, servicesBackgroundMobileImage)}
                     className="bg-primary text-secondary font-bold py-2 px-4 rounded hover:bg-yellow-400 transition duration-300 disabled:opacity-50 mt-4"
                     disabled={isUploading}
                   >
                     {isUploading ? 'Téléchargement...' : 'Mise à jour de l\'image'}
-                  </button>
+                  </Button>
                 </div>
               </div>
             </div>

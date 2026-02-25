@@ -2,7 +2,25 @@
 
 import { useState, useEffect } from 'react';
 import { supabase, ClientCRM, Booking, Location, Service, Stylist } from '@/lib/supabase';
-import { FaUser, FaEnvelope, FaPhone, FaCalendarAlt, FaMapMarkerAlt, FaUserTie, FaSearch, FaChevronDown, FaCut } from 'react-icons/fa';
+import { FaUser, FaEnvelope, FaPhone, FaMapMarkerAlt, FaUserTie, FaSearch, FaChevronDown, FaCut } from 'react-icons/fa';
+import {
+  AdminCard,
+  AdminCardContent,
+  AdminCardHeader,
+  FilterBar,
+  SectionHeader,
+  StatusBadge,
+} from '@/components/admin/ui';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 
 // Tipo extendido para las reservas con detalles
 type BookingWithDetails = Booking & {
@@ -267,300 +285,328 @@ export default function ClientCRMPage() {
     setSelectedClient(null);
   };
 
-  // Renderizar la página de detalles del cliente
   if (selectedClient) {
     return (
-      <div className="min-h-screen flex flex-col bg-dark">
-        <div className="flex-grow container mx-auto px-4 py-8">
-          <button
-            onClick={backToClientList}
-            className="mb-6 flex items-center text-primary hover:opacity-80 transition-opacity duration-200"
-          >
-            <FaChevronDown className="rotate-90 mr-2" /> Retour à la liste des clients
-          </button>
-          
-          <h1 className="text-3xl font-bold text-primary mb-8">Détails du Client</h1>
-          
-          {/* Información del cliente */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-            <div className="bg-secondary rounded-lg p-6 shadow-lg">
-              <div className="flex items-center mb-4">
-                <FaUser className="text-primary text-2xl mr-3" />
-                <h3 className="text-xl font-semibold text-light">Informations Personnelles</h3>
-              </div>
-              
-              <div className="space-y-2">
-                <p className="flex items-center">
-                  <span className="text-light mr-2">Nom:</span> 
-                  <span className="text-primary font-semibold">{selectedClient.name}</span>
+      <div className="admin-scope min-h-screen bg-dark px-4 py-8 text-zinc-100">
+        <div className="mx-auto flex w-full max-w-7xl flex-col gap-6">
+          <SectionHeader
+            title="Détails du client"
+            description="Vue CRM détaillée avec historique, habitudes et dépenses."
+            actions={
+              <Button type="button" variant="outline" onClick={backToClientList}>
+                <FaChevronDown className="rotate-90" />
+                Retour à la liste
+              </Button>
+            }
+          />
+
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <AdminCard>
+              <AdminCardHeader>
+                <h3 className="text-lg font-semibold text-zinc-100">
+                  Informations personnelles
+                </h3>
+              </AdminCardHeader>
+              <AdminCardContent className="space-y-2 text-sm text-zinc-300">
+                <p className="flex items-center gap-2">
+                  <FaUser className="text-primary" />
+                  <span className="font-semibold text-zinc-100">
+                    {selectedClient.name}
+                  </span>
                 </p>
-                <p className="flex items-center">
-                  <FaEnvelope className="text-light mr-2" /> 
-                  <span className="text-primary">{selectedClient.email}</span>
+                <p className="flex items-center gap-2">
+                  <FaEnvelope className="text-primary" />
+                  {selectedClient.email}
                 </p>
-                <p className="flex items-center">
-                  <FaPhone className="text-light mr-2" /> 
-                  <span className="text-primary">{selectedClient.phone}</span>
+                <p className="flex items-center gap-2">
+                  <FaPhone className="text-primary" />
+                  {selectedClient.phone}
                 </p>
-              </div>
-            </div>
-            
-            <div className="bg-secondary rounded-lg p-6 shadow-lg">
-              <div className="flex items-center mb-4">
-                <FaCalendarAlt className="text-primary text-2xl mr-3" />
-                <h3 className="text-xl font-semibold text-light">Statistiques</h3>
-              </div>
-              
-              <div className="space-y-2">
+              </AdminCardContent>
+            </AdminCard>
+
+            <AdminCard>
+              <AdminCardHeader>
+                <h3 className="text-lg font-semibold text-zinc-100">
+                  Statistiques
+                </h3>
+              </AdminCardHeader>
+              <AdminCardContent className="space-y-2 text-sm text-zinc-300">
                 <p>
-                  <span className="text-light">Première visite:</span> 
-                  <span className="text-primary font-semibold ml-2">{formatDate(selectedClient.first_visit_date)}</span>
-                </p>
-                <p>
-                  <span className="text-light">Dernière visite:</span> 
-                  <span className="text-primary font-semibold ml-2">{formatDate(selectedClient.last_visit_date)}</span>
-                </p>
-                <p>
-                  <span className="text-light">Total des visites:</span> 
-                  <span className="text-primary font-semibold ml-2">{selectedClient.total_visits}</span>
+                  Première visite:{" "}
+                  <span className="font-semibold text-primary">
+                    {formatDate(selectedClient.first_visit_date)}
+                  </span>
                 </p>
                 <p>
-                  <span className="text-light">Total dépensé:</span> 
-                  <span className="text-primary font-semibold ml-2">{formatPrice(selectedClient.total_spent)}</span>
+                  Dernière visite:{" "}
+                  <span className="font-semibold text-primary">
+                    {formatDate(selectedClient.last_visit_date)}
+                  </span>
                 </p>
-              </div>
-            </div>
+                <p>
+                  Total des visites:{" "}
+                  <span className="font-semibold text-primary">
+                    {selectedClient.total_visits}
+                  </span>
+                </p>
+                <p>
+                  Total dépensé:{" "}
+                  <span className="font-semibold text-primary">
+                    {formatPrice(selectedClient.total_spent)}
+                  </span>
+                </p>
+              </AdminCardContent>
+            </AdminCard>
           </div>
-          
-          {/* Preferencias del cliente */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-            <div className="bg-secondary rounded-lg p-6 shadow-lg">
-              <div className="flex items-center mb-4">
-                <FaMapMarkerAlt className="text-primary text-2xl mr-3" />
-                <h3 className="text-xl font-semibold text-light">Centre Préféré</h3>
-              </div>
-              
-              {selectedClient.favorite_location ? (
-                <p className="text-primary font-semibold">{selectedClient.favorite_location.name}</p>
-              ) : (
-                <p className="text-light opacity-60 italic">Non défini</p>
-              )}
-            </div>
-            
-            <div className="bg-secondary rounded-lg p-6 shadow-lg">
-              <div className="flex items-center mb-4">
-                <FaUserTie className="text-primary text-2xl mr-3" />
-                <h3 className="text-xl font-semibold text-light">Styliste Préféré</h3>
-              </div>
-              
-              {selectedClient.favorite_stylist ? (
-                <p className="text-primary font-semibold">{selectedClient.favorite_stylist.name}</p>
-              ) : (
-                <p className="text-light opacity-60 italic">Non défini</p>
-              )}
-            </div>
-            
-            <div className="bg-secondary rounded-lg p-6 shadow-lg">
-              <div className="flex items-center mb-4">
-                <FaCut className="text-primary text-2xl mr-3" />
-                <h3 className="text-xl font-semibold text-light">Service Préféré</h3>
-              </div>
-              
-              {selectedClient.favorite_service ? (
-                <p className="text-primary font-semibold">{selectedClient.favorite_service.nombre}</p>
-              ) : (
-                <p className="text-light opacity-60 italic">Non défini</p>
-              )}
-            </div>
+
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+            <AdminCard>
+              <AdminCardHeader>
+                <h3 className="text-base font-semibold text-zinc-100">
+                  Centre préféré
+                </h3>
+              </AdminCardHeader>
+              <AdminCardContent className="text-sm text-zinc-300">
+                <p className="flex items-center gap-2">
+                  <FaMapMarkerAlt className="text-primary" />
+                  {selectedClient.favorite_location?.name || "Non défini"}
+                </p>
+              </AdminCardContent>
+            </AdminCard>
+
+            <AdminCard>
+              <AdminCardHeader>
+                <h3 className="text-base font-semibold text-zinc-100">
+                  Styliste préféré
+                </h3>
+              </AdminCardHeader>
+              <AdminCardContent className="text-sm text-zinc-300">
+                <p className="flex items-center gap-2">
+                  <FaUserTie className="text-primary" />
+                  {selectedClient.favorite_stylist?.name || "Non défini"}
+                </p>
+              </AdminCardContent>
+            </AdminCard>
+
+            <AdminCard>
+              <AdminCardHeader>
+                <h3 className="text-base font-semibold text-zinc-100">
+                  Service préféré
+                </h3>
+              </AdminCardHeader>
+              <AdminCardContent className="text-sm text-zinc-300">
+                <p className="flex items-center gap-2">
+                  <FaCut className="text-primary" />
+                  {selectedClient.favorite_service?.nombre || "Non défini"}
+                </p>
+              </AdminCardContent>
+            </AdminCard>
           </div>
-          
-          {/* Reservas del cliente */}
-          <div className="bg-secondary rounded-lg p-6 shadow-lg">
-            <div className="flex items-center mb-6">
-              <FaCalendarAlt className="text-primary text-2xl mr-3" />
-              <h3 className="text-xl font-semibold text-light">Historique des Réservations</h3>
-            </div>
-            
-            {selectedClient.bookings.length > 0 ? (
-              <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-dark">
-                  <thead className="bg-dark">
-                    <tr>
-                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-light uppercase tracking-wider">Date</th>
-                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-light uppercase tracking-wider">Service</th>
-                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-light uppercase tracking-wider">Styliste</th>
-                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-light uppercase tracking-wider">Centre</th>
-                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-light uppercase tracking-wider">Statut</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-dark">
+
+          <AdminCard>
+            <AdminCardHeader>
+              <h3 className="text-lg font-semibold text-zinc-100">
+                Historique des réservations
+              </h3>
+            </AdminCardHeader>
+            <AdminCardContent>
+              {selectedClient.bookings.length > 0 ? (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Date</TableHead>
+                      <TableHead>Service</TableHead>
+                      <TableHead>Styliste</TableHead>
+                      <TableHead>Centre</TableHead>
+                      <TableHead>Statut</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
                     {selectedClient.bookings.map((booking) => {
-                      // Tratar booking como BookingWithDetails
-                      const bookingWithDetails = booking as unknown as BookingWithDetails;
+                      const bookingWithDetails =
+                        booking as unknown as BookingWithDetails;
                       return (
-                        <tr key={booking.id}>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="text-sm text-light">{formatDate(booking.booking_date)}</div>
-                            <div className="text-sm text-primary">
-                              {booking.start_time.substring(0, 5)} - {booking.end_time.substring(0, 5)}
+                        <TableRow key={booking.id}>
+                          <TableCell>
+                            <div>{formatDate(booking.booking_date)}</div>
+                            <div className="text-primary">
+                              {booking.start_time.substring(0, 5)} -{" "}
+                              {booking.end_time.substring(0, 5)}
                             </div>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="text-sm text-light">{bookingWithDetails.service?.nombre || 'Service inconnu'}</div>
-                            {bookingWithDetails.service?.precio && (
-                              <div className="text-sm text-primary">{formatPrice(bookingWithDetails.service.precio)}</div>
-                            )}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="text-sm text-light">{bookingWithDetails.stylist?.name || 'Styliste inconnu'}</div>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="text-sm text-light">{bookingWithDetails.location?.name || 'Centre inconnu'}</div>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
-                              ${booking.status === 'completed' ? 'bg-primary text-dark' : 
-                                booking.status === 'confirmed' ? 'bg-primary bg-opacity-70 text-dark' : 
-                                booking.status === 'cancelled' ? 'bg-red-500 text-light' : 
-                                'bg-primary bg-opacity-30 text-dark'}`}>
-                              {booking.status === 'completed' ? 'Terminé' : 
-                                booking.status === 'confirmed' ? 'Confirmé' : 
-                                booking.status === 'cancelled' ? 'Annulé' : 
-                                'En attente'}
-                            </span>
-                          </td>
-                        </tr>
+                          </TableCell>
+                          <TableCell>
+                            <div>
+                              {bookingWithDetails.service?.nombre ||
+                                "Service inconnu"}
+                            </div>
+                            {bookingWithDetails.service?.precio ? (
+                              <div className="text-primary">
+                                {formatPrice(bookingWithDetails.service.precio)}
+                              </div>
+                            ) : null}
+                          </TableCell>
+                          <TableCell>
+                            {bookingWithDetails.stylist?.name ||
+                              "Styliste inconnu"}
+                          </TableCell>
+                          <TableCell>
+                            {bookingWithDetails.location?.name || "Centre inconnu"}
+                          </TableCell>
+                          <TableCell>
+                            <StatusBadge status={booking.status} />
+                          </TableCell>
+                        </TableRow>
                       );
                     })}
-                  </tbody>
-                </table>
-              </div>
-            ) : (
-              <p className="text-light opacity-60 italic">Aucune réservation trouvée</p>
-            )}
-          </div>
+                  </TableBody>
+                </Table>
+              ) : (
+                <p className="text-zinc-400">Aucune réservation trouvée.</p>
+              )}
+            </AdminCardContent>
+          </AdminCard>
         </div>
       </div>
     );
   }
 
-  // Renderizar la lista de clientes
   return (
-    <div className="min-h-screen flex flex-col bg-dark">
-      <div className="flex-grow container mx-auto px-4 py-8">
-        <h1 className="text-3xl font-bold text-primary mb-8">Gestion des Clients</h1>
-        
-        <div className="bg-secondary rounded-lg shadow-lg p-6 mb-8">
-          <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-6">
-            <div className="relative w-full md:w-96 mb-4 md:mb-0">
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <FaSearch className="text-primary opacity-70" />
-              </div>
-              <input
-                type="text"
-                className="pl-10 pr-4 py-2 border border-primary rounded-md w-full focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent bg-dark text-light"
-                placeholder="Rechercher par nom, email ou téléphone..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-              />
-            </div>
-            
-            <div className="flex items-center gap-4">
-              <div className="text-light">
-                <span className="text-primary font-semibold">{filteredClients.length}</span> client{filteredClients.length !== 1 ? 's' : ''} trouvé{filteredClients.length !== 1 ? 's' : ''}
-              </div>
-              
-              <div className="flex gap-2">
-                <button 
-                  onClick={() => requestSort('name')}
-                  className={`px-2 py-1 rounded text-xs ${sortConfig.key === 'name' ? 'bg-primary text-dark' : 'bg-dark text-light'}`}
-                >
-                  Nom {sortConfig.key === 'name' && (sortConfig.direction === 'ascending' ? '↑' : '↓')}
-                </button>
-                <button 
-                  onClick={() => requestSort('total_visits')}
-                  className={`px-2 py-1 rounded text-xs ${sortConfig.key === 'total_visits' ? 'bg-primary text-dark' : 'bg-dark text-light'}`}
-                >
-                  Visites {sortConfig.key === 'total_visits' && (sortConfig.direction === 'ascending' ? '↑' : '↓')}
-                </button>
-                <button 
-                  onClick={() => requestSort('total_spent')}
-                  className={`px-2 py-1 rounded text-xs ${sortConfig.key === 'total_spent' ? 'bg-primary text-dark' : 'bg-dark text-light'}`}
-                >
-                  Dépensé {sortConfig.key === 'total_spent' && (sortConfig.direction === 'ascending' ? '↑' : '↓')}
-                </button>
-              </div>
-            </div>
+    <div className="admin-scope min-h-screen bg-dark px-4 py-8 text-zinc-100">
+      <div className="mx-auto flex w-full max-w-7xl flex-col gap-6">
+        <SectionHeader
+          title="Gestion des clients"
+          description="Recherche, tri et accès rapide aux fiches CRM."
+        />
+
+        <FilterBar
+          actions={
+            <>
+              <Button
+                type="button"
+                size="sm"
+                variant={sortConfig.key === 'name' ? 'default' : 'secondary'}
+                onClick={() => requestSort('name')}
+              >
+                Nom {sortConfig.key === 'name' && (sortConfig.direction === 'ascending' ? '↑' : '↓')}
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant={sortConfig.key === 'total_visits' ? 'default' : 'secondary'}
+                onClick={() => requestSort('total_visits')}
+              >
+                Visites {sortConfig.key === 'total_visits' && (sortConfig.direction === 'ascending' ? '↑' : '↓')}
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant={sortConfig.key === 'total_spent' ? 'default' : 'secondary'}
+                onClick={() => requestSort('total_spent')}
+              >
+                Dépensé {sortConfig.key === 'total_spent' && (sortConfig.direction === 'ascending' ? '↑' : '↓')}
+              </Button>
+            </>
+          }
+        >
+          <div className="relative md:col-span-2">
+            <FaSearch className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" />
+            <Input
+              type="text"
+              className="pl-10"
+              placeholder="Rechercher par nom, email ou téléphone..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
           </div>
-          
-          {loading ? (
-            <div className="flex justify-center items-center py-12">
-              <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
-            </div>
-          ) : error ? (
-            <div className="bg-red-500 text-white p-4 rounded relative" role="alert">
-              <strong className="font-bold">Erreur!</strong>
-              <span className="block sm:inline"> {error}</span>
-            </div>
-          ) : filteredClients.length === 0 ? (
-            <div className="text-center py-12">
-              <FaUser className="mx-auto text-primary opacity-50 text-5xl mb-4" />
-              <p className="text-light opacity-60 text-lg">Aucun client trouvé</p>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {filteredClients.map((client) => (
-                <div 
-                  key={client.email} 
-                  className="bg-dark rounded-lg p-4 shadow-lg hover:shadow-xl transition-shadow duration-300 border border-dark hover:border-primary cursor-pointer"
-                  onClick={() => viewClientDetails(client)}
-                >
-                  <div className="flex items-start mb-4">
-                    <div className="bg-secondary p-3 rounded-full mr-3">
-                      <FaUser className="text-primary text-xl" />
-                    </div>
-                    <div>
-                      <h3 className="text-lg font-bold text-primary">{client.name}</h3>
-                      <p className="text-sm text-light flex items-center mt-1">
-                        <FaEnvelope className="mr-2 text-primary opacity-70" /> {client.email}
-                      </p>
-                      <p className="text-sm text-light flex items-center mt-1">
-                        <FaPhone className="mr-2 text-primary opacity-70" /> {client.phone}
-                      </p>
-                    </div>
-                  </div>
-                  
-                  <div className="grid grid-cols-2 gap-2 mt-4">
-                    <div className="bg-secondary p-2 rounded-lg">
-                      <p className="text-xs text-light">Visites</p>
-                      <p className="text-xl font-bold text-primary">{client.total_visits}</p>
-                    </div>
-                    <div className="bg-secondary p-2 rounded-lg">
-                      <p className="text-xs text-light">Dépensé</p>
-                      <p className="text-xl font-bold text-primary">{formatPrice(client.total_spent)}</p>
-                    </div>
-                  </div>
-                  
-                  <div className="mt-4 flex justify-between items-center">
-                    <div className="text-xs text-light">
-                      Dernière visite: <span className="text-primary">{formatDate(client.last_visit_date)}</span>
-                    </div>
-                    <button className="text-xs text-primary hover:underline">
-                      Détails →
-                    </button>
-                  </div>
-                  
-                  {client.favorite_service && (
-                    <div className="mt-2 bg-primary bg-opacity-10 text-primary text-xs py-1 px-2 rounded-full inline-block">
-                      Service: {client.favorite_service.nombre}
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
+          <div className="flex h-11 items-center rounded-xl border border-white/10 bg-black/20 px-4 text-sm text-zinc-300">
+            <span className="font-semibold text-primary">{filteredClients.length}</span>
+            <span className="ml-2">
+              client{filteredClients.length !== 1 ? 's' : ''} trouvé{filteredClients.length !== 1 ? 's' : ''}
+            </span>
+          </div>
+        </FilterBar>
+
+        <AdminCard>
+          <AdminCardContent className="pt-6">
+            {loading ? (
+              <div className="flex justify-center py-10">
+                <div className="h-10 w-10 animate-spin rounded-full border-b-2 border-t-2 border-primary" />
+              </div>
+            ) : error ? (
+              <AdminCard className="border-destructive/35 bg-destructive/10">
+                <AdminCardContent className="py-4 text-sm text-destructive-foreground">
+                  {error}
+                </AdminCardContent>
+              </AdminCard>
+            ) : filteredClients.length === 0 ? (
+              <div className="py-10 text-center text-zinc-400">
+                <FaUser className="mx-auto mb-3 text-4xl text-zinc-500" />
+                Aucun client trouvé
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+                {filteredClients.map((client) => (
+                  <AdminCard
+                    key={client.email}
+                    className="cursor-pointer border-white/10 hover:border-primary/45"
+                    onClick={() => viewClientDetails(client)}
+                  >
+                    <AdminCardContent className="space-y-4 pt-6">
+                      <div>
+                        <h3 className="text-lg font-semibold text-zinc-100">
+                          {client.name}
+                        </h3>
+                        <p className="mt-1 flex items-center gap-2 text-sm text-zinc-400">
+                          <FaEnvelope className="text-primary" />
+                          {client.email}
+                        </p>
+                        <p className="mt-1 flex items-center gap-2 text-sm text-zinc-400">
+                          <FaPhone className="text-primary" />
+                          {client.phone}
+                        </p>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-2">
+                        <div className="rounded-lg border border-white/10 bg-black/25 p-2">
+                          <p className="text-xs text-zinc-400">Visites</p>
+                          <p className="text-lg font-semibold text-primary">
+                            {client.total_visits}
+                          </p>
+                        </div>
+                        <div className="rounded-lg border border-white/10 bg-black/25 p-2">
+                          <p className="text-xs text-zinc-400">Dépensé</p>
+                          <p className="text-sm font-semibold text-primary">
+                            {formatPrice(client.total_spent)}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center justify-between text-xs text-zinc-400">
+                        <span>
+                          Dernière visite:{" "}
+                          <span className="text-primary">
+                            {formatDate(client.last_visit_date)}
+                          </span>
+                        </span>
+                        <Button type="button" size="sm" variant="ghost">
+                          Détails
+                        </Button>
+                      </div>
+
+                      {client.favorite_service ? (
+                        <div className="inline-flex rounded-full border border-primary/30 px-3 py-1 text-xs text-primary">
+                          Service: {client.favorite_service.nombre}
+                        </div>
+                      ) : null}
+                    </AdminCardContent>
+                  </AdminCard>
+                ))}
+              </div>
+            )}
+          </AdminCardContent>
+        </AdminCard>
       </div>
     </div>
   );
-} 
+}

@@ -368,6 +368,8 @@ Publics:
 
 ## Docs & Scripts utiles
 - `BOUTIQUE_README.md`, `STRIPE_INTEGRATION.md`, `STRIPE_CHECKOUT_SETUP.md`, `WEBHOOK_TROUBLESHOOTING.md`.
+- Roadmap implémentation réservations V2 par phases: `Docs/plan-implementacion-reservas-v2.md`.
+  - Le plan V2 est maintenant decision-complete (modele horaires centre+styliste, reservation atomique via RPC SQL, fenetre 90j/2h, statut `needs_replan` bloquant, timezone `Europe/Madrid`, slots configurables).
 - Scripts DB: `boutique_tables.sql`, `supabase_reservation_system.sql`, `location_hours_table.sql`, `fix_pending_orders.sql`, `fix_stripe_sync.sql`, `update_stripe_ids.sql`, etc.
 
 ## Fonctionnalités à venir (roadmap)

@@ -1,51 +1,153 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname } from 'next/navigation';
-import { 
-  FaCalendarAlt, 
-  FaUsers, 
-  FaSignOutAlt, 
-  FaChartBar, 
-  FaBars, 
-  FaTimes, 
-  FaUserCog,
-  FaTools,
-  FaImages,
-  FaUserTie,
+import { type IconType } from 'react-icons';
+import {
+  FaBars,
   FaBuilding,
+  FaCalendarAlt,
+  FaChartBar,
   FaCogs,
-  FaChevronLeft,
-  FaChevronRight,
-  FaShoppingBag
+  FaImages,
+  FaShoppingBag,
+  FaSignOutAlt,
+  FaTools,
+  FaUserCog,
+  FaUserTie,
+  FaUsers,
 } from 'react-icons/fa';
-import { motion, AnimatePresence } from 'framer-motion';
+import * as DialogPrimitive from '@radix-ui/react-dialog';
+import { Pin, PinOff, X } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { getUserRole } from '@/lib/userRoles';
+import { Button, buttonVariants } from '@/components/ui/button';
+import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card';
+import {
+  Dialog,
+  DialogDescription,
+  DialogHeader,
+  DialogOverlay,
+  DialogPortal,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Separator } from '@/components/ui/separator';
+import { cn } from '@/lib/utils';
 
 // Definir el tipo para el rol
 type NavRole = 'admin' | 'employee' | 'all';
 
 // Tipo para las secciones de configuración
 type ConfigSection = 'services' | 'gallery' | 'stylists' | 'locations' | 'hero' | null;
+type ConfigSectionKey = Exclude<ConfigSection, null>;
 
-export default function AdminNav({ 
-  activeSection, 
-  setActiveSection 
-}: { 
-  activeSection?: ConfigSection, 
-  setActiveSection?: (section: ConfigSection) => void 
+type NavItem = {
+  href: string;
+  label: string;
+  icon: IconType;
+  role: NavRole;
+};
+
+type ConfigItem = {
+  id: ConfigSectionKey;
+  label: string;
+  icon: IconType;
+  role: NavRole;
+};
+
+const navItems: NavItem[] = [
+  {
+    href: '/admin/reservations',
+    label: 'Reservations',
+    icon: FaCalendarAlt,
+    role: 'all',
+  },
+  {
+    href: '/admin/crm',
+    label: 'Clients',
+    icon: FaUsers,
+    role: 'admin',
+  },
+  {
+    href: '/admin/stylist-stats',
+    label: 'Stylists Stats',
+    icon: FaChartBar,
+    role: 'admin',
+  },
+  {
+    href: '/admin/location-stats',
+    label: 'Centres Stats',
+    icon: FaChartBar,
+    role: 'admin',
+  },
+  {
+    href: '/admin/user-management',
+    label: 'Utilisateurs',
+    icon: FaUserCog,
+    role: 'admin',
+  },
+  {
+    href: '/admin/boutique',
+    label: 'Boutique',
+    icon: FaShoppingBag,
+    role: 'admin',
+  },
+];
+
+const configItems: ConfigItem[] = [
+  {
+    id: 'services',
+    label: 'Services',
+    icon: FaTools,
+    role: 'admin',
+  },
+  {
+    id: 'gallery',
+    label: 'Galerie',
+    icon: FaImages,
+    role: 'admin',
+  },
+  {
+    id: 'stylists',
+    label: 'Stylistes',
+    icon: FaUserTie,
+    role: 'admin',
+  },
+  {
+    id: 'locations',
+    label: 'Centres',
+    icon: FaBuilding,
+    role: 'admin',
+  },
+  {
+    id: 'hero',
+    label: "Page d'accueil",
+    icon: FaCogs,
+    role: 'admin',
+  },
+];
+
+export default function AdminNav({
+  activeSection,
+  setActiveSection,
+}: {
+  activeSection?: ConfigSection;
+  setActiveSection?: (section: ConfigSection) => void;
 }) {
   const [isOpen, setIsOpen] = useState(false);
   const [userRole, setUserRole] = useState<'admin' | 'employee' | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [sidebarPinned, setSidebarPinned] = useState(false);
+  const [desktopHoverEnabled, setDesktopHoverEnabled] = useState(false);
+  const closeSidebarTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pathname = usePathname();
-  
+  const isDesktopExpanded = sidebarPinned || sidebarOpen;
+
   const isConfigPage = pathname === '/admin' && setActiveSection !== undefined;
-  
+
   useEffect(() => {
     const checkUserRole = async () => {
       setIsLoading(true);
@@ -53,10 +155,10 @@ export default function AdminNav({
       setUserRole(role);
       setIsLoading(false);
     };
-    
+
     checkUserRole();
   }, []);
-  
+
   // Comprobar el tamaño de la pantalla al iniciar
   useEffect(() => {
     const checkScreenSize = () => {
@@ -64,79 +166,69 @@ export default function AdminNav({
         setSidebarOpen(false);
       }
     };
-    
-    // Comprobar al inicio
+
     checkScreenSize();
-    
-    // Añadir listener para cambios de tamaño
     window.addEventListener('resize', checkScreenSize);
-    
-    // Limpiar listener
+
     return () => window.removeEventListener('resize', checkScreenSize);
   }, []);
-  
+
+  // Activar hover-to-open solo en dispositivos con puntero fino
+  useEffect(() => {
+    const mediaQuery = window.matchMedia('(hover: hover) and (pointer: fine)');
+    const updateHoverCapability = () => {
+      setDesktopHoverEnabled(mediaQuery.matches);
+      if (!mediaQuery.matches) {
+        setSidebarOpen(false);
+      }
+    };
+
+    updateHoverCapability();
+    mediaQuery.addEventListener('change', updateHoverCapability);
+
+    return () => {
+      mediaQuery.removeEventListener('change', updateHoverCapability);
+    };
+  }, []);
+
   // Cerrar la barra lateral al hacer clic fuera de ella (solo desktop)
   useEffect(() => {
-    // Solo activar este efecto si la barra está abierta
-    if (!sidebarOpen) return;
-    
+    if (!sidebarOpen || sidebarPinned) return;
+
     const handleClickOutside = (event: MouseEvent) => {
-      // Verificar que el clic no fue dentro de la barra lateral ni en el botón de toggle
       const sidebar = document.getElementById('desktop-sidebar');
       const target = event.target as Element;
-      
-      // Si el clic fue dentro de la barra o en un botón de toggle, no hacer nada
-      if (sidebar && sidebar.contains(target) || 
-          target.closest('button')?.getAttribute('data-toggle-sidebar') === 'true') {
+
+      if (
+        (sidebar && sidebar.contains(target)) ||
+        target.closest('button')?.getAttribute('data-toggle-sidebar') === 'true'
+      ) {
         return;
       }
-      
-      // En otro caso, cerrar la barra
+
       setSidebarOpen(false);
     };
-    
-    // Añadir listener para clicks en el documento
+
     document.addEventListener('mousedown', handleClickOutside);
-    
-    // Limpiar listener
+
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
-  }, [sidebarOpen]);
-  
-  // Bloquear el scroll cuando el menú está abierto (solo móvil)
+  }, [sidebarOpen, sidebarPinned]);
+
   useEffect(() => {
-    if (isOpen) {
-      // Permitir scroll dentro del menú pero bloquear el scroll del body
-      document.body.style.overflow = 'hidden';
-      document.body.style.position = 'fixed';
-      document.body.style.width = '100%';
-      document.body.style.top = `-${window.scrollY}px`;
-    } else {
-      // Restaurar el scroll
-      const scrollY = document.body.style.top;
-      document.body.style.overflow = '';
-      document.body.style.position = '';
-      document.body.style.width = '';
-      document.body.style.top = '';
-      if (scrollY) {
-        window.scrollTo(0, parseInt(scrollY || '0', 10) * -1);
-      }
-    }
-    
     return () => {
-      document.body.style.overflow = '';
-      document.body.style.position = '';
-      document.body.style.width = '';
-      document.body.style.top = '';
+      if (closeSidebarTimerRef.current) {
+        clearTimeout(closeSidebarTimerRef.current);
+      }
     };
-  }, [isOpen]);
-  
+  }, []);
+
   const handleSignOut = async () => {
     await supabase.auth.signOut();
     window.location.href = '/admin';
   };
-  
+
   // Función para determinar si mostrar un elemento de navegación basado en el rol
   const shouldShowNavItem = (requiredRole: NavRole) => {
     if (requiredRole === 'all') return true;
@@ -145,93 +237,75 @@ export default function AdminNav({
     return false;
   };
 
-  // Array de elementos de navegación con sus roles requeridos
-  const navItems = [
-    { 
-      href: '/admin/reservations', 
-      label: 'Reservations', 
-      icon: <FaCalendarAlt className="w-7 h-7 md:w-5 md:h-5" />, 
-      role: 'all' as NavRole
-    },
-    { 
-      href: '/admin/crm', 
-      label: 'Clients', 
-      icon: <FaUsers className="w-7 h-7 md:w-5 md:h-5" />, 
-      role: 'admin' as NavRole
-    },
-    { 
-      href: '/admin/stylist-stats', 
-      label: 'Stylists Stats', 
-      icon: <FaChartBar className="w-7 h-7 md:w-5 md:h-5" />, 
-      role: 'admin' as NavRole
-    },
-    { 
-      href: '/admin/location-stats', 
-      label: 'Centres Stats', 
-      icon: <FaChartBar className="w-7 h-7 md:w-5 md:h-5" />, 
-      role: 'admin' as NavRole
-    },
-    { 
-      href: '/admin/user-management', 
-      label: 'Utilisateurs', 
-      icon: <FaUserCog className="w-7 h-7 md:w-5 md:h-5" />, 
-      role: 'admin' as NavRole
-    },
-    { 
-      href: '/admin/boutique', 
-      label: 'Boutique', 
-      icon: <FaShoppingBag className="w-7 h-7 md:w-5 md:h-5" />, 
-      role: 'admin' as NavRole
-    }
-  ];
-  
-  // Elementos de configuración (solo para la página admin principal)
-  const configItems = [
-    { 
-      id: 'services' as ConfigSection,
-      label: 'Services', 
-      icon: <FaTools className="w-7 h-7 md:w-5 md:h-5" />, 
-      role: 'admin' as NavRole
-    },
-    { 
-      id: 'gallery' as ConfigSection,
-      label: 'Galerie', 
-      icon: <FaImages className="w-7 h-7 md:w-5 md:h-5" />, 
-      role: 'admin' as NavRole
-    },
-    { 
-      id: 'stylists' as ConfigSection,
-      label: 'Stylistes', 
-      icon: <FaUserTie className="w-7 h-7 md:w-5 md:h-5" />, 
-      role: 'admin' as NavRole
-    },
-    { 
-      id: 'locations' as ConfigSection,
-      label: 'Centres', 
-      icon: <FaBuilding className="w-7 h-7 md:w-5 md:h-5" />, 
-      role: 'admin' as NavRole
-    },
-    { 
-      id: 'hero' as ConfigSection,
-              label: 'Page d&apos;accueil', 
-      icon: <FaCogs className="w-7 h-7 md:w-5 md:h-5" />, 
-      role: 'admin' as NavRole
-    }
-  ];
-  
   // Función para manejar clic en una sección de configuración
   const handleConfigClick = (section: ConfigSection) => {
     if (setActiveSection) {
       setActiveSection(section);
     }
   };
-  
+
+  const openDesktopSidebar = () => {
+    if (!desktopHoverEnabled || sidebarPinned) return;
+    if (closeSidebarTimerRef.current) {
+      clearTimeout(closeSidebarTimerRef.current);
+      closeSidebarTimerRef.current = null;
+    }
+    setSidebarOpen(true);
+  };
+
+  const closeDesktopSidebar = () => {
+    if (!desktopHoverEnabled || sidebarPinned) return;
+    if (closeSidebarTimerRef.current) {
+      clearTimeout(closeSidebarTimerRef.current);
+    }
+    closeSidebarTimerRef.current = setTimeout(() => {
+      setSidebarOpen(false);
+    }, 120);
+  };
+
+  const toggleSidebarPinned = () => {
+    if (closeSidebarTimerRef.current) {
+      clearTimeout(closeSidebarTimerRef.current);
+      closeSidebarTimerRef.current = null;
+    }
+
+    setSidebarPinned((prev) => {
+      const next = !prev;
+
+      if (next) {
+        setSidebarOpen(true);
+      } else if (desktopHoverEnabled) {
+        setSidebarOpen(false);
+      }
+
+      return next;
+    });
+  };
+
+  const getDesktopItemClass = (isActive: boolean) =>
+    cn(
+      'h-11 w-full rounded-none border-0 px-4 text-sm font-medium shadow-none',
+      isDesktopExpanded ? 'justify-start gap-3' : 'justify-center px-2',
+      isActive
+        ? 'bg-dark text-primary hover:bg-dark hover:text-primary'
+        : 'text-zinc-100 hover:bg-dark/80 hover:text-primary'
+    );
+
+  const getMobileItemClass = (isActive: boolean) =>
+    cn(
+      buttonVariants({ variant: 'secondary' }),
+      'h-auto min-h-24 flex-col gap-2 rounded-xl border px-3 py-4 text-center',
+      isActive
+        ? 'border-primary bg-dark text-primary hover:bg-dark'
+        : 'border-white/10 bg-dark/45 text-zinc-100 hover:bg-dark hover:text-primary'
+    );
+
   // Si está cargando, mostrar un indicador
   if (isLoading) {
     return (
       <nav className="bg-dark p-4 shadow-md">
         <div className="text-center">
-          <div className="w-8 h-8 mx-auto rounded-full animate-spin-custom"></div>
+          <div className="mx-auto h-8 w-8 rounded-full animate-spin-custom" />
         </div>
       </nav>
     );
@@ -240,326 +314,302 @@ export default function AdminNav({
   return (
     <>
       {/* Barra de navegación superior (solo visible en móvil) */}
-      <nav className="fixed w-full z-40 bg-secondary text-white md:hidden">
+      <nav className="fixed z-40 w-full bg-secondary text-white md:hidden">
         <div className="container mx-auto px-4">
-          <div className="flex justify-between items-center py-2">
-            {/* Logo */}
-            <Link href="/" className="z-50 transition-transform hover:scale-105 py-1">
-              <Image 
-                src="/logo.png" 
-                alt="Steel & Blade Logo" 
-                width={44} 
-                height={12} 
-                className="h-auto" 
+          <div className="flex items-center justify-between py-2">
+            <Link href="/" className="z-50 py-1 transition-transform hover:scale-105">
+              <Image
+                src="/logo.png"
+                alt="Steel & Blade Logo"
+                width={44}
+                height={12}
+                className="h-auto"
                 priority
               />
             </Link>
-            
-            {/* Mobile Menu Button */}
-            <div className="z-50">
-              <button 
-                onClick={() => setIsOpen(!isOpen)} 
-                className={`focus:outline-none p-2 transition-all duration-200 text-primary ${isOpen ? 'bg-dark rounded-full shadow-lg hover:shadow-xl' : 'hover:scale-110'}`}
-                aria-label={isOpen ? 'Fermer le menu' : 'Ouvrir le menu'}
-              >
-                {isOpen ? <FaTimes size={24} /> : <FaBars size={24} />}
-              </button>
-            </div>
+
+            <Button
+              variant="ghost"
+              size="icon"
+              className="z-50 text-primary hover:bg-dark hover:text-primary"
+              onClick={() => setIsOpen(true)}
+              aria-label="Ouvrir le menu"
+            >
+              <FaBars className="h-5 w-5" />
+            </Button>
           </div>
         </div>
       </nav>
-      
+
       {/* Espacio para compensar el navbar fijo en móvil */}
-      <div className="h-[60px] md:hidden"></div>
-      
+      <div className="h-[60px] md:hidden" />
+
       {/* Sidebar para versión de escritorio */}
       <div className="hidden md:block">
-        <div 
+        <div
           id="desktop-sidebar"
-          className={`fixed top-0 left-0 h-full bg-secondary text-white z-40 transition-all duration-300 ${
-            sidebarOpen ? 'w-64' : 'w-20'
-          }`}
+          className={cn(
+            'fixed left-0 top-0 z-40 h-full bg-secondary text-white transition-all duration-300',
+            isDesktopExpanded ? 'w-64' : 'w-20'
+          )}
+          onMouseEnter={openDesktopSidebar}
+          onMouseLeave={closeDesktopSidebar}
         >
-          <div className="flex flex-col h-full">
-            {/* Header del sidebar */}
-            <div className="flex items-center justify-between p-4 border-b border-dark">
-              {sidebarOpen ? (
-                <Link href="/" className="flex items-center transition-transform hover:scale-105">
-                  <Image 
-                    src="/logo.png" 
-                    alt="Steel & Blade Logo" 
-                    width={56} 
-                    height={14} 
-                    className="h-auto" 
-                    priority
-                  />
-                </Link>
-              ) : (
-                <Link href="/" className="flex items-center justify-center transition-transform hover:scale-110">
-                  <Image 
-                    src="/logo.png" 
-                    alt="Steel & Blade Logo" 
-                    width={12} 
-                    height={12} 
-                    className="h-auto object-contain" 
-                    priority
-                  />
-                </Link>
-              )}
-              <button 
-                onClick={() => setSidebarOpen(!sidebarOpen)}
-                className="p-2 rounded-full hover:bg-dark transition-colors duration-200 text-primary"
-                data-toggle-sidebar="true"
+          <Card className="flex h-full flex-col rounded-none border-y-0 border-l-0 border-r border-white/12 bg-secondary text-white shadow-none backdrop-blur-none">
+            <CardHeader className="space-y-0 p-0">
+              <div
+                className={cn(
+                  "flex items-center p-4",
+                  isDesktopExpanded ? "justify-between" : "justify-center"
+                )}
               >
-                {sidebarOpen ? <FaChevronLeft size={20} /> : <FaChevronRight size={20} />}
-              </button>
-            </div>
-            
-            {/* Contenido del sidebar */}
-            <div className="flex-1 overflow-y-auto py-4">
-              {/* Enlaces de navegación principales */}
+                {isDesktopExpanded ? (
+                  <Link href="/" className="flex items-center transition-transform hover:scale-105">
+                    <Image
+                      src="/logo.png"
+                      alt="Steel & Blade Logo"
+                      width={56}
+                      height={14}
+                      className="h-auto"
+                      priority
+                    />
+                  </Link>
+                ) : (
+                  <Link href="/" className="flex items-center justify-center transition-transform hover:scale-110">
+                    <Image
+                      src="/logo.png"
+                      alt="Steel & Blade Logo"
+                      width={48}
+                      height={48}
+                      className="h-12 w-12 object-contain"
+                      priority
+                    />
+                  </Link>
+                )}
+
+                {isDesktopExpanded && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    onClick={toggleSidebarPinned}
+                    className={cn(
+                      'text-primary hover:bg-dark hover:text-primary',
+                      sidebarPinned && 'bg-dark/70'
+                    )}
+                    data-toggle-sidebar="true"
+                    aria-label={
+                      sidebarPinned
+                        ? 'Désépingler la barre latérale'
+                        : 'Épingler la barre latérale'
+                    }
+                  >
+                    {sidebarPinned ? <PinOff className="h-4 w-4" /> : <Pin className="h-4 w-4" />}
+                  </Button>
+                )}
+              </div>
+            </CardHeader>
+
+            <Separator className="bg-white/10" />
+
+            <CardContent className="flex-1 overflow-x-hidden overflow-y-auto p-0 py-4">
               <div className="mb-6">
-                {navItems.map((item, index) => {
+                {navItems.map((item) => {
+                  if (!shouldShowNavItem(item.role)) return null;
+
                   const isActive = pathname === item.href;
-                  
-                  return shouldShowNavItem(item.role) && (
-                    <Link 
-                      key={`sidebar-nav-${item.href}-${index}`}
-                      href={item.href} 
-                      className={`flex items-center px-4 py-3 ${
-                        isActive ? 'bg-dark text-primary' : 'text-white hover:bg-dark hover:text-primary'
-                      } transition-all duration-200 ${sidebarOpen ? '' : 'justify-center'} cursor-pointer hover:text-primary group`}
-                      onMouseEnter={(e) => {
-                        const iconElement = e.currentTarget.querySelector('svg');
-                        if (iconElement) iconElement.style.color = '#FFD700';
-                      }}
-                      onMouseLeave={(e) => {
-                        if (!isActive) {
-                          const iconElement = e.currentTarget.querySelector('svg');
-                          if (iconElement) iconElement.style.color = '#FFFFFF';
-                        }
-                      }}
-                    >
-                      <span className="flex-shrink-0">
-                        {isActive ? React.cloneElement(item.icon, { color: '#FFD700' }) : 
-                                   React.cloneElement(item.icon, { color: '#FFFFFF' })}
-                      </span>
-                      {sidebarOpen && (
-                        <span className={`ml-3 ${isActive ? 'text-primary' : 'text-white group-hover:text-primary'}`}>
-                          {item.label}
-                        </span>
-                      )}
-                    </Link>
+                  const Icon = item.icon;
+
+                  return (
+                    <Button key={`sidebar-nav-${item.href}`} asChild variant="ghost" className={getDesktopItemClass(isActive)}>
+                      <Link href={item.href}>
+                        <Icon className={cn('h-5 w-5 shrink-0', isActive ? 'text-primary' : 'text-zinc-100')} />
+                        {isDesktopExpanded && <span>{item.label}</span>}
+                      </Link>
+                    </Button>
                   );
                 })}
               </div>
-              
-              {/* Divisor */}
-              {shouldShowNavItem('admin') && (
-                <div className="h-px bg-dark mx-4 my-6"></div>
-              )}
-              
-              {/* Secciones de configuración (visibles en todas las páginas administrativas) */}
+
+              {shouldShowNavItem('admin') && <Separator className="mx-4 my-6 w-auto bg-white/10" />}
+
               {shouldShowNavItem('admin') && (
                 <div className="mb-6">
-                  {configItems.map((item, index) => {
+                  {configItems.map((item) => {
+                    if (!shouldShowNavItem(item.role)) return null;
+
                     const isActive = activeSection === item.id;
-                    
-                    return shouldShowNavItem(item.role) && (
-                      isConfigPage ? (
-                        <button 
-                          key={`sidebar-config-${item.id}-${index}`}
+                    const Icon = item.icon;
+
+                    if (isConfigPage) {
+                      return (
+                        <Button
+                          key={`sidebar-config-${item.id}`}
+                          type="button"
+                          variant="ghost"
+                          className={getDesktopItemClass(isActive)}
                           onClick={() => handleConfigClick(item.id)}
-                          className={`flex items-center w-full text-left px-4 py-3 ${
-                            isActive ? 'bg-dark text-primary' : 'text-white hover:bg-dark hover:text-primary'
-                          } transition-all duration-200 ${sidebarOpen ? '' : 'justify-center'} cursor-pointer group`}
-                          onMouseEnter={(e) => {
-                            const iconElement = e.currentTarget.querySelector('svg');
-                            if (iconElement) iconElement.style.color = '#FFD700';
-                          }}
-                          onMouseLeave={(e) => {
-                            if (!isActive) {
-                              const iconElement = e.currentTarget.querySelector('svg');
-                              if (iconElement) iconElement.style.color = '#FFFFFF';
-                            }
-                          }}
                         >
-                          <span className="flex-shrink-0">
-                            {isActive ? React.cloneElement(item.icon, { color: '#FFD700' }) : 
-                                       React.cloneElement(item.icon, { color: '#FFFFFF' })}
-                          </span>
-                          {sidebarOpen && (
-                            <span className={`ml-3 ${isActive ? 'text-primary' : 'text-white group-hover:text-primary'}`}>
-                              {item.label}
-                            </span>
-                          )}
-                        </button>
-                      ) : (
-                        <Link 
-                          key={`sidebar-config-${item.id}-${index}`}
-                          href={`/admin?section=${item.id}`} 
-                          className={`flex items-center px-4 py-3 text-white hover:bg-dark hover:text-primary transition-all duration-200 ${sidebarOpen ? '' : 'justify-center'} cursor-pointer group`}
-                          onMouseEnter={(e) => {
-                            const iconElement = e.currentTarget.querySelector('svg');
-                            if (iconElement) iconElement.style.color = '#FFD700';
-                          }}
-                          onMouseLeave={(e) => {
-                            const iconElement = e.currentTarget.querySelector('svg');
-                            if (iconElement) iconElement.style.color = '#FFFFFF';
-                          }}
-                        >
-                          <span className="flex-shrink-0">
-                            {React.cloneElement(item.icon, { color: '#FFFFFF' })}
-                          </span>
-                          {sidebarOpen && (
-                            <span className="ml-3 text-white group-hover:text-primary">
-                              {item.label}
-                            </span>
-                          )}
+                          <Icon className={cn('h-5 w-5 shrink-0', isActive ? 'text-primary' : 'text-zinc-100')} />
+                          {isDesktopExpanded && <span>{item.label}</span>}
+                        </Button>
+                      );
+                    }
+
+                    return (
+                      <Button
+                        key={`sidebar-config-${item.id}`}
+                        asChild
+                        variant="ghost"
+                        className={getDesktopItemClass(false)}
+                      >
+                        <Link href={`/admin?section=${item.id}`}>
+                          <Icon className="h-5 w-5 shrink-0 text-zinc-100" />
+                          {isDesktopExpanded && <span>{item.label}</span>}
                         </Link>
-                      )
+                      </Button>
                     );
                   })}
                 </div>
               )}
-            </div>
-            
-            {/* Footer del sidebar */}
-            <div className="p-4 border-t border-dark">
-              <button 
+            </CardContent>
+
+            <Separator className="bg-white/10" />
+
+            <CardFooter className="p-4 pt-4">
+              <Button
+                type="button"
+                variant="ghost"
                 onClick={handleSignOut}
-                className={`flex items-center text-white hover:text-primary p-2 rounded transition-all duration-200 ${sidebarOpen ? '' : 'justify-center w-full'} cursor-pointer group`}
-                onMouseEnter={(e) => {
-                  const iconElement = e.currentTarget.querySelector('svg');
-                  if (iconElement) iconElement.style.color = '#FFD700';
-                }}
-                onMouseLeave={(e) => {
-                  const iconElement = e.currentTarget.querySelector('svg');
-                  if (iconElement) iconElement.style.color = '#FFFFFF';
-                }}
-              >
-                <FaSignOutAlt color="#FFFFFF" size={20} />
-                {sidebarOpen && (
-                  <span className="ml-3 text-white group-hover:text-primary">Déconnexion</span>
+                className={cn(
+                  'h-10 w-full text-zinc-100 hover:bg-dark/80 hover:text-primary',
+                  isDesktopExpanded ? 'justify-start gap-3 px-2' : 'justify-center'
                 )}
-              </button>
-            </div>
-          </div>
+              >
+                <FaSignOutAlt className="h-4 w-4" />
+                {isDesktopExpanded && <span>Déconnexion</span>}
+              </Button>
+            </CardFooter>
+          </Card>
         </div>
-        
+
         {/* Contenedor principal con margen para la barra lateral */}
-        <div className={`transition-all duration-300 ${sidebarOpen ? 'ml-64' : 'ml-20'}`}></div>
+        <div className={cn('transition-all duration-300', isDesktopExpanded ? 'ml-64' : 'ml-20')} />
       </div>
-      
-      {/* Mobile Menu Overlay */}
-      <AnimatePresence>
-        {isOpen && (
-          <motion.div 
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -10 }}
-            transition={{ duration: 0.3 }}
-            className="fixed top-0 left-0 right-0 bottom-0 z-30 md:hidden bg-secondary overflow-hidden"
-          >
-            <div className="flex flex-col pt-20 pb-10 px-4 h-full">
-              {/* Contenedor scrollable con grid */}
-              <div className="overflow-y-auto flex-1 pb-4 scrollbar-thin scrollbar-thumb-primary scrollbar-track-dark">
-                {/* Grid de navegación para móvil */}
-                <div className="grid grid-cols-2 gap-3 pb-4">
-                  {/* Elementos de navegación principales */}
-                  {navItems.map((item, index) => (
-                    shouldShowNavItem(item.role) && (
-                      <Link 
-                        key={`mobile-nav-${item.href}-${index}`}
-                        href={item.href} 
-                        className={`flex flex-col items-center justify-center p-4 rounded-lg transition-all duration-300 ${
-                          pathname === item.href 
-                            ? 'bg-dark text-primary border-2 border-primary' 
-                            : 'bg-dark/50 text-white hover:bg-dark hover:text-primary'
-                        } group`}
-                        onClick={() => setIsOpen(false)}
-                      >
-                        <div className="text-center">
-                          <div className="flex justify-center mb-2">
-                            {item.icon}
-                          </div>
-                          <span className={`text-sm font-medium ${pathname === item.href ? 'text-primary' : 'text-white group-hover:text-primary'}`}>
-                            {item.label}
-                          </span>
-                        </div>
-                      </Link>
-                    )
-                  ))}
-                  
-                  {/* Elementos de configuración */}
-                  {shouldShowNavItem('admin') && (
-                    <>
-                      {configItems.map((item, index) => (
-                        shouldShowNavItem(item.role) && (
-                          isConfigPage ? (
-                            <button 
-                              key={`mobile-config-${item.id}-${index}`}
-                              onClick={() => {
-                                handleConfigClick(item.id);
-                                setIsOpen(false);
-                              }}
-                              className={`flex flex-col items-center justify-center p-4 rounded-lg transition-all duration-300 ${
-                                activeSection === item.id 
-                                  ? 'bg-dark text-primary border-2 border-primary' 
-                                  : 'bg-dark/50 text-white hover:bg-dark hover:text-primary'
-                              } group`}
-                            >
-                              <div className="text-center">
-                                <div className="flex justify-center mb-2">
-                                  {item.icon}
-                                </div>
-                                <span className={`text-sm font-medium ${activeSection === item.id ? 'text-primary' : 'text-white group-hover:text-primary'}`}>
-                                  {item.label}
-                                </span>
-                              </div>
-                            </button>
-                          ) : (
-                            <Link 
-                              key={`mobile-config-${item.id}-${index}`}
-                              href={`/admin?section=${item.id}`}
-                              className="flex flex-col items-center justify-center p-4 rounded-lg bg-dark/50 text-white hover:bg-dark hover:text-primary transition-all duration-300 group"
-                              onClick={() => setIsOpen(false)}
-                            >
-                              <div className="text-center">
-                                <div className="flex justify-center mb-2">
-                                  {item.icon}
-                                </div>
-                                <span className="text-sm font-medium text-white group-hover:text-primary">
-                                  {item.label}
-                                </span>
-                              </div>
-                            </Link>
-                          )
-                        )
-                      ))}
-                    </>
-                  )}
+
+      <Dialog open={isOpen} onOpenChange={setIsOpen}>
+        <DialogPortal>
+          <DialogOverlay className="bg-black/70 md:hidden" />
+          <DialogPrimitive.Content className="fixed inset-y-0 right-0 z-50 h-[100dvh] w-[min(92vw,24rem)] border-l border-white/12 bg-secondary text-white shadow-2xl duration-300 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:slide-out-to-right-full data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:slide-in-from-right-full md:hidden">
+            <DialogHeader className="sr-only">
+              <DialogTitle>Menu administrateur</DialogTitle>
+              <DialogDescription>Navigation mobile de l&apos;espace admin.</DialogDescription>
+            </DialogHeader>
+
+            <Card className="flex h-full min-h-0 flex-col rounded-none border-0 bg-secondary text-white shadow-none backdrop-blur-none">
+              <CardHeader className="space-y-0 p-0 pt-[max(env(safe-area-inset-top),1rem)]">
+                <div className="flex items-center justify-between px-4 py-3">
+                  <p className="text-sm font-semibold tracking-wide text-primary">Navigation</p>
+                  <DialogPrimitive.Close asChild>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="text-zinc-200 hover:bg-dark hover:text-zinc-100"
+                      aria-label="Fermer le menu"
+                    >
+                      <X className="h-5 w-5" />
+                    </Button>
+                  </DialogPrimitive.Close>
                 </div>
-              </div>
-              
-              {/* Botón de cierre de sesión */}
-              <div className="mt-4 px-2">
-                <button 
-                  onClick={() => {
+              </CardHeader>
+
+              <Separator className="bg-white/10" />
+
+              <CardContent className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto px-4 pb-4 pt-4">
+                <div className="grid grid-cols-2 gap-3 pb-3">
+                  {navItems.map((item) => {
+                    if (!shouldShowNavItem(item.role)) return null;
+
+                    const isActive = pathname === item.href;
+                    const Icon = item.icon;
+
+                    return (
+                      <Button
+                        key={`mobile-nav-${item.href}`}
+                        asChild
+                        variant="secondary"
+                        className={getMobileItemClass(isActive)}
+                      >
+                        <Link href={item.href} onClick={() => setIsOpen(false)}>
+                          <Icon className="h-6 w-6" />
+                          <span className="text-sm font-semibold">{item.label}</span>
+                        </Link>
+                      </Button>
+                    );
+                  })}
+
+                  {shouldShowNavItem('admin') &&
+                    configItems.map((item) => {
+                      if (!shouldShowNavItem(item.role)) return null;
+
+                      const isActive = isConfigPage && activeSection === item.id;
+                      const Icon = item.icon;
+
+                      if (isConfigPage) {
+                        return (
+                          <Button
+                            key={`mobile-config-${item.id}`}
+                            type="button"
+                            variant="secondary"
+                            className={getMobileItemClass(isActive)}
+                            onClick={() => {
+                              handleConfigClick(item.id);
+                              setIsOpen(false);
+                            }}
+                          >
+                            <Icon className="h-6 w-6" />
+                            <span className="text-sm font-semibold">{item.label}</span>
+                          </Button>
+                        );
+                      }
+
+                      return (
+                        <Button
+                          key={`mobile-config-${item.id}`}
+                          asChild
+                          variant="secondary"
+                          className={getMobileItemClass(false)}
+                        >
+                          <Link href={`/admin?section=${item.id}`} onClick={() => setIsOpen(false)}>
+                            <Icon className="h-6 w-6" />
+                            <span className="text-sm font-semibold">{item.label}</span>
+                          </Link>
+                        </Button>
+                      );
+                    })}
+                </div>
+              </CardContent>
+
+              <Separator className="bg-white/10" />
+
+              <CardFooter className="bg-secondary px-4 pb-[calc(env(safe-area-inset-bottom)+1rem)] pt-3">
+                <Button
+                  type="button"
+                  onClick={async () => {
                     setIsOpen(false);
-                    handleSignOut();
+                    await handleSignOut();
                   }}
-                  className="block w-full py-3 px-4 text-lg font-bold text-center rounded-full transition-transform hover:scale-[1.02] active:scale-[0.98] bg-primary text-secondary shadow-lg"
+                  className="w-full gap-2 rounded-full text-base"
                 >
-                  <div className="flex items-center justify-center">
-                    <FaSignOutAlt className="mr-2" /> Déconnexion
-                  </div>
-                </button>
-              </div>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+                  <FaSignOutAlt className="h-5 w-5" />
+                  Déconnexion
+                </Button>
+              </CardFooter>
+            </Card>
+          </DialogPrimitive.Content>
+        </DialogPortal>
+      </Dialog>
     </>
   );
-} 
+}
