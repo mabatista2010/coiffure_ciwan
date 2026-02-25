@@ -25,6 +25,7 @@ Steel & Blade est l’application web de **Coiffure Ciwan**, un salon masculin m
 ### Frontend
 - **Next.js 15.2.1 (App Router)** + **React 19** + **TypeScript 5**.
 - **Tailwind CSS 4** (via `@tailwindcss/postcss`) + variables CSS.
+- **shadcn/ui** initialisé (CLI `shadcn@3.8.5`) avec `components.json` (style `new-york`, base `neutral`) ; aucun composant généré pour l’instant.
 - **Framer Motion 12.4.10**.
 - `lucide-react`, `react-icons`.
 
@@ -54,9 +55,10 @@ Steel & Blade est l’application web de **Coiffure Ciwan**, un salon masculin m
 ## Structure du projet
 - `src/app/` : routes App Router (pages + API).
 - `src/components/` : composants UI (landing, boutique, réservation, admin).
-- `src/lib/` : utilitaires (Supabase, Stripe helpers, calendrier, roles).
+- `src/lib/` : utilitaires (Supabase, Stripe helpers, calendrier, roles, `utils.ts` avec helper `cn` pour shadcn).
 - `src/styles/` : `theme.css`, `parallax.css`.
 - `public/` : assets statiques.
+- `components.json` (racine) : configuration shadcn/ui (aliases, Tailwind CSS, theming variables).
 - `public/chatgpt-reserva-widget.html` : widget UI pour l’app ChatGPT (Apps SDK).
 - `setup-guide/` : docs + script SQL de setup.
 - `*.sql` à la racine : scripts Supabase (schémas, fixes, données).
@@ -71,6 +73,7 @@ Steel & Blade est l’application web de **Coiffure Ciwan**, un salon masculin m
 - `/boutique/checkout/success` : confirmation paiement
 - `/boutique/checkout/demo` : page démo (site vitrine)
 - `/chatgpt-preview` : prévisualisation locale du widget ChatGPT (mock data)
+- `/ui-test` : laboratoire interne pour tester rapidement les composants shadcn/ui
 
 ### Admin
 - `/admin` : configuration (services, galerie, stylists, centres, hero)
@@ -171,6 +174,8 @@ Steel & Blade est l’application web de **Coiffure Ciwan**, un salon masculin m
 - **AdminNav** unifiée :
   - Sidebar pliante, fermée par défaut, auto‑close clic externe, hamburger mobile.
   - Navigation role‑based (clients, stats, user‑management, boutique).
+  - Rendu unique via `AdminLayout` (pas de rendu direct dans les pages) pour éviter les doublons desktop.
+  - `/admin` lit `?section=` de manière réactive (`services|gallery|stylists|locations|hero`) pour piloter la section active.
 
 ### Sections Admin
 - **Configuration** (`/admin`)

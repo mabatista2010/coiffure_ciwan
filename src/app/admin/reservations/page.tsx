@@ -3,7 +3,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
 import type { Booking, Location, Service, Stylist } from '@/lib/supabase';
-import AdminNav from '@/components/AdminNav';
 import { FaCalendarAlt, FaCalendarDay } from 'react-icons/fa';
 import { useRouter } from 'next/navigation';
 
@@ -543,9 +542,6 @@ export default function AdminBookingsPage() {
 
   return (
     <div className="min-h-screen bg-dark text-light">
-      {/* Agregar la barra lateral AdminNav */}
-      <AdminNav />
-      
       <div className="transition-all duration-300">
         <main className="flex-grow container mx-auto px-4 py-8">
           <h1 className="text-3xl font-bold mb-6 text-primary border-b-2 border-primary border-opacity-40 pb-2">Gestion des Réservations</h1>

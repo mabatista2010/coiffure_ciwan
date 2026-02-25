@@ -75,9 +75,9 @@ export default function Navbar() {
               <Image 
                 src="/logo.png" 
                 alt="Logo Steel & Blade" 
-                width={160} 
-                height={160} 
-                className="rounded-full object-cover" 
+                width={56} 
+                height={56} 
+                className="w-12 h-12 md:w-14 md:h-14 rounded-full object-cover" 
               />
             </Link>
           </div>

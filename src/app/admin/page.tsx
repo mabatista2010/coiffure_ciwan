@@ -4,9 +4,9 @@ import { useState, useEffect, useRef } from 'react';
 import { supabase, Service, GalleryImage } from '@/lib/supabase';
 import { v4 as uuidv4 } from 'uuid';
 import Image from 'next/image';
+import { useSearchParams } from 'next/navigation';
 import StylistManagement from './stylist-management';
 import LocationManagement from './location-management';
-import AdminNav from '@/components/AdminNav';
 
 // Definir la interfaz Location
 interface Location {
@@ -21,6 +21,8 @@ interface Location {
 }
 
 export default function AdminPage() {
+  const searchParams = useSearchParams();
+
   // Estado para servicios
   const [services, setServices] = useState<Service[]>([]);
   const [newService, setNewService] = useState<Partial<Service>>({
@@ -72,22 +74,6 @@ export default function AdminPage() {
   const servicesBackgroundInputRef = useRef<HTMLInputElement>(null);
   const servicesBackgroundMobileInputRef = useRef<HTMLInputElement>(null);
   
-  // Estado para navegación móvil
-  const [isOpen] = useState(false);
-  
-  // Bloquear el scroll cuando el menú está abierto
-  useEffect(() => {
-    if (isOpen) {
-      document.body.style.overflow = 'hidden';
-    } else {
-      document.body.style.overflow = 'unset';
-    }
-    
-    return () => {
-      document.body.style.overflow = 'unset';
-    };
-  }, [isOpen]);
-  
   // Estado para la sección activa
   const [activeSection, setActiveSection] = useState<string>('services');
   
@@ -97,17 +83,18 @@ export default function AdminPage() {
   useEffect(() => {
     // Cargar los datos iniciales
     loadData();
-    
-    // Verificar si hay un parámetro de sección en la URL
-    if (typeof window !== 'undefined') {
-      const params = new URLSearchParams(window.location.search);
-      const sectionParam = params.get('section');
-      
-      if (sectionParam && ['services', 'gallery', 'stylists', 'locations', 'hero'].includes(sectionParam)) {
-        setActiveSection(sectionParam);
-      }
-    }
   }, []);
+
+  useEffect(() => {
+    const sectionParam = searchParams.get('section');
+
+    if (sectionParam && ['services', 'gallery', 'stylists', 'locations', 'hero'].includes(sectionParam)) {
+      setActiveSection(sectionParam);
+      return;
+    }
+
+    setActiveSection('services');
+  }, [searchParams]);
 
   const loadData = async () => {
     try {
@@ -571,12 +558,6 @@ export default function AdminPage() {
 
   return (
     <div className="min-h-screen bg-dark text-light">
-      {/* Usar el AdminNav actualizado */}
-      <AdminNav 
-        activeSection={activeSection as 'services' | 'gallery' | 'stylists' | 'locations' | 'hero' | null} 
-        setActiveSection={(section: 'services' | 'gallery' | 'stylists' | 'locations' | 'hero' | null) => setActiveSection(section || '')}
-      />
-      
       <div className="container mx-auto px-4 py-8">
         {/* Mensaje de error si existe */}
         {errorMessage && (

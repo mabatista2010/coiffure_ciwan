@@ -3,7 +3,6 @@
 import { useState, useEffect } from 'react';
 import { supabase, ClientCRM, Booking, Location, Service, Stylist } from '@/lib/supabase';
 import { FaUser, FaEnvelope, FaPhone, FaCalendarAlt, FaMapMarkerAlt, FaUserTie, FaSearch, FaChevronDown, FaCut } from 'react-icons/fa';
-import AdminNav from '@/components/AdminNav';
 
 // Tipo extendido para las reservas con detalles
 type BookingWithDetails = Booking & {
@@ -272,7 +271,6 @@ export default function ClientCRMPage() {
   if (selectedClient) {
     return (
       <div className="min-h-screen flex flex-col bg-dark">
-        <AdminNav />
         <div className="flex-grow container mx-auto px-4 py-8">
           <button
             onClick={backToClientList}
@@ -449,7 +447,6 @@ export default function ClientCRMPage() {
   // Renderizar la lista de clientes
   return (
     <div className="min-h-screen flex flex-col bg-dark">
-      <AdminNav />
       <div className="flex-grow container mx-auto px-4 py-8">
         <h1 className="text-3xl font-bold text-primary mb-8">Gestion des Clients</h1>
         

@@ -3,7 +3,6 @@
 import { useState, useEffect, useRef } from 'react';
 import Image from 'next/image';
 import { supabase } from '@/lib/supabase';
-import AdminNav from '@/components/AdminNav';
 import { FaCalendarCheck, FaEuroSign, FaUserTie, FaCut, FaChartLine, FaCalendarAlt } from 'react-icons/fa';
 
 // Función para manejar URLs de imágenes
@@ -427,8 +426,6 @@ export default function LocationStatsPage() {
 
   return (
     <div className="min-h-screen bg-dark">
-      <AdminNav />
-      
       <div className="container mx-auto px-4 py-8">
         <h1 className="text-3xl font-bold text-primary mb-8">Statistiques des Centres</h1>
         

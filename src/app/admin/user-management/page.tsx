@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from 'react';
 import { FaUserEdit, FaTrash, FaSpinner, FaUserShield, FaUserCog, FaCut, FaInfoCircle, FaUser, FaEnvelope } from 'react-icons/fa';
-import AdminNav from '@/components/AdminNav';
 import { 
   getAllUsers, 
   assignUserRole,
@@ -153,7 +152,6 @@ export default function UserManagement() {
   if (!isUserAdmin) {
     return (
       <div className="min-h-screen bg-dark">
-        <AdminNav />
         <div className="container mx-auto px-4 py-8">
           <div className="bg-secondary rounded-lg shadow-lg p-6 text-center">
             <h1 className="text-primary text-2xl font-bold mb-4">Accès Refusé</h1>
@@ -166,8 +164,6 @@ export default function UserManagement() {
   
   return (
     <div className="min-h-screen bg-dark">
-      <AdminNav />
-      
       <div className="container mx-auto px-4 py-8">
         <h1 className="text-3xl font-bold text-primary mb-8">Gestion des Utilisateurs</h1>
         

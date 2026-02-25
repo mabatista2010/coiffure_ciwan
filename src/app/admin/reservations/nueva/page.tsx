@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from 'react';
 import { supabase, Location, Stylist, AvailabilitySlot, Service, StylistService } from '@/lib/supabase';
-import AdminNav from '@/components/AdminNav';
 import { FaUser, FaMapMarkerAlt, FaCalendarDay, FaArrowLeft, FaCheck, FaFilter, FaSyncAlt } from 'react-icons/fa';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
@@ -725,7 +724,6 @@ export default function NuevaReservacion() {
   if (isLoading) {
     return (
       <div className="flex flex-col min-h-screen bg-dark">
-        <AdminNav />
         <div className="flex-grow container mx-auto px-4 py-12 flex items-center justify-center">
           <div className="text-center">
             <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary mx-auto mb-4"></div>
@@ -738,7 +736,6 @@ export default function NuevaReservacion() {
 
   return (
     <main className="min-h-screen flex flex-col bg-dark">
-      <AdminNav />
       <div className="flex-grow pt-24 pb-12">
         <div className="container mx-auto px-4">
           <div className="mb-8 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
