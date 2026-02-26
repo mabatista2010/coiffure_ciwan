@@ -169,6 +169,7 @@ Steel & Blade est l’application web de **Coiffure Ciwan**, un salon masculin m
 
 ## Panel Admin (Sécurité & UX)
 - Auth Supabase par email/password (`AdminLayout`).
+- Écran de connexion admin harmonisé en français (titre, labels, CTA et messages d’accès refusé).
 - Layout admin avec 3 états (chargement / non‑auth / auth) + formulaire login unifié.
 - Vérification de session Supabase sur toutes les routes `/admin/*`.
 - **Rôles** : `admin` vs `employee`.

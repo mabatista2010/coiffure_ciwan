@@ -121,9 +121,9 @@ export default function AdminLayout({
             <AdminCard>
               <AdminCardHeader>
                 <div className="text-center">
-                  <h1 className="text-2xl font-bold text-primary">Panel de administración</h1>
+                  <h1 className="text-2xl font-bold text-primary">Panneau d&apos;administration</h1>
                   <p className="mt-2 text-muted-foreground">
-                    Inicia sesión para acceder al panel.
+                    Connectez-vous pour accéder au panneau.
                   </p>
                 </div>
               </AdminCardHeader>
@@ -136,7 +136,7 @@ export default function AdminLayout({
 
                 <form className="space-y-4" onSubmit={handleLogin}>
                   <div className="space-y-1">
-                    <label htmlFor="email" className="text-sm text-muted-foreground">Email</label>
+                    <label htmlFor="email" className="text-sm text-muted-foreground">E-mail</label>
                     <Input
                       id="email"
                       name="email"
@@ -148,7 +148,7 @@ export default function AdminLayout({
                   </div>
 
                   <div className="space-y-1">
-                    <label htmlFor="password" className="text-sm text-muted-foreground">Contraseña</label>
+                    <label htmlFor="password" className="text-sm text-muted-foreground">Mot de passe</label>
                     <Input
                       id="password"
                       name="password"
@@ -160,7 +160,7 @@ export default function AdminLayout({
                   </div>
 
                   <Button type="submit" className="w-full">
-                    Iniciar sesión
+                    Se connecter
                   </Button>
                 </form>
               </AdminCardContent>
@@ -183,15 +183,15 @@ export default function AdminLayout({
             <div className="mx-auto w-full max-w-md">
               <AdminCard>
                 <AdminCardContent className="py-10 text-center">
-                  <h1 className="text-2xl font-bold text-primary">Acceso denegado</h1>
+                  <h1 className="text-2xl font-bold text-primary">Accès refusé</h1>
                   <p className="mt-2 text-muted-foreground">
-                    No tienes permisos para acceder a esta sección.
+                    Vous n&apos;avez pas les autorisations pour accéder à cette section.
                   </p>
                   <Button
                     onClick={() => router.push('/admin/reservations')}
                     className="mt-4"
                   >
-                    Ir a reservas
+                    Aller aux réservations
                   </Button>
                 </AdminCardContent>
               </AdminCard>
