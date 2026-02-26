@@ -573,6 +573,19 @@ export default function AdminBookingsPage() {
     setShowCalendarView(false);
   };
 
+  const handleDateInputChange = (dateValue: string) => {
+    if (!dateValue) return;
+
+    const selected = new Date(`${dateValue}T00:00:00`);
+    if (!Number.isNaN(selected.getTime())) {
+      setCurrentMonth(new Date(selected.getFullYear(), selected.getMonth(), 1));
+    }
+
+    setSelectedDate(dateValue);
+    setCalendarHighlightedDate(null);
+    setShowCalendarView(false);
+  };
+
   return (
     <div className="admin-scope min-h-screen bg-background px-4 py-8 text-foreground">
       <main className="mx-auto flex w-full max-w-7xl flex-col">
@@ -583,7 +596,7 @@ export default function AdminBookingsPage() {
 
           {/* Layout principal con grid para separar filtros y contenido */}
           <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-4">
-            {/* Columna izquierda: filtros + leyenda */}
+            {/* Columna izquierda: filtros + acciones */}
             <div className="space-y-4 lg:col-span-1">
               <AdminCard
                 className="h-fit border-border/70"
@@ -661,53 +674,60 @@ export default function AdminBookingsPage() {
                         id="date-select"
                         className="w-full rounded-md"
                         value={selectedDate}
-                        onChange={(e) => setSelectedDate(e.target.value)}
+                        onChange={(e) => handleDateInputChange(e.target.value)}
                       />
                     </div>
 
-                    <div className="mt-4 flex flex-col gap-2">
+                    {(selectedLocation !== 'all' || selectedStylist !== 'all') && (
                       <Button
-                        variant="outline"
-                        className="flex w-full items-center justify-center gap-2"
-                        onClick={backToCalendar}
-                      >
-                        <FaCalendarAlt size={16} />
-                        Calendrier
-                      </Button>
-
-                      <Button
-                        variant="outline"
-                        className="flex w-full items-center justify-center gap-2"
-                        onClick={goToToday}
-                      >
-                        <FaCalendarDay size={16} />
-                        Aujourd&apos;hui
-                      </Button>
-
-                      {(selectedLocation !== 'all' || selectedStylist !== 'all') && (
-                        <Button
-                          variant="destructive"
-                          className="w-full"
-                          onClick={() => {
-                            setSelectedLocation('all');
-                            setSelectedStylist('all');
-                          }}
-                        >
-                          Effacer les filtres
-                        </Button>
-                      )}
-
-                      <Button
-                        onClick={() => router.push('/admin/reservations/nueva')}
+                        variant="destructive"
                         className="w-full"
+                        onClick={() => {
+                          setSelectedLocation('all');
+                          setSelectedStylist('all');
+                        }}
                       >
-                        + Nouvelle Réservation
+                        Effacer les filtres
                       </Button>
-                    </div>
+                    )}
                   </div>
                 </AdminCardContent>
               </AdminCard>
 
+              <AdminCard
+                className="h-fit border-border/70"
+                style={{ boxShadow: "var(--admin-shadow-card)" }}
+              >
+                <AdminCardContent className="p-4">
+                  <h2 className="text-lg font-semibold text-foreground">Vues & actions</h2>
+                  <div className="mt-4 flex flex-col gap-2">
+                    <Button
+                      variant="outline"
+                      className="flex w-full items-center justify-center gap-2"
+                      onClick={backToCalendar}
+                    >
+                      <FaCalendarAlt size={16} />
+                      Calendrier
+                    </Button>
+
+                    <Button
+                      variant="outline"
+                      className="flex w-full items-center justify-center gap-2"
+                      onClick={goToToday}
+                    >
+                      <FaCalendarDay size={16} />
+                      Aujourd&apos;hui
+                    </Button>
+
+                    <Button
+                      onClick={() => router.push('/admin/reservations/nueva')}
+                      className="w-full"
+                    >
+                      + Nouvelle Réservation
+                    </Button>
+                  </div>
+                </AdminCardContent>
+              </AdminCard>
             </div>
 
             {/* Área principal de contenido */}

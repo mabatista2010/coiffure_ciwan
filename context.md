@@ -316,6 +316,8 @@ Publics:
 - Cartes de réservation avec bordure jaune distinctive.
 - Sélecteur d’état adapté mobile.
 - Retour depuis le détail vers le calendrier: le jour consulté n’est plus conservé comme sélection visuelle (plus de bordure bleue persistante).
+- Le champ date des filtres admin utilise un rendu custom (lisible iPad/tablette) et ouvre directement la vue détail du jour sélectionné.
+- Seed démo ajouté sur `bookings`: 100 réservations créées entre le 26/02/2026 et le 31/03/2026, réparties sur 4 statuts (`pending|confirmed|completed|cancelled`), 5 stylistes et 4 centres.
 
 ### CRM & Stats
 - CRM en cartes, meilleure lisibilité.
