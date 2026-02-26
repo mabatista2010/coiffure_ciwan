@@ -9,6 +9,7 @@ import {
   type MouseEvent,
 } from "react";
 import Image from "next/image";
+import { Maximize2 } from "lucide-react";
 import {
   FaCalendarAlt,
   FaCalendarCheck,
@@ -19,6 +20,7 @@ import {
 } from "react-icons/fa";
 
 import {
+  AdminDateInput,
   AdminCard,
   AdminCardContent,
   AdminCardHeader,
@@ -26,7 +28,13 @@ import {
   SectionHeader,
 } from "@/components/admin/ui";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import {
   Select,
   SelectContent,
@@ -45,24 +53,45 @@ type DateRangeType =
   | "mes_proximo"
   | "año_anterior";
 
-const DATE_RANGE_OPTIONS: { value: DateRangeType; label: string }[] = [
-  { value: "semana", label: "Semaine actuelle" },
-  { value: "semana_proxima", label: "Semaine prochaine" },
-  { value: "mes", label: "Mois actuel" },
-  { value: "mes_proximo", label: "Mois prochain" },
-  { value: "año", label: "Annee actuelle" },
-  { value: "año_anterior", label: "Annee precedente" },
-  { value: "personalizado", label: "Personnalise" },
+const PRIMARY_DATE_RANGE_OPTIONS: {
+  value: DateRangeType;
+  label: string;
+  compactLabel?: string;
+}[] = [
+  { value: "semana", label: "Semaine", compactLabel: "Sem." },
+  { value: "mes", label: "Mois" },
+  { value: "año", label: "Année", compactLabel: "An." },
+];
+
+const SECONDARY_DATE_RANGE_OPTIONS: {
+  value: DateRangeType;
+  label: string;
+  compactLabel?: string;
+}[] = [
+  { value: "semana_proxima", label: "Semaine prochaine", compactLabel: "Sem. suiv." },
+  { value: "mes_proximo", label: "Mois prochain", compactLabel: "Mois suiv." },
+];
+
+const DATE_RANGE_SHORTCUT_OPTIONS: {
+  value: DateRangeType;
+  label: string;
+  compactLabel?: string;
+}[] = [
+  ...PRIMARY_DATE_RANGE_OPTIONS,
+  ...SECONDARY_DATE_RANGE_OPTIONS,
+  { value: "personalizado", label: "Personnalisé", compactLabel: "Perso" },
 ];
 
 const TREND_Y_MAX = 15;
 const TREND_TICKS = [0, 5, 10, 15];
 const TREND_CHART_HEIGHT_PX = 224;
 const TREND_MIN_SEGMENT_PX = 5;
+const FILTER_LABEL_CLASSNAME =
+  "text-xs font-semibold uppercase tracking-wide leading-none text-muted-foreground";
 
 const getImageUrl = (path: string | null): string => {
   if (!path) {
-    return "https://placehold.co/400x400/212121/FFD700.png?text=Styliste";
+    return "/placeholder-profile.jpg";
   }
 
   if (path.startsWith("http")) {
@@ -259,8 +288,12 @@ export default function StylistStatsPage() {
     day: TrendDayStats;
     x: number;
     y: number;
-    pinned: boolean;
   } | null>(null);
+  const [isReservationSummaryOpen, setIsReservationSummaryOpen] =
+    useState<boolean>(false);
+  const [expandedTrendDay, setExpandedTrendDay] = useState<TrendDayStats | null>(
+    null
+  );
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const trendChartRef = useRef<HTMLDivElement | null>(null);
@@ -317,40 +350,15 @@ export default function StylistStatsPage() {
 
   useEffect(() => {
     setTrendPopover(null);
+    setIsReservationSummaryOpen(false);
+    setExpandedTrendDay(null);
   }, [selectedStylist, dateRange]);
-
-  useEffect(() => {
-    if (!trendPopover?.pinned) {
-      return;
-    }
-
-    const handleGlobalPointerDown = (event: PointerEvent) => {
-      const target = event.target;
-      if (!(target instanceof Element)) {
-        setTrendPopover(null);
-        return;
-      }
-
-      const touchedDayButton = target.closest('[data-trend-day-button="true"]');
-      if (touchedDayButton) {
-        return;
-      }
-
-      setTrendPopover(null);
-    };
-
-    document.addEventListener("pointerdown", handleGlobalPointerDown);
-    return () => {
-      document.removeEventListener("pointerdown", handleGlobalPointerDown);
-    };
-  }, [trendPopover?.pinned]);
 
   const openTrendPopover = (
     event:
       | MouseEvent<HTMLButtonElement>
       | FocusEvent<HTMLButtonElement>,
-    day: TrendDayStats,
-    pinned = false
+    day: TrendDayStats
   ) => {
     const targetRect = event.currentTarget.getBoundingClientRect();
     const popoverWidth = 256;
@@ -382,7 +390,6 @@ export default function StylistStatsPage() {
       day,
       x: Math.min(Math.max(rawX, minX), maxX),
       y: Math.min(Math.max(rawY, minY), maxY),
-      pinned,
     });
   };
 
@@ -583,10 +590,54 @@ export default function StylistStatsPage() {
     }).format(amount);
   };
 
+  const formatRatio = (value: number, total: number): string => {
+    if (!total) {
+      return "0%";
+    }
+    return `${Math.round((value / total) * 100)}%`;
+  };
+
   const selectedDateRangeLabel = useMemo(
     () => `${dateRange.startDate.toLocaleDateString("fr-FR")} - ${dateRange.endDate.toLocaleDateString("fr-FR")}`,
     [dateRange]
   );
+
+  const reservationInsights = useMemo(() => {
+    if (!stats) {
+      return null;
+    }
+
+    const daysCount = Math.max(stats.bookingsByDay.length, 1);
+    const averagePerDay = stats.totalBookings / daysCount;
+    const activeDays = stats.bookingsByDay.filter((day) => day.total > 0).length;
+    const busiestDay = stats.bookingsByDay.reduce<TrendDayStats | null>(
+      (max, day) => (max === null || day.total > max.total ? day : max),
+      null
+    );
+    const quietestDay = stats.bookingsByDay.reduce<TrendDayStats | null>(
+      (min, day) => {
+        if (day.total === 0) {
+          return min;
+        }
+        if (min === null || day.total < min.total) {
+          return day;
+        }
+        return min;
+      },
+      null
+    );
+
+    return {
+      averagePerDay,
+      activeDays,
+      completionRate: formatRatio(stats.completedBookings, stats.totalBookings),
+      pendingRate: formatRatio(stats.pendingBookings, stats.totalBookings),
+      confirmedRate: formatRatio(stats.confirmedBookings, stats.totalBookings),
+      cancelledRate: formatRatio(stats.cancelledBookings, stats.totalBookings),
+      busiestDay,
+      quietestDay,
+    };
+  }, [stats]);
 
   return (
     <main className="admin-scope min-h-screen bg-background px-4 py-8">
@@ -597,30 +648,93 @@ export default function StylistStatsPage() {
         />
 
         <AdminCard>
-          <AdminCardContent className="space-y-4 pt-6">
-            <FilterBar>
-              <div className="space-y-2">
-                <label htmlFor="stylist-select" className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          <AdminCardContent className="space-y-3 p-4 pt-4 sm:p-5 sm:pt-4">
+            <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+              <div className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-3">
+                <div className="relative h-16 w-16 overflow-hidden rounded-full border-4 border-primary/70 sm:h-20 sm:w-20">
+                  <Image
+                    src={getImageUrl(selectedStylistData?.profile_img || null)}
+                    alt={selectedStylistData?.name || "Styliste"}
+                    fill
+                    style={{ objectFit: "cover" }}
+                    className="rounded-full"
+                    onError={(event) => {
+                      (event.target as HTMLImageElement).src =
+                        "/placeholder-profile.jpg";
+                    }}
+                  />
+                </div>
+                <div className="min-w-0">
+                  <h3 className="truncate text-3xl font-semibold leading-tight text-foreground">
+                    {selectedStylistData?.name || "Sélectionnez un styliste"}
+                  </h3>
+                  <p className="mt-0.5 text-base text-muted-foreground">
+                    {selectedStylistData ? "Styliste" : "Aucun styliste sélectionné"}
+                  </p>
+                </div>
+              </div>
+              <div className="inline-flex max-w-full items-center rounded-lg border border-primary/20 bg-card px-3 py-1.5 text-sm text-primary">
+                <span className="truncate">{selectedDateRangeLabel}</span>
+              </div>
+            </div>
+
+            <FilterBar
+              className="border-primary/10 bg-muted/20 p-3 shadow-none"
+              fieldsClassName="md:[grid-template-columns:minmax(150px,190px)_minmax(0,1fr)] lg:[grid-template-columns:minmax(180px,220px)_minmax(0,1fr)] xl:grid-cols-4"
+            >
+              <div className="space-y-1.5 xl:col-span-1">
+                <p className={FILTER_LABEL_CLASSNAME}>
                   Styliste
-                </label>
-                <Select
-                  value={selectedStylist || "none"}
-                  onValueChange={(value) =>
-                    setSelectedStylist(value === "none" ? null : value)
-                  }
-                >
-                  <SelectTrigger id="stylist-select">
-                    <SelectValue placeholder="Selectionner un styliste" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">Selectionner un styliste</SelectItem>
-                    {stylists.map((stylist) => (
-                      <SelectItem key={stylist.id} value={stylist.id}>
-                        {stylist.name}
-                      </SelectItem>
+                </p>
+                <div className="md:max-w-[170px] lg:max-w-[200px]">
+                  <Select
+                    value={selectedStylist || "none"}
+                    onValueChange={(value) =>
+                      setSelectedStylist(value === "none" ? null : value)
+                    }
+                  >
+                    <SelectTrigger
+                      id="stylist-select"
+                      className="h-9"
+                      aria-label="Sélectionner un styliste"
+                    >
+                      <SelectValue placeholder="Selectionner un styliste" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Selectionner un styliste</SelectItem>
+                      {stylists.map((stylist) => (
+                        <SelectItem key={stylist.id} value={stylist.id}>
+                          {stylist.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <div className="space-y-1.5 xl:col-span-3">
+                <p className={FILTER_LABEL_CLASSNAME}>
+                  Raccourcis de periode
+                </p>
+                <div className="min-w-0 overflow-x-auto pb-1 lg:overflow-visible lg:pb-0">
+                  <div className="flex min-w-max flex-nowrap gap-1 md:gap-1.5 lg:gap-2">
+                    {DATE_RANGE_SHORTCUT_OPTIONS.map((option) => (
+                      <Button
+                        key={option.value}
+                        type="button"
+                        variant={dateRangeType === option.value ? "default" : "secondary"}
+                        size="sm"
+                        className="h-7 justify-center px-1.5 text-[10px] sm:text-xs md:px-2 lg:h-8 lg:px-3 lg:text-sm"
+                        onClick={() => setDateRangeType(option.value)}
+                      >
+                        <span className="hidden lg:inline">{option.label}</span>
+                        <span className="lg:hidden">
+                          {option.compactLabel || option.label}
+                        </span>
+                      </Button>
                     ))}
-                  </SelectContent>
-                </Select>
+                  </div>
+                </div>
               </div>
 
               {dateRangeType === "personalizado" ? (
@@ -628,9 +742,9 @@ export default function StylistStatsPage() {
                   <label htmlFor="start-date" className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                     Date de debut
                   </label>
-                  <Input
+                  <AdminDateInput
                     id="start-date"
-                    type="date"
+                    className="w-full"
                     value={customStartDate}
                     onChange={(event) => setCustomStartDate(event.target.value)}
                   />
@@ -642,66 +756,123 @@ export default function StylistStatsPage() {
                   <label htmlFor="end-date" className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                     Date de fin
                   </label>
-                  <Input
+                  <AdminDateInput
                     id="end-date"
-                    type="date"
+                    className="w-full"
                     value={customEndDate}
                     onChange={(event) => setCustomEndDate(event.target.value)}
                   />
                 </div>
               ) : null}
-
-              <div className="space-y-2">
-                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                  Periode active
-                </p>
-                <p className="rounded-xl border border-primary/20 bg-card px-3 py-2 text-sm text-primary">
-                  {selectedDateRangeLabel}
-                </p>
-              </div>
-
-              <div className="space-y-2 md:col-span-2 xl:col-span-4">
-                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                  Raccourcis de periode
-                </p>
-                <div className="flex flex-wrap gap-2">
-                  {DATE_RANGE_OPTIONS.map((option) => (
-                    <Button
-                      key={option.value}
-                      type="button"
-                      variant={dateRangeType === option.value ? "default" : "secondary"}
-                      size="sm"
-                      onClick={() => setDateRangeType(option.value)}
-                    >
-                      {option.label}
-                    </Button>
-                  ))}
-                </div>
-              </div>
             </FilterBar>
-
-            {selectedStylistData ? (
-              <div className="flex flex-col items-center gap-3 pt-2">
-                <div className="relative h-28 w-28 overflow-hidden rounded-full border-4 border-primary/70">
-                  <Image
-                    src={getImageUrl(selectedStylistData.profile_img)}
-                    alt={selectedStylistData.name}
-                    fill
-                    style={{ objectFit: "cover" }}
-                    className="rounded-full"
-                    onError={(event) => {
-                      (event.target as HTMLImageElement).src =
-                        "https://placehold.co/400x400/212121/FFD700.png?text=Styliste";
-                    }}
-                  />
-                </div>
-                <p className="text-lg font-semibold text-primary">
-                  {selectedStylistData.name}
-                </p>
-              </div>
-            ) : null}
           </AdminCardContent>
         </AdminCard>
+
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <AdminCard>
+            <AdminCardContent className="space-y-2 p-4 pt-3">
+              <div className="flex items-start justify-between gap-2">
+                <p className="flex items-center gap-2 text-base text-foreground">
+                  <FaCalendarCheck className="text-primary" />
+                  Reservations
+                </p>
+                <Button
+                  type="button"
+                  size="icon"
+                  variant="ghost"
+                  className="h-7 w-7"
+                  onClick={() => setIsReservationSummaryOpen(true)}
+                  title="Voir le résumé détaillé"
+                  aria-label="Voir le résumé détaillé"
+                  disabled={!stats}
+                >
+                  <Maximize2 className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+              <p className="text-4xl font-semibold leading-none text-primary">
+                {stats ? stats.totalBookings : "--"}
+              </p>
+              <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-sm text-muted-foreground">
+                <p className="flex items-center justify-between gap-2">
+                  <span>Completees</span>
+                  <span className="font-medium text-foreground">{stats?.completedBookings || 0}</span>
+                </p>
+                <p className="flex items-center justify-between gap-2">
+                  <span>Confirmees</span>
+                  <span className="font-medium text-foreground">{stats?.confirmedBookings || 0}</span>
+                </p>
+                <p className="flex items-center justify-between gap-2">
+                  <span>En attente</span>
+                  <span className="font-medium text-foreground">{stats?.pendingBookings || 0}</span>
+                </p>
+                <p className="flex items-center justify-between gap-2">
+                  <span>Annulees</span>
+                  <span className="font-medium text-foreground">{stats?.cancelledBookings || 0}</span>
+                </p>
+              </div>
+            </AdminCardContent>
+          </AdminCard>
+
+          <AdminCard>
+            <AdminCardContent className="space-y-2 p-4 pt-3">
+              <p className="flex items-center gap-2 text-base text-foreground">
+                <FaEuroSign className="text-primary" />
+                Revenus
+              </p>
+              <p className="text-4xl font-semibold leading-none text-primary">
+                {stats ? formatCurrency(stats.totalRevenue) : "--"}
+              </p>
+              <p className="text-sm text-muted-foreground">
+                Moyenne / reservation:{" "}
+                <span className="font-medium text-foreground">
+                  {stats
+                    ? formatCurrency(
+                      stats.totalBookings ? stats.totalRevenue / stats.totalBookings : 0
+                    )
+                    : "--"}
+                </span>
+              </p>
+            </AdminCardContent>
+          </AdminCard>
+
+          <AdminCard>
+            <AdminCardContent className="space-y-2 p-4 pt-3">
+              <p className="flex items-center gap-2 text-base text-foreground">
+                <FaCut className="text-primary" />
+                Services populaires
+              </p>
+              <div className="space-y-1.5 text-sm">
+                {(stats?.topServices || []).slice(0, 3).map((service, index) => (
+                  <p key={index} className="flex justify-between gap-3 text-foreground">
+                    <span className="truncate" title={service.service_name}>
+                      {service.service_name}
+                    </span>
+                    <span className="font-semibold text-primary">{service.count}</span>
+                  </p>
+                ))}
+              </div>
+            </AdminCardContent>
+          </AdminCard>
+
+          <AdminCard>
+            <AdminCardContent className="space-y-2 p-4 pt-3">
+              <p className="flex items-center gap-2 text-base text-foreground">
+                <FaMapMarkerAlt className="text-primary" />
+                Centres
+              </p>
+              <div className="space-y-1.5 text-sm">
+                {(stats?.bookingsByLocation || []).slice(0, 3).map((location, index) => (
+                  <p key={index} className="flex justify-between gap-3 text-foreground">
+                    <span className="truncate" title={location.location_name}>
+                      {location.location_name}
+                    </span>
+                    <span className="font-semibold text-primary">{location.count}</span>
+                  </p>
+                ))}
+              </div>
+            </AdminCardContent>
+          </AdminCard>
+        </div>
 
         {loading ? (
           <AdminCard>
@@ -718,83 +889,165 @@ export default function StylistStatsPage() {
           </AdminCard>
         ) : stats ? (
           <>
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-              <AdminCard>
-                <AdminCardContent className="space-y-2 pt-6">
-                  <p className="flex items-center gap-2 text-foreground">
-                    <FaCalendarCheck className="text-primary" />
-                    Reservations
-                  </p>
-                  <p className="text-3xl font-semibold text-primary">
-                    {stats.totalBookings}
-                  </p>
-                  <div className="space-y-1 text-sm text-muted-foreground">
-                    <p>Completees: {stats.completedBookings}</p>
-                    <p>Confirmees: {stats.confirmedBookings}</p>
-                    <p>En attente: {stats.pendingBookings}</p>
-                    <p>Annulees: {stats.cancelledBookings}</p>
-                  </div>
-                </AdminCardContent>
-              </AdminCard>
+            <Dialog
+              open={isReservationSummaryOpen}
+              onOpenChange={setIsReservationSummaryOpen}
+            >
+              <DialogContent className="max-h-[90vh] w-[95vw] max-w-5xl overflow-y-auto border-slate-200 bg-white p-6 text-slate-900 sm:p-7">
+                <DialogHeader>
+                  <DialogTitle>Résumé détaillé des réservations</DialogTitle>
+                  <DialogDescription className="text-slate-500">
+                    {selectedStylistData?.name || "Styliste"} · {selectedDateRangeLabel}
+                  </DialogDescription>
+                </DialogHeader>
 
-              <AdminCard>
-                <AdminCardContent className="space-y-2 pt-6">
-                  <p className="flex items-center gap-2 text-foreground">
-                    <FaEuroSign className="text-primary" />
-                    Revenus
-                  </p>
-                  <p className="text-3xl font-semibold text-primary">
-                    {formatCurrency(stats.totalRevenue)}
-                  </p>
-                  <p className="text-sm text-muted-foreground">
-                    Moyenne par reservation: {" "}
-                    {formatCurrency(
-                      stats.completedBookings
-                        ? stats.totalRevenue / stats.completedBookings
-                        : 0
-                    )}
-                  </p>
-                </AdminCardContent>
-              </AdminCard>
-
-              <AdminCard>
-                <AdminCardContent className="space-y-2 pt-6">
-                  <p className="flex items-center gap-2 text-foreground">
-                    <FaCut className="text-primary" />
-                    Services populaires
-                  </p>
-                  <div className="space-y-2 text-sm">
-                    {stats.topServices.slice(0, 3).map((service, index) => (
-                      <p key={index} className="flex justify-between gap-3 text-foreground">
-                        <span className="truncate" title={service.service_name}>
-                          {service.service_name}
-                        </span>
-                        <span className="font-semibold text-primary">{service.count}</span>
+                <div className="space-y-6">
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-5">
+                    <div className="rounded-xl border border-blue-200 bg-blue-50 p-3">
+                      <p className="text-xs uppercase tracking-wide text-slate-500">Total</p>
+                      <p className="mt-1 text-2xl font-semibold text-blue-600">
+                        {stats.totalBookings}
                       </p>
-                    ))}
-                  </div>
-                </AdminCardContent>
-              </AdminCard>
-
-              <AdminCard>
-                <AdminCardContent className="space-y-2 pt-6">
-                  <p className="flex items-center gap-2 text-foreground">
-                    <FaMapMarkerAlt className="text-primary" />
-                    Centres
-                  </p>
-                  <div className="space-y-2 text-sm">
-                    {stats.bookingsByLocation.slice(0, 3).map((location, index) => (
-                      <p key={index} className="flex justify-between gap-3 text-foreground">
-                        <span className="truncate" title={location.location_name}>
-                          {location.location_name}
-                        </span>
-                        <span className="font-semibold text-primary">{location.count}</span>
+                    </div>
+                    <div className="rounded-xl border border-amber-200 bg-amber-50 p-3">
+                      <p className="text-xs uppercase tracking-wide text-slate-500">
+                        En attente
                       </p>
-                    ))}
+                      <p className="mt-1 text-2xl font-semibold text-amber-600">
+                        {stats.pendingBookings}
+                      </p>
+                      <p className="text-xs text-slate-500">
+                        {reservationInsights?.pendingRate || "0%"}
+                      </p>
+                    </div>
+                    <div className="rounded-xl border border-sky-200 bg-sky-50 p-3">
+                      <p className="text-xs uppercase tracking-wide text-slate-500">
+                        Confirmées
+                      </p>
+                      <p className="mt-1 text-2xl font-semibold text-sky-600">
+                        {stats.confirmedBookings}
+                      </p>
+                      <p className="text-xs text-slate-500">
+                        {reservationInsights?.confirmedRate || "0%"}
+                      </p>
+                    </div>
+                    <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3">
+                      <p className="text-xs uppercase tracking-wide text-slate-500">
+                        Terminées
+                      </p>
+                      <p className="mt-1 text-2xl font-semibold text-emerald-600">
+                        {stats.completedBookings}
+                      </p>
+                      <p className="text-xs text-slate-500">
+                        {reservationInsights?.completionRate || "0%"}
+                      </p>
+                    </div>
+                    <div className="rounded-xl border border-rose-200 bg-rose-50 p-3">
+                      <p className="text-xs uppercase tracking-wide text-slate-500">
+                        Annulées
+                      </p>
+                      <p className="mt-1 text-2xl font-semibold text-rose-600">
+                        {stats.cancelledBookings}
+                      </p>
+                      <p className="text-xs text-slate-500">
+                        {reservationInsights?.cancelledRate || "0%"}
+                      </p>
+                    </div>
                   </div>
-                </AdminCardContent>
-              </AdminCard>
-            </div>
+
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                    <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                      <p className="text-xs uppercase tracking-wide text-slate-500">
+                        Moyenne / jour
+                      </p>
+                      <p className="mt-1 text-lg font-semibold text-blue-600">
+                        {(reservationInsights?.averagePerDay || 0).toFixed(1)}
+                      </p>
+                    </div>
+                    <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                      <p className="text-xs uppercase tracking-wide text-slate-500">
+                        Jours actifs
+                      </p>
+                      <p className="mt-1 text-lg font-semibold text-blue-600">
+                        {reservationInsights?.activeDays || 0} / {stats.bookingsByDay.length}
+                      </p>
+                    </div>
+                    <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                      <p className="text-xs uppercase tracking-wide text-slate-500">
+                        Pic journée
+                      </p>
+                      <p className="mt-1 text-lg font-semibold text-blue-600">
+                        {reservationInsights?.busiestDay
+                          ? `${formatTrendSheetDate(reservationInsights.busiestDay.date)} (${reservationInsights.busiestDay.total})`
+                          : "N/A"}
+                      </p>
+                    </div>
+                    <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                      <p className="text-xs uppercase tracking-wide text-slate-500">
+                        Journée la plus calme
+                      </p>
+                      <p className="mt-1 text-lg font-semibold text-blue-600">
+                        {reservationInsights?.quietestDay
+                          ? `${formatTrendSheetDate(reservationInsights.quietestDay.date)} (${reservationInsights.quietestDay.total})`
+                          : "Aucune"}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+                    <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                      <p className="mb-3 text-sm font-semibold text-slate-800">
+                        Top services (période)
+                      </p>
+                      <div className="space-y-2">
+                        {stats.topServices.length > 0 ? (
+                          stats.topServices.slice(0, 5).map((service) => (
+                            <div
+                              key={service.service_name}
+                              className="flex items-center justify-between rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm"
+                            >
+                              <span className="truncate text-slate-700">
+                                {service.service_name}
+                              </span>
+                              <span className="font-semibold text-blue-600">
+                                {service.count}
+                              </span>
+                            </div>
+                          ))
+                        ) : (
+                          <p className="text-sm text-slate-500">Aucune donnée.</p>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                      <p className="mb-3 text-sm font-semibold text-slate-800">
+                        Top centres (période)
+                      </p>
+                      <div className="space-y-2">
+                        {stats.bookingsByLocation.length > 0 ? (
+                          stats.bookingsByLocation.slice(0, 5).map((location) => (
+                            <div
+                              key={location.location_name}
+                              className="flex items-center justify-between rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm"
+                            >
+                              <span className="truncate text-slate-700">
+                                {location.location_name}
+                              </span>
+                              <span className="font-semibold text-blue-600">
+                                {location.count}
+                              </span>
+                            </div>
+                          ))
+                        ) : (
+                          <p className="text-sm text-slate-500">Aucune donnée.</p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </DialogContent>
+            </Dialog>
 
             <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
               <AdminCard>
@@ -969,7 +1222,7 @@ export default function StylistStatsPage() {
                                       onMouseEnter={(event) => openTrendPopover(event, item)}
                                       onMouseLeave={() =>
                                         setTrendPopover((prev) =>
-                                          prev && prev.day.date === item.date && !prev.pinned
+                                          prev && prev.day.date === item.date
                                             ? null
                                             : prev
                                         )
@@ -977,22 +1230,15 @@ export default function StylistStatsPage() {
                                       onFocus={(event) => openTrendPopover(event, item)}
                                       onBlur={() =>
                                         setTrendPopover((prev) =>
-                                          prev && prev.day.date === item.date && !prev.pinned
+                                          prev && prev.day.date === item.date
                                             ? null
                                             : prev
                                         )
                                       }
-                                      onClick={(event) => {
-                                        if (
-                                          trendPopover?.day.date === item.date &&
-                                          trendPopover.pinned
-                                        ) {
-                                          setTrendPopover(null);
-                                          return;
-                                        }
-                                        openTrendPopover(event, item, true);
+                                      onClick={() => {
+                                        setExpandedTrendDay(item);
+                                        setTrendPopover(null);
                                       }}
-                                      title={`${item.date} | Total: ${item.total} | En attente: ${item.pending} | Confirmée: ${item.confirmed} | Terminée: ${item.completed} | Annulée: ${item.cancelled}`}
                                       aria-label={`Détails du ${item.date}`}
                                     >
                                       {pendingHeight > 0 ? (
@@ -1118,6 +1364,173 @@ export default function StylistStatsPage() {
                 )}
               </AdminCardContent>
             </AdminCard>
+
+            <Dialog
+              open={Boolean(expandedTrendDay)}
+              onOpenChange={(open) => {
+                if (!open) {
+                  setExpandedTrendDay(null);
+                }
+              }}
+            >
+              <DialogContent className="max-h-[90vh] w-[95vw] max-w-5xl overflow-y-auto border-slate-200 bg-white p-6 text-slate-900 sm:p-7">
+                {expandedTrendDay ? (
+                  <>
+                    <DialogHeader>
+                      <DialogTitle>
+                        Détail des réservations - {formatTrendSheetDate(expandedTrendDay.date)}
+                      </DialogTitle>
+                      <DialogDescription className="text-slate-500">
+                        {selectedStylistData?.name || "Styliste"} · {selectedDateRangeLabel}
+                      </DialogDescription>
+                    </DialogHeader>
+
+                    <div className="space-y-6">
+                      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-5">
+                        <div className="rounded-xl border border-blue-200 bg-blue-50 p-3">
+                          <p className="text-xs uppercase tracking-wide text-slate-500">
+                            Total
+                          </p>
+                          <p className="mt-1 text-2xl font-semibold text-blue-600">
+                            {expandedTrendDay.total}
+                          </p>
+                        </div>
+                        <div className="rounded-xl border border-amber-200 bg-amber-50 p-3">
+                          <p className="text-xs uppercase tracking-wide text-slate-500">
+                            En attente
+                          </p>
+                          <p className="mt-1 text-2xl font-semibold text-amber-600">
+                            {expandedTrendDay.pending}
+                          </p>
+                          <p className="text-xs text-slate-500">
+                            {formatRatio(expandedTrendDay.pending, expandedTrendDay.total)}
+                          </p>
+                        </div>
+                        <div className="rounded-xl border border-sky-200 bg-sky-50 p-3">
+                          <p className="text-xs uppercase tracking-wide text-slate-500">
+                            Confirmées
+                          </p>
+                          <p className="mt-1 text-2xl font-semibold text-sky-600">
+                            {expandedTrendDay.confirmed}
+                          </p>
+                          <p className="text-xs text-slate-500">
+                            {formatRatio(expandedTrendDay.confirmed, expandedTrendDay.total)}
+                          </p>
+                        </div>
+                        <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3">
+                          <p className="text-xs uppercase tracking-wide text-slate-500">
+                            Terminées
+                          </p>
+                          <p className="mt-1 text-2xl font-semibold text-emerald-600">
+                            {expandedTrendDay.completed}
+                          </p>
+                          <p className="text-xs text-slate-500">
+                            {formatRatio(expandedTrendDay.completed, expandedTrendDay.total)}
+                          </p>
+                        </div>
+                        <div className="rounded-xl border border-rose-200 bg-rose-50 p-3">
+                          <p className="text-xs uppercase tracking-wide text-slate-500">
+                            Annulées
+                          </p>
+                          <p className="mt-1 text-2xl font-semibold text-rose-600">
+                            {expandedTrendDay.cancelled}
+                          </p>
+                          <p className="text-xs text-slate-500">
+                            {formatRatio(expandedTrendDay.cancelled, expandedTrendDay.total)}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="space-y-3 rounded-xl border border-slate-200 bg-slate-50 p-4">
+                        <div className="flex items-center justify-between gap-2">
+                          <p className="text-sm font-semibold text-slate-800">
+                            Répartition de la journée
+                          </p>
+                          <p className="text-xs text-slate-500">
+                            {expandedTrendDay.total} réservation
+                            {expandedTrendDay.total > 1 ? "s" : ""}
+                          </p>
+                        </div>
+                        <div className="h-3 overflow-hidden rounded-full bg-slate-200">
+                          {expandedTrendDay.total > 0 ? (
+                            <div className="flex h-full w-full">
+                              <div
+                                className="h-full bg-amber-400"
+                                style={{
+                                  width: `${(expandedTrendDay.pending / expandedTrendDay.total) * 100}%`,
+                                }}
+                              />
+                              <div
+                                className="h-full bg-blue-500"
+                                style={{
+                                  width: `${(expandedTrendDay.confirmed / expandedTrendDay.total) * 100}%`,
+                                }}
+                              />
+                              <div
+                                className="h-full bg-emerald-500"
+                                style={{
+                                  width: `${(expandedTrendDay.completed / expandedTrendDay.total) * 100}%`,
+                                }}
+                              />
+                              <div
+                                className="h-full bg-red-500"
+                                style={{
+                                  width: `${(expandedTrendDay.cancelled / expandedTrendDay.total) * 100}%`,
+                                }}
+                              />
+                            </div>
+                          ) : null}
+                        </div>
+                        <div className="grid grid-cols-2 gap-2 text-xs text-slate-600 sm:grid-cols-4">
+                          <p className="inline-flex items-center gap-1.5">
+                            <span className="h-2.5 w-2.5 rounded-sm bg-amber-400" />
+                            En attente
+                          </p>
+                          <p className="inline-flex items-center gap-1.5">
+                            <span className="h-2.5 w-2.5 rounded-sm bg-blue-500" />
+                            Confirmée
+                          </p>
+                          <p className="inline-flex items-center gap-1.5">
+                            <span className="h-2.5 w-2.5 rounded-sm bg-emerald-500" />
+                            Terminée
+                          </p>
+                          <p className="inline-flex items-center gap-1.5">
+                            <span className="h-2.5 w-2.5 rounded-sm bg-red-500" />
+                            Annulée
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                        <p className="mb-3 text-sm font-semibold text-slate-800">
+                          Contexte de période
+                        </p>
+                        <div className="grid grid-cols-1 gap-3 text-sm text-slate-600 sm:grid-cols-3">
+                          <div className="rounded-lg border border-slate-200 bg-white p-3">
+                            <p className="text-xs uppercase tracking-wide">Moyenne / jour</p>
+                            <p className="mt-1 text-lg font-semibold text-blue-600">
+                              {(stats.bookingsByDay.reduce((sum, day) => sum + day.total, 0) / Math.max(stats.bookingsByDay.length, 1)).toFixed(1)}
+                            </p>
+                          </div>
+                          <div className="rounded-lg border border-slate-200 bg-white p-3">
+                            <p className="text-xs uppercase tracking-wide">Écart vs moyenne</p>
+                            <p className="mt-1 text-lg font-semibold text-blue-600">
+                              {(expandedTrendDay.total - (stats.bookingsByDay.reduce((sum, day) => sum + day.total, 0) / Math.max(stats.bookingsByDay.length, 1))).toFixed(1)}
+                            </p>
+                          </div>
+                          <div className="rounded-lg border border-slate-200 bg-white p-3">
+                            <p className="text-xs uppercase tracking-wide">Pic période</p>
+                            <p className="mt-1 text-lg font-semibold text-blue-600">
+                              {Math.max(...stats.bookingsByDay.map((day) => day.total))}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </>
+                ) : null}
+              </DialogContent>
+            </Dialog>
           </>
         ) : (
           <AdminCard>

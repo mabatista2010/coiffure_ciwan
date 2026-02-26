@@ -22,6 +22,7 @@ type BookingWithDetails = Booking & {
   service?: Service;
 };
 
+type CalendarViewMode = "month" | "week" | "day";
 type CalendarDayStatus = "empty" | "available" | "partial" | "full";
 
 type CalendarDayStyle = {
@@ -64,19 +65,78 @@ type ErrorType = {
   [key: string]: unknown;
 };
 
+const WEEK_DAY_LABELS = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
+
+const WEEK_CARD_STATUS_META: Record<string, { label: string; chipClass: string; dotClass: string }> = {
+  pending: {
+    label: "Att.",
+    chipClass: "border-amber-300 bg-amber-50 text-amber-700",
+    dotClass: "bg-amber-500",
+  },
+  confirmed: {
+    label: "Conf.",
+    chipClass: "border-emerald-300 bg-emerald-50 text-emerald-700",
+    dotClass: "bg-emerald-500",
+  },
+  cancelled: {
+    label: "Ann.",
+    chipClass: "border-rose-300 bg-rose-50 text-rose-700",
+    dotClass: "bg-rose-500",
+  },
+  completed: {
+    label: "Term.",
+    chipClass: "border-blue-300 bg-blue-50 text-blue-700",
+    dotClass: "bg-blue-500",
+  },
+};
+
+const formatDateKey = (date: Date): string => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+const parseDateKey = (dateKey: string): Date => {
+  const [year, month, day] = dateKey.split('-').map(Number);
+  return new Date(year, month - 1, day);
+};
+
+const getWeekStart = (date: Date): Date => {
+  const weekStart = new Date(date);
+  const day = weekStart.getDay();
+  const mondayOffset = day === 0 ? -6 : 1 - day;
+  weekStart.setDate(weekStart.getDate() + mondayOffset);
+  weekStart.setHours(0, 0, 0, 0);
+  return weekStart;
+};
+
+const addDays = (date: Date, days: number): Date => {
+  const result = new Date(date);
+  result.setDate(result.getDate() + days);
+  return result;
+};
+
 export default function AdminBookingsPage() {
   const router = useRouter();
+  const today = new Date();
+  const todayKey = formatDateKey(today);
   const [bookings, setBookings] = useState<BookingWithDetails[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
-  const [selectedDate, setSelectedDate] = useState<string>(new Date().toISOString().split('T')[0]);
+  const [selectedDate, setSelectedDate] = useState<string>(todayKey);
   const [locations, setLocations] = useState<Location[]>([]);
   const [selectedLocation, setSelectedLocation] = useState<string>('all');
   const [stylists, setStylists] = useState<Stylist[]>([]);
   const [selectedStylist, setSelectedStylist] = useState<string>('all');
+  const [calendarViewMode, setCalendarViewMode] = useState<CalendarViewMode>("month");
   const [currentMonth, setCurrentMonth] = useState<Date>(() => {
     const today = new Date();
     return new Date(today.getFullYear(), today.getMonth(), 1);
+  });
+  const [currentWeekStart, setCurrentWeekStart] = useState<Date>(() => {
+    const initialDate = parseDateKey(todayKey);
+    return getWeekStart(initialDate);
   });
   const [showCalendarView, setShowCalendarView] = useState<boolean>(true);
   const [calendarHighlightedDate, setCalendarHighlightedDate] = useState<string | null>(null);
@@ -84,6 +144,8 @@ export default function AdminBookingsPage() {
   const [fullyBookedDays, setFullyBookedDays] = useState<string[]>([]);
   const [partiallyBookedDays, setPartiallyBookedDays] = useState<string[]>([]);
   const [loadingAvailability, setLoadingAvailability] = useState<boolean>(false);
+  const [loadingWeekBookings, setLoadingWeekBookings] = useState<boolean>(false);
+  const [weekBookingsByDate, setWeekBookingsByDate] = useState<Record<string, BookingWithDetails[]>>({});
   const [showFiltersMobile, setShowFiltersMobile] = useState<boolean>(false);
 
   // Función auxiliar para obtener el nombre del día a partir del número - envuelta en useCallback
@@ -156,231 +218,266 @@ export default function AdminBookingsPage() {
     }
   }, [selectedDate, selectedLocation, selectedStylist]);
 
+  const getVisibleDateRange = useCallback(() => {
+    if (calendarViewMode === "month") {
+      const startDate = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1);
+      const endDate = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 0);
+      return {
+        startDate,
+        endDate,
+        startKey: formatDateKey(startDate),
+        endKey: formatDateKey(endDate),
+      };
+    }
+
+    if (calendarViewMode === "week") {
+      const startDate = new Date(currentWeekStart);
+      const endDate = addDays(startDate, 6);
+      return {
+        startDate,
+        endDate,
+        startKey: formatDateKey(startDate),
+        endKey: formatDateKey(endDate),
+      };
+    }
+
+    const dayDate = parseDateKey(selectedDate);
+    return {
+      startDate: dayDate,
+      endDate: dayDate,
+      startKey: selectedDate,
+      endKey: selectedDate,
+    };
+  }, [calendarViewMode, currentMonth, currentWeekStart, selectedDate]);
+
   const fetchCenterSchedule = useCallback(async () => {
     if (!showCalendarView) return;
-    
+
     setLoadingAvailability(true);
     try {
-      // Determinar el primer y último día del mes actual
-      const year = currentMonth.getFullYear();
-      const month = currentMonth.getMonth();
-      
-      // Obtener todos los días del mes
-      const daysInMonth = getDaysInMonth(year, month);
+      const { startDate, endDate } = getVisibleDateRange();
       const closed: string[] = [];
-      
+
       if (selectedLocation === 'all' && selectedStylist === 'all') {
-        // Si no hay filtros, no hay días cerrados
         setClosedDays([]);
-        setLoadingAvailability(false);
         return;
       }
-      
-      // Obtener los horarios de centros si se ha seleccionado uno
-      let locationHours = null;
+
+      let locationHours: Array<Record<string, unknown>> = [];
       if (selectedLocation !== 'all') {
         const { data: locHours, error: locError } = await supabase
           .from('location_hours')
           .select('*')
           .eq('location_id', selectedLocation);
-        
+
         if (locError) throw locError;
-        locationHours = locHours;
+        locationHours = locHours || [];
       }
-      
-      // Obtener los horarios del estilista si se ha seleccionado uno
-      let stylistHours = null;
+
+      let stylistHours: Array<Record<string, unknown>> = [];
       if (selectedStylist !== 'all') {
         let query = supabase
           .from('working_hours')
           .select('*')
           .eq('stylist_id', selectedStylist);
-        
-        // Si también hay un centro seleccionado, filtrar por ese centro
+
         if (selectedLocation !== 'all') {
           query = query.eq('location_id', selectedLocation);
         }
-        
+
         const { data: workHours, error: workError } = await query;
         if (workError) throw workError;
-        stylistHours = workHours;
+        stylistHours = workHours || [];
       }
-      
-      // Verificar cada día del mes
-      for (let day = 1; day <= daysInMonth; day++) {
-        const date = new Date(year, month, day);
-        const dayOfWeek = date.getDay(); // 0 es domingo, 6 es sábado
+
+      for (
+        let cursor = new Date(startDate);
+        cursor <= endDate;
+        cursor = addDays(cursor, 1)
+      ) {
+        const dayOfWeek = cursor.getDay();
         const dayName = getDayName(dayOfWeek);
-        
         let isClosed = false;
-        
-        // Si hay un centro seleccionado, verificar si está abierto
-        if (selectedLocation !== 'all' && locationHours) {
-          // El centro está cerrado si no hay horario para este día
-          const centerOpen = locationHours.some(hour => 
-            hour.day_of_week === dayOfWeek || 
-            hour.day === dayName || 
+
+        if (selectedLocation !== 'all' && locationHours.length > 0) {
+          const centerOpen = locationHours.some(hour =>
+            hour.day_of_week === dayOfWeek ||
+            hour.day === dayName ||
             hour.day === dayName.toLowerCase()
           );
-          
+
           if (!centerOpen) {
             isClosed = true;
           }
         }
-        
-        // Si hay un estilista seleccionado, verificar si trabaja
-        if (selectedStylist !== 'all' && stylistHours) {
-          // El día está cerrado si el estilista no trabaja
-          const stylistWorks = stylistHours.some(hour => 
-            hour.day_of_week === dayOfWeek || 
-            hour.day === dayName || 
+
+        if (selectedStylist !== 'all' && stylistHours.length > 0) {
+          const stylistWorks = stylistHours.some(hour =>
+            hour.day_of_week === dayOfWeek ||
+            hour.day === dayName ||
             hour.day === dayName.toLowerCase()
           );
-          
+
           if (!stylistWorks) {
             isClosed = true;
           }
         }
-        
-        // Si el día está cerrado (por centro o estilista), añadirlo a la lista
+
         if (isClosed) {
-          const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-          closed.push(dateStr);
+          closed.push(formatDateKey(cursor));
         }
       }
-      
+
       setClosedDays(closed);
-      
-      // Debug
-      console.log('Días cerrados:', closed);
-      
-      setLoadingAvailability(false);
     } catch (error: unknown) {
       const err = error as ErrorType;
       console.error('Error al cargar el horario del centro:', err.message);
+    } finally {
       setLoadingAvailability(false);
     }
-  }, [currentMonth, selectedLocation, selectedStylist, showCalendarView, getDayName]);
+  }, [getVisibleDateRange, selectedLocation, selectedStylist, showCalendarView, getDayName]);
 
   const fetchBookingDays = useCallback(async () => {
     if (!showCalendarView) return;
-    
+
     try {
-      // Determinar el primer y último día del mes actual
-      const year = currentMonth.getFullYear();
-      const month = currentMonth.getMonth();
-      const firstDay = `${year}-${String(month + 1).padStart(2, '0')}-01`;
-      const lastDay = `${year}-${String(month + 1).padStart(2, '0')}-${String(getDaysInMonth(year, month)).padStart(2, '0')}`;
-      
-      // Consultar las reservas en el rango de fechas
+      const { startKey, endKey } = getVisibleDateRange();
+
       let query = supabase
         .from('bookings')
         .select('booking_date, location_id, start_time, end_time, stylist_id')
-        .gte('booking_date', firstDay)
-        .lte('booking_date', lastDay);
-      
-      // Filtrar por centro si es necesario
+        .gte('booking_date', startKey)
+        .lte('booking_date', endKey);
+
       if (selectedLocation !== 'all') {
         query = query.eq('location_id', selectedLocation);
       }
-      
-      // Filtrar por estilista si uno está seleccionado
+
       if (selectedStylist !== 'all') {
         query = query.eq('stylist_id', selectedStylist);
       }
-      
-      const { data: bookings, error } = await query;
-      
+
+      const { data: bookingsRange, error } = await query;
+
       if (error) throw error;
-      
-      // Agrupar las reservas por fecha
-      const bookingsByDate: Record<string, Record<string, unknown>[]> = {};
-      bookings.forEach(booking => {
-        if (!bookingsByDate[booking.booking_date]) {
-          bookingsByDate[booking.booking_date] = [];
-        }
-        bookingsByDate[booking.booking_date].push(booking);
+
+      const bookingsByDate: Record<string, number> = {};
+      (bookingsRange || []).forEach((booking) => {
+        bookingsByDate[booking.booking_date] = (bookingsByDate[booking.booking_date] || 0) + 1;
       });
-      
-      // Para determinar si un día está completamente reservado, necesitaríamos información adicional
+
       const fullyBooked: string[] = [];
       let partiallyBooked: string[] = [];
-      
+
       if (selectedLocation !== 'all') {
-        // Obtener los horarios de trabajo relevantes
         let workingHoursQuery = supabase
           .from('working_hours')
-          .select('*');
-        
-        if (selectedLocation !== 'all') {
-          workingHoursQuery = workingHoursQuery.eq('location_id', selectedLocation);
-        }
-        
+          .select('*')
+          .eq('location_id', selectedLocation);
+
         if (selectedStylist !== 'all') {
           workingHoursQuery = workingHoursQuery.eq('stylist_id', selectedStylist);
         }
-        
+
         const { data: workingHours, error: workingHoursError } = await workingHoursQuery;
-        
+
         if (workingHoursError) throw workingHoursError;
-        
-        // Para cada día con reservas, verificar si todos los slots están ocupados
-        for (const [date, dateBookings] of Object.entries(bookingsByDate)) {
-          const dateObj = new Date(date);
-          const dayOfWeek = dateObj.getDay(); // 0 = domingo, 1 = lunes, etc.
-          
-          // Obtener horas de trabajo para este día
-          const hoursForDay = workingHours.filter(wh => 
+
+        for (const [dateKey, bookingsCount] of Object.entries(bookingsByDate)) {
+          const dateObj = parseDateKey(dateKey);
+          const dayOfWeek = dateObj.getDay();
+
+          const hoursForDay = (workingHours || []).filter(wh =>
             wh.day_of_week === dayOfWeek || wh.day === getDayName(dayOfWeek)
           );
-          
+
           if (hoursForDay.length > 0) {
-            // Calcular la duración total de horas de trabajo
             let totalWorkMinutes = 0;
-            
+
             hoursForDay.forEach(wh => {
               if (wh.start_time && wh.end_time) {
                 const [startHour, startMinute] = wh.start_time.split(':').map(Number);
                 const [endHour, endMinute] = wh.end_time.split(':').map(Number);
-                
-                const startMinutes = startHour * 60 + startMinute;
-                const endMinutes = endHour * 60 + endMinute;
-                
-                totalWorkMinutes += endMinutes - startMinutes;
+                totalWorkMinutes += (endHour * 60 + endMinute) - (startHour * 60 + startMinute);
               }
             });
-            
-            // Calcular slots disponibles basados en duración promedio de servicios (30 minutos)
-            const averageServiceDuration = 30; // minutos
+
+            const averageServiceDuration = 30;
             const estimatedSlots = Math.floor(totalWorkMinutes / averageServiceDuration);
-            
-            // Determinar si está completamente reservado
-            if (dateBookings.length >= estimatedSlots && estimatedSlots > 0) {
-              fullyBooked.push(date);
+
+            if (bookingsCount >= estimatedSlots && estimatedSlots > 0) {
+              fullyBooked.push(dateKey);
             } else {
-              partiallyBooked.push(date);
+              partiallyBooked.push(dateKey);
             }
+          } else {
+            partiallyBooked.push(dateKey);
           }
         }
       } else {
-        // Si no hay centro o estilista seleccionado, simplemente consideramos todos los días con reservas como parcialmente ocupados
         partiallyBooked = Object.keys(bookingsByDate);
       }
-      
-      // Actualizar los estados con la información calculada
+
       setFullyBookedDays(fullyBooked);
       setPartiallyBookedDays(partiallyBooked);
-      
-      // Debug para verificar
-      console.log('Días parcialmente ocupados:', partiallyBooked);
-      console.log('Días completamente ocupados:', fullyBooked);
-      console.log('Días con reservas:', Object.keys(bookingsByDate));
-      
     } catch (error: unknown) {
       const err = error as ErrorType;
       console.error('Error al cargar los días con reservas:', err.message);
     }
-  }, [currentMonth, selectedLocation, selectedStylist, showCalendarView, getDayName]);
+  }, [getVisibleDateRange, selectedLocation, selectedStylist, showCalendarView, getDayName]);
+
+  const fetchWeekBookings = useCallback(async () => {
+    if (!showCalendarView || calendarViewMode !== "week") {
+      setWeekBookingsByDate({});
+      return;
+    }
+
+    setLoadingWeekBookings(true);
+    try {
+      const { startKey, endKey } = getVisibleDateRange();
+
+      let query = supabase
+        .from('bookings')
+        .select(`
+          *,
+          stylist:stylists(*),
+          location:locations(*),
+          service:servicios(*)
+        `)
+        .gte('booking_date', startKey)
+        .lte('booking_date', endKey)
+        .order('booking_date')
+        .order('start_time');
+
+      if (selectedLocation !== 'all') {
+        query = query.eq('location_id', selectedLocation);
+      }
+
+      if (selectedStylist !== 'all') {
+        query = query.eq('stylist_id', selectedStylist);
+      }
+
+      const { data, error } = await query;
+      if (error) throw error;
+
+      const grouped: Record<string, BookingWithDetails[]> = {};
+      (data || []).forEach((booking) => {
+        const bookingWithDetails = booking as BookingWithDetails;
+        if (!grouped[bookingWithDetails.booking_date]) {
+          grouped[bookingWithDetails.booking_date] = [];
+        }
+        grouped[bookingWithDetails.booking_date].push(bookingWithDetails);
+      });
+
+      setWeekBookingsByDate(grouped);
+    } catch (error: unknown) {
+      const err = error as ErrorType;
+      console.error('Error al cargar las reservas semanales:', err.message);
+      setWeekBookingsByDate({});
+    } finally {
+      setLoadingWeekBookings(false);
+    }
+  }, [calendarViewMode, getVisibleDateRange, selectedLocation, selectedStylist, showCalendarView]);
 
   useEffect(() => {
     // Cargar centros al inicio
@@ -434,6 +531,10 @@ export default function AdminBookingsPage() {
     fetchCenterSchedule();
   }, [fetchBookingDays, fetchCenterSchedule, showCalendarView]);
 
+  useEffect(() => {
+    fetchWeekBookings();
+  }, [fetchWeekBookings]);
+
   const handleStatusChange = async (bookingId: string, newStatus: 'pending' | 'confirmed' | 'cancelled' | 'completed') => {
     try {
       const { error } = await supabase
@@ -463,58 +564,140 @@ export default function AdminBookingsPage() {
     return time.substring(0, 5);
   };
   
-  const generateCalendarData = () => {
+  const generateMonthCalendarData = () => {
     const year = currentMonth.getFullYear();
     const month = currentMonth.getMonth();
-    
     const daysInMonth = getDaysInMonth(year, month);
     const firstDayOfMonth = getFirstDayOfMonth(year, month);
-    
-    // Crear array con los días del mes
-    const days = [];
-    
-    // Añadir espacios vacíos para los días anteriores al primer día del mes
+    const days: Array<Date | null> = [];
+
     for (let i = 0; i < firstDayOfMonth; i++) {
       days.push(null);
     }
-    
-    // Añadir los días del mes
-    for (let i = 1; i <= daysInMonth; i++) {
-      days.push(i);
+
+    for (let day = 1; day <= daysInMonth; day++) {
+      days.push(new Date(year, month, day));
     }
-    
+
     return days;
   };
-  
-  const prevMonth = () => {
-    setCurrentMonth((prevMonth) => {
-      const newMonth = new Date(prevMonth);
-      newMonth.setMonth(newMonth.getMonth() - 1);
-      return newMonth;
+
+  const generateWeekCalendarData = () => {
+    const days: Date[] = [];
+    for (let i = 0; i < 7; i++) {
+      days.push(addDays(currentWeekStart, i));
+    }
+    return days;
+  };
+
+  const getCalendarDayStatus = (dateKey: string): CalendarDayStatus => {
+    if (closedDays.includes(dateKey) || fullyBookedDays.includes(dateKey)) {
+      return "full";
+    }
+
+    if (partiallyBookedDays.includes(dateKey)) {
+      return "partial";
+    }
+
+    return "available";
+  };
+
+  const getCalendarPeriodLabel = () => {
+    if (calendarViewMode === "month") {
+      return currentMonth.toLocaleString('fr-FR', { month: 'long', year: 'numeric' });
+    }
+
+    if (calendarViewMode === "week") {
+      const weekEnd = addDays(currentWeekStart, 6);
+      const startLabel = currentWeekStart.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
+      const endLabel = weekEnd.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' });
+      return `${startLabel} - ${endLabel}`;
+    }
+
+    const dayDate = parseDateKey(selectedDate);
+    const monthLabelLong = dayDate.toLocaleDateString('fr-FR', { month: 'long' });
+    const monthFormat = monthLabelLong.length >= 8 ? 'short' : 'long';
+
+    return dayDate.toLocaleDateString('fr-FR', {
+      weekday: 'long',
+      day: 'numeric',
+      month: monthFormat,
+      year: 'numeric',
     });
   };
-  
-  const nextMonth = () => {
-    setCurrentMonth((prevMonth) => {
-      const newMonth = new Date(prevMonth);
-      newMonth.setMonth(newMonth.getMonth() + 1);
-      return newMonth;
-    });
+
+  const syncCalendarAnchorsWithDate = (dateKey: string) => {
+    const targetDate = parseDateKey(dateKey);
+    setCurrentMonth(new Date(targetDate.getFullYear(), targetDate.getMonth(), 1));
+    setCurrentWeekStart(getWeekStart(targetDate));
   };
-  
-  const selectDay = (day: number | null) => {
-    if (!day) return;
-    
-    // Crear la fecha usando una string con formato YYYY-MM-DD para evitar problemas de zona horaria
-    const year = currentMonth.getFullYear();
-    const month = currentMonth.getMonth() + 1; // +1 porque getMonth() devuelve 0-11
-    const dateStr = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-    
+
+  const setCalendarMode = (mode: CalendarViewMode) => {
+    setCalendarViewMode(mode);
+    syncCalendarAnchorsWithDate(selectedDate);
+    if (mode === "day") {
+      setCalendarHighlightedDate(selectedDate);
+      setShowCalendarView(false);
+      return;
+    }
+
+    setCalendarHighlightedDate(null);
+    setShowCalendarView(true);
+  };
+
+  const goToPreviousPeriod = () => {
+    if (calendarViewMode === "month") {
+      setCurrentMonth((prevMonth) => {
+        const newMonth = new Date(prevMonth);
+        newMonth.setMonth(newMonth.getMonth() - 1);
+        return newMonth;
+      });
+      return;
+    }
+
+    if (calendarViewMode === "week") {
+      setCurrentWeekStart((prevWeek) => addDays(prevWeek, -7));
+      return;
+    }
+
+    const previousDay = addDays(parseDateKey(selectedDate), -1);
+    const previousDayKey = formatDateKey(previousDay);
+    setSelectedDate(previousDayKey);
+    setCalendarHighlightedDate(previousDayKey);
+    syncCalendarAnchorsWithDate(previousDayKey);
+  };
+
+  const goToNextPeriod = () => {
+    if (calendarViewMode === "month") {
+      setCurrentMonth((prevMonth) => {
+        const newMonth = new Date(prevMonth);
+        newMonth.setMonth(newMonth.getMonth() + 1);
+        return newMonth;
+      });
+      return;
+    }
+
+    if (calendarViewMode === "week") {
+      setCurrentWeekStart((prevWeek) => addDays(prevWeek, 7));
+      return;
+    }
+
+    const nextDay = addDays(parseDateKey(selectedDate), 1);
+    const nextDayKey = formatDateKey(nextDay);
+    setSelectedDate(nextDayKey);
+    setCalendarHighlightedDate(nextDayKey);
+    syncCalendarAnchorsWithDate(nextDayKey);
+  };
+
+  const selectDay = (date: Date | null) => {
+    if (!date) return;
+
+    const dateStr = formatDateKey(date);
     setCalendarHighlightedDate(dateStr);
     setSelectedDate(dateStr);
+    syncCalendarAnchorsWithDate(dateStr);
     setShowCalendarView(false);
-    
-    // Cargar reservas para el día seleccionado inmediatamente
+
     const loadBookingsForSelectedDay = async () => {
       setLoading(true);
       setError(null);
@@ -563,13 +746,20 @@ export default function AdminBookingsPage() {
   
   const backToCalendar = () => {
     setCalendarHighlightedDate(null);
+    syncCalendarAnchorsWithDate(selectedDate);
+    if (calendarViewMode === "day") {
+      setCalendarViewMode("month");
+    }
     setShowCalendarView(true);
   };
   
   const goToToday = () => {
-    const today = new Date();
-    setCurrentMonth(new Date(today.getFullYear(), today.getMonth(), 1));
-    setSelectedDate(today.toISOString().split('T')[0]);
+    const now = new Date();
+    const nowKey = formatDateKey(now);
+    setCurrentMonth(new Date(now.getFullYear(), now.getMonth(), 1));
+    setCurrentWeekStart(getWeekStart(now));
+    setSelectedDate(nowKey);
+    setCalendarHighlightedDate(nowKey);
     setShowCalendarView(false);
   };
 
@@ -579,11 +769,71 @@ export default function AdminBookingsPage() {
     const selected = new Date(`${dateValue}T00:00:00`);
     if (!Number.isNaN(selected.getTime())) {
       setCurrentMonth(new Date(selected.getFullYear(), selected.getMonth(), 1));
+      setCurrentWeekStart(getWeekStart(selected));
     }
 
     setSelectedDate(dateValue);
-    setCalendarHighlightedDate(null);
+    setCalendarHighlightedDate(dateValue);
+    setCalendarViewMode("day");
     setShowCalendarView(false);
+  };
+
+  const renderCalendarDayButton = (
+    date: Date | null,
+    key: string,
+    className: string
+  ) => {
+    if (!date) {
+      return (
+        <button
+          type="button"
+          key={key}
+          disabled
+          className={`cursor-default rounded-md border border-border/70 opacity-40 ${className}`}
+          style={{
+            backgroundColor: calendarDayStyles.empty.backgroundColor,
+            borderColor: calendarDayStyles.empty.borderColor,
+            color: calendarDayStyles.empty.textColor,
+          }}
+          aria-hidden="true"
+        />
+      );
+    }
+
+    const dateKey = formatDateKey(date);
+    const todayKeyLocal = formatDateKey(new Date());
+    const isToday = todayKeyLocal === dateKey;
+    const isSelectedDate = calendarHighlightedDate === dateKey;
+    const dayStatus = getCalendarDayStatus(dateKey);
+    const dayStyle = calendarDayStyles[dayStatus];
+
+    return (
+      <button
+        type="button"
+        key={key}
+        onClick={() => selectDay(date)}
+        className={`
+          flex flex-col items-center justify-center rounded-md border border-border/70 bg-card text-foreground shadow-sm transition-all hover:bg-muted/60
+          ${className}
+          ${isToday ? 'ring-2 ring-primary font-bold' : ''}
+          ${isSelectedDate ? 'ring-2 ring-primary font-bold shadow-md' : ''}
+        `}
+      >
+        <span className="leading-none">{date.getDate()}</span>
+        <span
+          className="mt-0.5 h-1 w-1 rounded-full sm:h-1.5 sm:w-1.5"
+          style={{ backgroundColor: dayStyle.dotColor }}
+        />
+      </button>
+    );
+  };
+
+  const getWeekCardStatusMeta = (status: string) => {
+    return WEEK_CARD_STATUS_META[status] || {
+      label: "Info",
+      chipClass: "border-border bg-muted/40 text-foreground",
+      dotClass: "bg-muted-foreground",
+    };
   };
 
   return (
@@ -591,15 +841,14 @@ export default function AdminBookingsPage() {
       <main className="mx-auto flex w-full max-w-7xl flex-col">
           <SectionHeader
             title="Gestion des Réservations"
-            description="Calendrier, filtres croisés et gestion de statut des réservations."
           />
 
           {/* Layout principal con grid para separar filtros y contenido */}
           <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-4">
             {/* Columna izquierda: filtros + acciones */}
-            <div className="space-y-4 lg:col-span-1">
+            <div className="order-2 space-y-4 lg:order-1 lg:col-span-1">
               <AdminCard
-                className="h-fit border-border/70"
+                className="relative z-[120] h-fit border-border/70"
                 style={{ boxShadow: "var(--admin-shadow-card)" }}
               >
                 <AdminCardContent className="p-4">
@@ -732,39 +981,72 @@ export default function AdminBookingsPage() {
 
             {/* Área principal de contenido */}
             <AdminCard
-              className="border-border/70 lg:col-span-3"
+              className="order-1 border-border/70 lg:order-2 lg:col-span-3"
               style={{ boxShadow: "var(--admin-shadow-card)" }}
             >
               <AdminCardContent className="p-4 md:p-6">
                 {/* Vista de calendario o lista de reservas */}
                 {showCalendarView ? (
                   <div>
-                    <div className="flex flex-col items-center mb-4">
-                      <h2 className="text-xl font-semibold text-foreground mb-4">
-                        {selectedStylist !== 'all' 
-                          ? `Calendrier de ${stylists.find(s => s.id === selectedStylist)?.name || 'Styliste'}`
-                          : 'Calendrier'
-                        }
-                      </h2>
-                      <div className="mb-4 flex items-center justify-center gap-4">
+                    <div className="mb-4 flex flex-col gap-4">
+                      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                        <h2 className="text-xl font-semibold text-foreground">
+                          {selectedStylist !== 'all'
+                            ? `Calendrier de ${stylists.find(s => s.id === selectedStylist)?.name || 'Styliste'}`
+                            : 'Calendrier'
+                          }
+                        </h2>
+
+                        <div className="inline-flex w-full rounded-xl border border-border bg-muted/35 p-1 sm:w-auto">
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant={calendarViewMode === "month" ? "default" : "ghost"}
+                            className="flex-1 sm:flex-none"
+                            onClick={() => setCalendarMode("month")}
+                          >
+                            Mois
+                          </Button>
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant={calendarViewMode === "week" ? "default" : "ghost"}
+                            className="flex-1 sm:flex-none"
+                            onClick={() => setCalendarMode("week")}
+                          >
+                            Semaine
+                          </Button>
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant={calendarViewMode === "day" ? "default" : "ghost"}
+                            className="flex-1 sm:flex-none"
+                            onClick={() => setCalendarMode("day")}
+                          >
+                            Jour
+                          </Button>
+                        </div>
+                      </div>
+
+                      <div className="mx-auto mb-2 grid w-full max-w-[22rem] grid-cols-[2.25rem_minmax(0,1fr)_2.25rem] items-center gap-2 px-1 sm:w-fit sm:max-w-none sm:grid-cols-[2.5rem_20rem_2.5rem] sm:gap-3 sm:px-0">
                         <Button
-                          onClick={prevMonth}
+                          onClick={goToPreviousPeriod}
                           variant="outline"
                           size="icon"
                           className="h-10 w-10 rounded-full border-border bg-background text-foreground shadow-sm hover:bg-accent"
-                          aria-label="Mois précédent"
+                          aria-label="Période précédente"
                         >
                           <ChevronLeft className="h-4 w-4" />
                         </Button>
-                        <span className="min-w-[160px] text-center text-2xl font-medium text-foreground capitalize">
-                          {currentMonth.toLocaleString('fr-FR', { month: 'long', year: 'numeric' })}
+                        <span className="w-full truncate text-center text-lg font-medium text-foreground capitalize sm:text-2xl">
+                          {getCalendarPeriodLabel()}
                         </span>
                         <Button
-                          onClick={nextMonth}
+                          onClick={goToNextPeriod}
                           variant="outline"
                           size="icon"
                           className="h-10 w-10 rounded-full border-border bg-background text-foreground shadow-sm hover:bg-accent"
-                          aria-label="Mois suivant"
+                          aria-label="Période suivante"
                         >
                           <ChevronRight className="h-4 w-4" />
                         </Button>
@@ -777,68 +1059,141 @@ export default function AdminBookingsPage() {
                           <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-primary"></div>
                         </div>
                       )}
-                
-                      {/* Días de la semana */}
-                      <div className="grid grid-cols-7 gap-1 sm:gap-2 mb-2">
-                        {['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'].map((day) => (
-                          <div key={day} className="text-center font-medium text-muted-foreground py-2 text-xs sm:text-sm">
-                            {day}
-                          </div>
-                        ))}
-                      </div>
 
-                      {/* Cuadrícula del calendario con días */}
-                      <div className="grid grid-cols-7 gap-1 sm:gap-2">
-                        {generateCalendarData().map((day, index) => {
-                          const dateStr = day ? 
-                            `${currentMonth.getFullYear()}-${String(currentMonth.getMonth() + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}` 
-                            : '';
-                          const isToday = day && new Date().getDate() === day && 
-                                      new Date().getMonth() === currentMonth.getMonth() && 
-                                      new Date().getFullYear() === currentMonth.getFullYear();
-                          const isSelectedDate = day && calendarHighlightedDate === dateStr;
-
-                          let dayStatus: CalendarDayStatus = day ? "available" : "empty";
-
-                          if (day && (closedDays.includes(dateStr) || fullyBookedDays.includes(dateStr))) {
-                            dayStatus = "full";
-                          } else if (day && partiallyBookedDays.includes(dateStr)) {
-                            dayStatus = "partial";
-                          }
-
-                          const dayStyle = calendarDayStyles[dayStatus];
-
-                          return (
-                            <button
-                              type="button"
-                              key={index}
-                              onClick={() => day && selectDay(day)}
-                              disabled={!day}
-                              className={`
-                                h-10 sm:h-12 flex flex-col items-center justify-center rounded-md border border-border/70 shadow-sm transition-all text-xs sm:text-sm
-                                ${!day ? 'cursor-default opacity-40' : 'cursor-pointer bg-card text-foreground hover:bg-muted/60'}
-                                ${isToday ? 'ring-2 ring-primary font-bold' : ''}
-                                ${isSelectedDate ? 'ring-2 ring-primary font-bold shadow-md' : ''}
-                              `}
-                              style={!day ? {
-                                backgroundColor: calendarDayStyles.empty.backgroundColor,
-                                borderColor: calendarDayStyles.empty.borderColor,
-                                color: calendarDayStyles.empty.textColor,
-                              } : undefined}
+                      {calendarViewMode !== "day" && (
+                        <div className="mb-2 grid grid-cols-7 gap-1 sm:gap-2">
+                          {WEEK_DAY_LABELS.map((dayLabel) => (
+                            <div
+                              key={dayLabel}
+                              className="py-2 text-center text-xs font-medium text-muted-foreground sm:text-sm"
                             >
-                              {day && (
-                                <>
-                                  <span className="leading-none">{day}</span>
-                                  <span
-                                    className="mt-0.5 h-1 w-1 rounded-full sm:h-1.5 sm:w-1.5"
-                                    style={{ backgroundColor: dayStyle.dotColor }}
-                                  />
-                                </>
-                              )}
-                            </button>
-                          );
-                        })}
-                      </div>
+                              {dayLabel}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
+                      {calendarViewMode === "month" && (
+                        <div className="grid grid-cols-7 gap-1 sm:gap-2">
+                          {generateMonthCalendarData().map((dayDate, index) =>
+                            renderCalendarDayButton(dayDate, `month-${index}`, "h-10 text-xs sm:h-12 sm:text-sm")
+                          )}
+                        </div>
+                      )}
+
+                      {calendarViewMode === "week" && (
+                        <div className="space-y-3">
+                          {loadingWeekBookings && (
+                            <div className="flex items-center justify-center rounded-lg border border-border/70 bg-muted/30 py-3 text-sm text-muted-foreground">
+                              <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                              Chargement des réservations de la semaine...
+                            </div>
+                          )}
+
+                          <div className="pb-2">
+                            <div className="grid grid-cols-7 gap-2 md:gap-2.5">
+                              {generateWeekCalendarData().map((dayDate, dayIndex) => {
+                                const dateKey = formatDateKey(dayDate);
+                                const dayStatus = getCalendarDayStatus(dateKey);
+                                const dayStyle = calendarDayStyles[dayStatus];
+                                const dayBookings = weekBookingsByDate[dateKey] || [];
+
+                                return (
+                                  <div
+                                    key={`week-column-${dateKey}`}
+                                    className="min-w-0 rounded-xl border border-border/70 bg-card p-2 md:p-2.5 shadow-[var(--admin-shadow-soft)]"
+                                  >
+                                    <div className="border-b border-border/60 pb-2">
+                                      <div className="flex items-start justify-between gap-2">
+                                        <div className="min-w-0">
+                                          <p className="truncate text-[10px] font-semibold uppercase tracking-wide text-muted-foreground md:text-xs">
+                                            {WEEK_DAY_LABELS[dayIndex]}
+                                          </p>
+                                          <p className="truncate text-xs font-semibold text-foreground capitalize md:text-sm">
+                                            {dayDate.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}
+                                          </p>
+                                        </div>
+                                        <span
+                                          className="inline-flex shrink-0 items-center gap-1 rounded-full border px-1.5 py-0.5 text-[10px] font-medium md:px-2"
+                                          style={{ borderColor: dayStyle.borderColor, color: dayStyle.textColor }}
+                                        >
+                                          <span className="h-2 w-2 rounded-full" style={{ backgroundColor: dayStyle.dotColor }} />
+                                          <span className="hidden md:inline">{dayBookings.length} RDV</span>
+                                          <span className="md:hidden">{dayBookings.length}</span>
+                                        </span>
+                                      </div>
+                                    </div>
+
+                                    <div className="mt-2.5 max-h-[300px] space-y-1.5 overflow-x-hidden overflow-y-auto pr-0.5" style={{ touchAction: 'pan-y' }}>
+                                      {dayBookings.length === 0 ? (
+                                        <div className="rounded-lg border border-dashed border-border bg-muted/30 px-2 py-2 text-center text-[11px] text-muted-foreground">
+                                          Aucune réservation
+                                        </div>
+                                      ) : (
+                                        dayBookings.map((booking) => {
+                                          const statusMeta = getWeekCardStatusMeta(booking.status);
+                                          return (
+                                            <button
+                                              key={booking.id}
+                                              type="button"
+                                              onClick={() => selectDay(dayDate)}
+                                              className="w-full min-w-0 rounded-md border border-border/70 bg-background p-1.5 text-left transition-colors hover:bg-muted/40"
+                                              title="Voir le détail du jour"
+                                            >
+                                              <div className="flex items-center gap-1.5">
+                                                <p className="text-xs font-semibold tabular-nums text-foreground md:text-sm">
+                                                  {formatTime(booking.start_time)}
+                                                </p>
+                                              </div>
+                                              <p className="mt-1 truncate text-[11px] font-medium leading-tight text-foreground md:text-xs">
+                                                {booking.customer_name}
+                                              </p>
+                                              <p className="truncate text-[10px] leading-tight text-muted-foreground">
+                                                {booking.service?.nombre || 'Service'}
+                                              </p>
+                                              <div className="mt-1 flex justify-center">
+                                                <span
+                                                  className={`inline-flex max-w-full items-center gap-1 rounded-full border px-1.5 py-0.5 text-[10px] font-medium whitespace-nowrap ${statusMeta.chipClass}`}
+                                                >
+                                                  <span className={`h-1.5 w-1.5 rounded-full ${statusMeta.dotClass}`} />
+                                                  {statusMeta.label}
+                                                </span>
+                                              </div>
+                                            </button>
+                                          );
+                                        })
+                                      )}
+                                    </div>
+
+                                    <Button
+                                      type="button"
+                                      variant="outline"
+                                      size="sm"
+                                      className="mt-2.5 h-8 w-full px-2 text-xs"
+                                      onClick={() => selectDay(dayDate)}
+                                    >
+                                      Voir le jour
+                                    </Button>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {calendarViewMode === "day" && (
+                        <div className="mx-auto max-w-sm">
+                          <p className="mb-2 text-center text-sm text-muted-foreground">
+                            {parseDateKey(selectedDate).toLocaleDateString('fr-FR', { weekday: 'long' })}
+                          </p>
+                          {renderCalendarDayButton(
+                            parseDateKey(selectedDate),
+                            `day-${selectedDate}`,
+                            "h-20 w-full text-base sm:h-24"
+                          )}
+                        </div>
+                      )}
 
                       <div className="mt-4 border-t border-border/70 pt-3">
                         <div className="flex flex-wrap items-center justify-center gap-1.5 text-[11px] sm:text-xs">
@@ -887,44 +1242,113 @@ export default function AdminBookingsPage() {
                   </div>
                 ) : (
                   <div>
-                    <h2 className="text-xl font-semibold text-foreground mb-4">
-                      Réservations pour le {new Intl.DateTimeFormat('fr-FR', { dateStyle: 'full' }).format(new Date(selectedDate))}
-                    </h2>
+                    {calendarViewMode === "day" ? (
+                      <div className="mb-4 flex flex-col gap-4">
+                        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                          <h2 className="text-xl font-semibold text-foreground">
+                            {selectedStylist !== 'all'
+                              ? `Calendrier de ${stylists.find(s => s.id === selectedStylist)?.name || 'Styliste'}`
+                              : 'Calendrier'
+                            }
+                          </h2>
+
+                          <div className="inline-flex w-full rounded-xl border border-border bg-muted/35 p-1 sm:w-auto">
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant={calendarViewMode === "month" ? "default" : "ghost"}
+                              className="flex-1 sm:flex-none"
+                              onClick={() => setCalendarMode("month")}
+                            >
+                              Mois
+                            </Button>
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant={calendarViewMode === "week" ? "default" : "ghost"}
+                              className="flex-1 sm:flex-none"
+                              onClick={() => setCalendarMode("week")}
+                            >
+                              Semaine
+                            </Button>
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant={calendarViewMode === "day" ? "default" : "ghost"}
+                              className="flex-1 sm:flex-none"
+                              onClick={() => setCalendarMode("day")}
+                            >
+                              Jour
+                            </Button>
+                          </div>
+                        </div>
+
+                        <div className="mx-auto mb-2 grid w-full max-w-[22rem] grid-cols-[2.25rem_minmax(0,1fr)_2.25rem] items-center gap-2 px-1 sm:w-fit sm:max-w-none sm:grid-cols-[2.5rem_20rem_2.5rem] sm:gap-3 sm:px-0">
+                          <Button
+                            onClick={goToPreviousPeriod}
+                            variant="outline"
+                            size="icon"
+                            className="h-10 w-10 rounded-full border-border bg-background text-foreground shadow-sm hover:bg-accent"
+                            aria-label="Jour précédent"
+                          >
+                            <ChevronLeft className="h-4 w-4" />
+                          </Button>
+                          <span className="w-full truncate text-center text-lg font-medium text-foreground capitalize sm:text-2xl">
+                            {getCalendarPeriodLabel()}
+                          </span>
+                          <Button
+                            onClick={goToNextPeriod}
+                            variant="outline"
+                            size="icon"
+                            className="h-10 w-10 rounded-full border-border bg-background text-foreground shadow-sm hover:bg-accent"
+                            aria-label="Jour suivant"
+                          >
+                            <ChevronRight className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    ) : (
+                      <h2 className="mb-4 text-xl font-semibold text-foreground">
+                        Réservations pour le {new Intl.DateTimeFormat('fr-FR', { dateStyle: 'full' }).format(new Date(selectedDate))}
+                      </h2>
+                    )}
                   
                     {/* Lista de reservas para el día seleccionado */}
                     <div>
                       {/* Encabezado con fecha y botones */}
-                      <div className="flex flex-col items-center justify-between gap-3 rounded-t-lg border border-border bg-muted/35 p-4 sm:flex-row">
-                        <div className="flex items-center mb-3 sm:mb-0">
-                          <Button
-                            onClick={backToCalendar}
-                            variant="outline"
-                            size="icon"
-                            className="mr-3 h-10 w-10 rounded-xl text-foreground"
-                          >
-                            &larr;
-                          </Button>
-                          <h3 className="text-xl font-semibold text-foreground">
-                            {new Date(selectedDate).toLocaleDateString('fr-FR', { 
-                              weekday: 'long', 
-                              day: 'numeric', 
-                              month: 'long', 
-                              year: 'numeric' 
-                            })}
-                          </h3>
+                      {calendarViewMode !== "day" && (
+                        <div className="flex flex-col items-center justify-between gap-3 rounded-t-lg border border-border bg-muted/35 p-4 sm:flex-row">
+                          <div className="mb-3 flex items-center sm:mb-0">
+                            <Button
+                              onClick={backToCalendar}
+                              variant="outline"
+                              size="icon"
+                              className="mr-3 h-10 w-10 rounded-xl text-foreground"
+                            >
+                              &larr;
+                            </Button>
+                            <h3 className="text-xl font-semibold text-foreground">
+                              {new Date(selectedDate).toLocaleDateString('fr-FR', {
+                                weekday: 'long',
+                                day: 'numeric',
+                                month: 'long',
+                                year: 'numeric'
+                              })}
+                            </h3>
+                          </div>
+                          <div className="flex space-x-2">
+                            <Button
+                              onClick={goToToday}
+                              className="px-4"
+                            >
+                              Aujourd&apos;hui
+                            </Button>
+                          </div>
                         </div>
-                        <div className="flex space-x-2">
-                          <Button
-                            onClick={goToToday}
-                            className="px-4"
-                          >
-                            Aujourd&apos;hui
-                          </Button>
-                        </div>
-                      </div>
+                      )}
                       
                       {/* Contenido de reservas */}
-                      <div className="rounded-b-lg border-x border-b border-border bg-card p-4">
+                      <div className={`${calendarViewMode === "day" ? 'rounded-lg border border-border' : 'rounded-b-lg border-x border-b'} border-border bg-card p-4`}>
                         {loading ? (
                           <div className="flex justify-center p-10">
                             <div className="w-12 h-12 rounded-full animate-spin-custom"></div>

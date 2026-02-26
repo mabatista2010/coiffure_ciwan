@@ -134,3 +134,32 @@ Estandarizar toda la interfaz de `/admin` con un sistema de componentes reusable
 - `checklist.md` y `status.md` reflejan cierre de todas las fases con gates aprobados.
 - Se documenta decisión final sobre `@headlessui/react` (retener o eliminar).
 - Lint sin errores y build evaluado según estado base del proyecto.
+
+## Outcome summary
+### Qué se implementó
+- Migración visual completa del alcance `/admin/*` a primitives `shadcn/ui` + wrappers admin (`AdminCard`, `SectionHeader`, `FilterBar`, `StatusBadge`, `AdminDateInput`).
+- Homologación de layouts, formularios, tablas, badges y modales en todas las rutas planificadas.
+- Iteración intensiva en `/admin/stylist-stats`:
+  - Header compacto y filtros optimizados para desktop/tablet.
+  - KPIs compactos, mejoras de legibilidad y ajustes de copy/acentos en FR.
+  - Patrón de modal ampliado para detalle de `Reservations`.
+  - Corrección de doble tooltip, fallback de imagen y ajustes responsive.
+  - Corrección de capas (`z-index`) para calendarios sobre modales.
+  - Animación de modales centrada (`fade + zoom`) sin entrada desde esquina.
+
+### Qué se cambió vs plan original
+- Se añadió una sub-iteración UX no prevista inicialmente en la Fase 6 para pulir `stylist-stats` con múltiples ciclos de feedback visual.
+- Se extendió la limpieza final para incluir mejoras de microinteracción (tooltips, animaciones, overlay stacking), además de la limpieza de estilos/dependencias.
+- La validación técnica se hizo principalmente por archivo/ruta (lint focalizado + smoke HTTP), manteniendo el cierre global condicionado por issues preexistentes fuera del scope.
+
+### Pendientes
+- QA manual del usuario en entorno real (desktop/tablet/mobile), con foco en:
+  - Interacciones de modales expandidos.
+  - Comportamiento de calendarios y filtros en `stylist-stats` y `location-stats`.
+  - Flujos con cuentas reales `admin/employee`.
+- Si el QA valida OK: limpiar puntero activo (`Docs/_active.md`) con `impl-pack-clear`.
+
+### Riesgos conocidos post-release
+- Persisten fallos globales de `npm run lint` y `npm run build` por errores preexistentes en `src/app/admin/reservations/page.tsx` (variables no usadas), no introducidos por este paquete.
+- El layout de pills en tablet depende del ancho disponible y densidad de etiquetas; cambios de copy podrían requerir nuevo ajuste fino.
+- El incremento de `z-index` en `AdminDateInput` es intencional para resolver solapes; cualquier nuevo overlay global con z superior podría requerir armonización.

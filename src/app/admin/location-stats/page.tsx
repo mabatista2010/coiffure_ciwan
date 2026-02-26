@@ -19,6 +19,7 @@ import {
 } from "react-icons/fa";
 
 import {
+  AdminDateInput,
   AdminCard,
   AdminCardContent,
   AdminCardHeader,
@@ -26,7 +27,6 @@ import {
   SectionHeader,
 } from "@/components/admin/ui";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
@@ -659,9 +659,9 @@ export default function LocationStatsPage() {
                   <label htmlFor="start-date" className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                     Date de debut
                   </label>
-                  <Input
+                  <AdminDateInput
                     id="start-date"
-                    type="date"
+                    className="w-full"
                     value={customStartDate}
                     onChange={(event) => setCustomStartDate(event.target.value)}
                   />
@@ -673,9 +673,9 @@ export default function LocationStatsPage() {
                   <label htmlFor="end-date" className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                     Date de fin
                   </label>
-                  <Input
+                  <AdminDateInput
                     id="end-date"
-                    type="date"
+                    className="w-full"
                     value={customEndDate}
                     onChange={(event) => setCustomEndDate(event.target.value)}
                   />

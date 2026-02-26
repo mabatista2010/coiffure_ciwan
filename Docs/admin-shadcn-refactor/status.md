@@ -1,8 +1,9 @@
 # Status
 
-- Current phase: Fase 6 - Limpieza y cierre (completada, Ready for QA)
-- Last completed task: Ajuste final de `/admin/boutique` para consolidar uso real de `shadcn/ui` (cards, badges, buttons, inputs/selects) sin cambios de negocio; validado con `npm run lint`, `npm run build` y smoke runtime `200` en `/admin/boutique` y `/admin`.
-- Next task: QA manual final con cuentas reales `admin/employee` para validar permisos y flujos funcionales end-to-end (CRUDs y cambios de estado).
-- Tests pending: No hay pendientes tecnicos de build/lint/rutas; queda QA manual de negocio por credenciales reales.
-- Bloqueos: Ninguno bloqueante. Warnings conocidos no bloqueantes: `caniuse-lite` desactualizado y `metadataBase` no configurado.
-- Last update: 2026-02-25 21:25:24 CET
+- Estado: Ready for QA
+- Current phase: Fase 6 - Limpieza y cierre (completada)
+- Last completed task: En `stylist-stats`, el modal grande de detalle de tendencia ahora abre al clicar la columna del día (popover sin botón de expandir), según feedback UX.
+- Next task: QA manual del usuario.
+- Tests pending: QA manual funcional end-to-end (desktop/tablet/mobile, roles `admin/employee`, modales y calendarios).
+- Bloqueos: `npm run lint` y `npm run build` globales fallan por errores preexistentes en `src/app/admin/reservations/page.tsx` (unused vars), fuera del scope de este paquete.
+- Last update: 2026-02-26 23:46:33 CET

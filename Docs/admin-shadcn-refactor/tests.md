@@ -59,3 +59,16 @@ npm run build
 - Smoke tests de la fase ejecutados y documentados en `checklist.md`.
 - Gate de fase marcado como aprobado.
 - Cualquier incidencia conocida queda registrada en `status.md` y/o notas de fase.
+
+## Resultados ejecutados (cierre)
+### Ejecutado y conforme
+- `npx next lint --file src/app/admin/stylist-stats/page.tsx`
+- `npx next lint --file src/components/admin/ui/AdminDateInput.tsx --file src/app/admin/stylist-stats/page.tsx --file src/app/admin/location-stats/page.tsx`
+- `npx next lint --file src/components/ui/dialog.tsx --file src/app/admin/stylist-stats/page.tsx --file src/app/admin/location-stats/page.tsx`
+- Smoke HTTP local:
+  - `/admin/stylist-stats` -> `200`
+  - `/admin/location-stats` -> `200`
+
+### Pendiente de ejecutar / confirmar
+- QA manual completo del usuario sobre las rutas admin migradas (interacciones reales con datos/roles).
+- Re-ejecución de gates globales `npm run lint` y `npm run build` una vez resueltos errores preexistentes fuera de scope en `src/app/admin/reservations/page.tsx`.

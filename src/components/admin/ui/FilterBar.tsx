@@ -4,9 +4,16 @@ import { cn } from "@/lib/utils";
 
 interface FilterBarProps extends React.HTMLAttributes<HTMLDivElement> {
   actions?: React.ReactNode;
+  fieldsClassName?: string;
 }
 
-function FilterBar({ className, children, actions, ...props }: FilterBarProps) {
+function FilterBar({
+  className,
+  children,
+  actions,
+  fieldsClassName,
+  ...props
+}: FilterBarProps) {
   return (
     <div
       className={cn(
@@ -16,7 +23,12 @@ function FilterBar({ className, children, actions, ...props }: FilterBarProps) {
       {...props}
     >
       <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
-        <div className="grid flex-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
+        <div
+          className={cn(
+            "grid flex-1 gap-3",
+            fieldsClassName ?? "md:grid-cols-2 xl:grid-cols-4"
+          )}
+        >
           {children}
         </div>
         {actions ? (

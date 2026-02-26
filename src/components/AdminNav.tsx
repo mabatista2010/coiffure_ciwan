@@ -334,7 +334,7 @@ export default function AdminNav({
   return (
     <>
       {/* Barra de navegación superior (solo visible en móvil) */}
-      <nav className="fixed z-40 w-full border-b border-border bg-card text-foreground md:hidden">
+      <nav className="fixed z-40 w-full border-b border-[var(--admin-sidebar-border)] bg-[var(--admin-sidebar-bg)] text-[var(--admin-sidebar-text)] md:hidden">
         <div className="container mx-auto px-4">
           <div className="flex items-center justify-between py-2">
             <Link href="/" className="z-50 py-1 transition-transform hover:scale-105">
@@ -351,7 +351,7 @@ export default function AdminNav({
             <Button
               variant="ghost"
               size="icon"
-              className="z-50 text-foreground hover:bg-accent hover:text-primary"
+              className="z-50 text-[var(--admin-sidebar-text)] hover:bg-[var(--admin-sidebar-hover)] hover:text-white"
               onClick={() => setIsOpen(true)}
               aria-label="Ouvrir le menu"
             >
@@ -369,7 +369,7 @@ export default function AdminNav({
         {desktopTapEnabled && sidebarOpen && !sidebarPinned && (
           <button
             type="button"
-            className="fixed inset-0 z-30 bg-transparent"
+            className="fixed inset-0 z-[180] bg-transparent"
             onClick={() => setSidebarOpen(false)}
             aria-label="Fermer la barre latérale"
           />
@@ -378,7 +378,7 @@ export default function AdminNav({
         <div
           id="desktop-sidebar"
           className={cn(
-            'fixed left-0 top-0 z-40 h-full bg-[var(--admin-sidebar-bg)] text-[var(--admin-sidebar-text)] transition-all duration-300',
+            'fixed left-0 top-0 z-[190] h-full bg-[var(--admin-sidebar-bg)] text-[var(--admin-sidebar-text)] transition-all duration-300',
             isDesktopExpanded ? 'w-64' : 'w-20'
           )}
           onMouseEnter={openDesktopSidebar}
@@ -567,8 +567,8 @@ export default function AdminNav({
 
       <Dialog open={isOpen} onOpenChange={setIsOpen}>
         <DialogPortal>
-          <DialogOverlay className="bg-black/45 md:hidden" />
-          <DialogPrimitive.Content className="fixed inset-y-0 right-0 z-50 h-[100dvh] w-[min(92vw,24rem)] border-l border-[var(--admin-sidebar-border)] bg-[var(--admin-sidebar-bg)] text-[var(--admin-sidebar-text)] shadow-2xl duration-300 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:slide-out-to-right-full data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:slide-in-from-right-full md:hidden">
+          <DialogOverlay className="z-[220] bg-black/45 md:hidden" />
+          <DialogPrimitive.Content className="admin-scope fixed inset-y-0 right-0 z-[230] h-[100dvh] w-[min(92vw,24rem)] border-l border-[var(--admin-sidebar-border)] bg-[var(--admin-sidebar-bg)] text-[var(--admin-sidebar-text)] shadow-2xl duration-300 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:slide-out-to-right-full data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:slide-in-from-right-full md:hidden">
             <DialogHeader className="sr-only">
               <DialogTitle>Menu administrateur</DialogTitle>
               <DialogDescription>Navigation mobile de l&apos;espace admin.</DialogDescription>
@@ -576,17 +576,16 @@ export default function AdminNav({
 
             <Card className="flex h-full min-h-0 flex-col rounded-none border-0 bg-[var(--admin-sidebar-bg)] text-[var(--admin-sidebar-text)] shadow-none backdrop-blur-none">
               <CardHeader className="space-y-0 p-0 pt-[max(env(safe-area-inset-top),1rem)]">
-                <div className="flex items-center justify-between px-4 py-3">
-                  <p className="text-sm font-semibold tracking-wide text-primary">Navigation</p>
+                <div className="flex items-center justify-end px-4 py-3">
                   <DialogPrimitive.Close asChild>
                     <Button
                       type="button"
                       variant="ghost"
                       size="icon"
-                      className="text-[var(--admin-sidebar-text)] hover:bg-[var(--admin-sidebar-hover)] hover:text-white"
+                      className="h-11 w-11 rounded-xl border border-[var(--admin-sidebar-border)] text-[var(--admin-sidebar-text)] shadow-[0_10px_24px_-18px_rgba(0,0,0,0.45)] hover:bg-[var(--admin-sidebar-hover)] hover:text-white"
                       aria-label="Fermer le menu"
                     >
-                      <X className="h-5 w-5" />
+                      <X className="h-6 w-6" strokeWidth={2.4} />
                     </Button>
                   </DialogPrimitive.Close>
                 </div>
