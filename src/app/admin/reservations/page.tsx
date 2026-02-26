@@ -1256,7 +1256,7 @@ export default function AdminBookingsPage() {
                             <Button
                               type="button"
                               size="sm"
-                              variant={calendarViewMode === "month" ? "default" : "ghost"}
+                              variant="ghost"
                               className="flex-1 sm:flex-none"
                               onClick={() => setCalendarMode("month")}
                             >
@@ -1265,7 +1265,7 @@ export default function AdminBookingsPage() {
                             <Button
                               type="button"
                               size="sm"
-                              variant={calendarViewMode === "week" ? "default" : "ghost"}
+                              variant="ghost"
                               className="flex-1 sm:flex-none"
                               onClick={() => setCalendarMode("week")}
                             >
@@ -1274,7 +1274,7 @@ export default function AdminBookingsPage() {
                             <Button
                               type="button"
                               size="sm"
-                              variant={calendarViewMode === "day" ? "default" : "ghost"}
+                              variant="default"
                               className="flex-1 sm:flex-none"
                               onClick={() => setCalendarMode("day")}
                             >
