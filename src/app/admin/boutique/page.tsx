@@ -323,10 +323,10 @@ export default function BoutiqueAdminPage() {
 
   if (loading) {
     return (
-      <div className="admin-scope min-h-screen bg-dark px-4 py-8 text-zinc-100">
+      <div className="admin-scope min-h-screen bg-background px-4 py-8 text-foreground">
         <div className="mx-auto flex w-full max-w-7xl flex-col gap-6">
           <AdminCard>
-            <AdminCardContent className="flex min-h-56 items-center justify-center gap-3 text-zinc-300">
+            <AdminCardContent className="flex min-h-56 items-center justify-center gap-3 text-foreground">
               <div className="h-5 w-5 animate-spin rounded-full border-2 border-primary/30 border-t-primary" />
               Chargement de la boutique...
             </AdminCardContent>
@@ -337,7 +337,7 @@ export default function BoutiqueAdminPage() {
   }
 
   return (
-    <div className="admin-scope min-h-screen bg-dark px-4 py-8 text-zinc-100">
+    <div className="admin-scope min-h-screen bg-background px-4 py-8 text-foreground">
       <div className="mx-auto flex w-full max-w-7xl flex-col gap-6">
         <SectionHeader
           title="Gestion de la Boutique"
@@ -359,7 +359,7 @@ export default function BoutiqueAdminPage() {
           }
         />
 
-        <div className="flex flex-wrap gap-2 rounded-2xl border border-white/10 bg-black/30 p-2">
+        <div className="flex flex-wrap gap-2 rounded-2xl border border-border bg-card p-2 shadow-[var(--admin-shadow-soft)]">
           <Button
             type="button"
             variant={activeTab === 'productos' ? 'default' : 'ghost'}
@@ -385,12 +385,12 @@ export default function BoutiqueAdminPage() {
             <AdminCard tone="highlight">
               <AdminCardContent className="space-y-3 py-5">
                 <div className="flex items-center gap-2">
-                  <div className="h-2 w-2 animate-pulse rounded-full bg-sky-400" />
-                  <h3 className="text-sm font-semibold uppercase tracking-wide text-sky-300">
+                  <div className="h-2 w-2 animate-pulse rounded-full bg-primary" />
+                  <h3 className="text-sm font-semibold uppercase tracking-wide text-primary">
                     Synchronisation avec Stripe
                   </h3>
                 </div>
-                <p className="text-sm text-zinc-300">
+                <p className="text-sm text-foreground">
                   Toute création, édition ou suppression d&apos;un produit est
                   synchronisée automatiquement avec Stripe.
                 </p>
@@ -401,17 +401,17 @@ export default function BoutiqueAdminPage() {
               <motion.div initial={{ opacity: 0, y: -18 }} animate={{ opacity: 1, y: 0 }}>
                 <AdminCard>
                   <AdminCardHeader>
-                    <h3 className="text-xl font-semibold text-zinc-100">
+                    <h3 className="text-xl font-semibold text-foreground">
                       {editingProduct ? 'Modifier le produit' : 'Nouveau produit'}
                     </h3>
-                    <p className="text-sm text-zinc-400">
+                    <p className="text-sm text-muted-foreground">
                       Les champs marqués d&apos;une étoile sont obligatoires.
                     </p>
                   </AdminCardHeader>
                   <AdminCardContent>
                     <form onSubmit={handleSubmit} className="grid grid-cols-1 gap-4 md:grid-cols-2">
                       <div className="space-y-2">
-                        <label className="text-sm font-medium text-zinc-200">Nom *</label>
+                        <label className="text-sm font-medium text-foreground">Nom *</label>
                         <Input
                           type="text"
                           name="nombre"
@@ -422,7 +422,7 @@ export default function BoutiqueAdminPage() {
                       </div>
 
                       <div className="space-y-2">
-                        <label className="text-sm font-medium text-zinc-200">Catégorie</label>
+                        <label className="text-sm font-medium text-foreground">Catégorie</label>
                         <Select
                           value={formData.categoria}
                           onValueChange={(value) =>
@@ -444,7 +444,7 @@ export default function BoutiqueAdminPage() {
                       </div>
 
                       <div className="space-y-2">
-                        <label className="text-sm font-medium text-zinc-200">Prix (€) *</label>
+                        <label className="text-sm font-medium text-foreground">Prix (CHF) *</label>
                         <Input
                           type="number"
                           name="precio"
@@ -457,7 +457,7 @@ export default function BoutiqueAdminPage() {
                       </div>
 
                       <div className="space-y-2">
-                        <label className="text-sm font-medium text-zinc-200">Prix original (€)</label>
+                        <label className="text-sm font-medium text-foreground">Prix original (CHF)</label>
                         <Input
                           type="number"
                           name="precio_original"
@@ -469,7 +469,7 @@ export default function BoutiqueAdminPage() {
                       </div>
 
                       <div className="space-y-2">
-                        <label className="text-sm font-medium text-zinc-200">Stock</label>
+                        <label className="text-sm font-medium text-foreground">Stock</label>
                         <Input
                           type="number"
                           name="stock"
@@ -480,7 +480,7 @@ export default function BoutiqueAdminPage() {
                       </div>
 
                       <div className="space-y-2">
-                        <label className="text-sm font-medium text-zinc-200">Ordre</label>
+                        <label className="text-sm font-medium text-foreground">Ordre</label>
                         <Input
                           type="number"
                           name="orden"
@@ -491,7 +491,7 @@ export default function BoutiqueAdminPage() {
                       </div>
 
                       <div className="space-y-2 md:col-span-2">
-                        <label className="text-sm font-medium text-zinc-200">Description</label>
+                        <label className="text-sm font-medium text-foreground">Description</label>
                         <Textarea
                           name="descripcion"
                           value={formData.descripcion}
@@ -502,7 +502,7 @@ export default function BoutiqueAdminPage() {
                       </div>
 
                       <div className="space-y-2 md:col-span-2">
-                        <label className="text-sm font-medium text-zinc-200">URL de l&apos;image</label>
+                        <label className="text-sm font-medium text-foreground">URL de l&apos;image</label>
                         <Input
                           type="url"
                           name="imagen_url"
@@ -512,23 +512,23 @@ export default function BoutiqueAdminPage() {
                       </div>
 
                       <div className="flex flex-wrap items-center gap-5 md:col-span-2">
-                        <label className="inline-flex items-center gap-2 text-sm text-zinc-200">
+                        <label className="inline-flex items-center gap-2 text-sm text-foreground">
                           <input
                             type="checkbox"
                             name="activo"
                             checked={formData.activo}
                             onChange={handleInputChange}
-                            className="h-4 w-4 rounded border-white/25 bg-black/30 text-primary focus:ring-primary/40"
+                            className="h-4 w-4 rounded border-input bg-background text-primary focus:ring-primary/40"
                           />
                           Actif
                         </label>
-                        <label className="inline-flex items-center gap-2 text-sm text-zinc-200">
+                        <label className="inline-flex items-center gap-2 text-sm text-foreground">
                           <input
                             type="checkbox"
                             name="destacado"
                             checked={formData.destacado}
                             onChange={handleInputChange}
-                            className="h-4 w-4 rounded border-white/25 bg-black/30 text-primary focus:ring-primary/40"
+                            className="h-4 w-4 rounded border-input bg-background text-primary focus:ring-primary/40"
                           />
                           Vedette
                         </label>
@@ -558,7 +558,7 @@ export default function BoutiqueAdminPage() {
 
             {productos.length === 0 ? (
               <AdminCard>
-                <AdminCardContent className="py-12 text-center text-zinc-400">
+                <AdminCardContent className="py-12 text-center text-muted-foreground">
                   Aucun produit disponible.
                 </AdminCardContent>
               </AdminCard>
@@ -582,7 +582,7 @@ export default function BoutiqueAdminPage() {
                       <AdminCardContent className="space-y-4 pt-5">
                         <div className="space-y-2">
                           <div className="flex flex-wrap items-center justify-between gap-2">
-                            <h3 className="text-lg font-semibold text-zinc-100">
+                            <h3 className="text-lg font-semibold text-foreground">
                               {producto.nombre}
                             </h3>
                             <div className="flex flex-wrap gap-2">
@@ -604,23 +604,23 @@ export default function BoutiqueAdminPage() {
                               ) : null}
                             </div>
                           </div>
-                          <p className="line-clamp-2 text-sm text-zinc-400">
+                          <p className="line-clamp-2 text-sm text-muted-foreground">
                             {producto.descripcion || 'Sans description.'}
                           </p>
                         </div>
 
-                        <div className="flex items-center justify-between rounded-xl border border-white/10 bg-black/20 px-3 py-2">
+                        <div className="flex items-center justify-between rounded-xl border border-border bg-muted/35 px-3 py-2">
                           <div className="flex items-center gap-2">
                             <span className="text-lg font-semibold text-primary">
-                              {producto.precio.toFixed(2)}€
+                              {producto.precio.toFixed(2)} CHF
                             </span>
                             {producto.precio_original ? (
-                              <span className="text-sm text-zinc-500 line-through">
-                                {producto.precio_original.toFixed(2)}€
+                              <span className="text-sm text-muted-foreground line-through">
+                                {producto.precio_original.toFixed(2)} CHF
                               </span>
                             ) : null}
                           </div>
-                          <span className="text-sm text-zinc-300">Stock: {producto.stock}</span>
+                          <span className="text-sm text-foreground">Stock: {producto.stock}</span>
                         </div>
 
                         <Badge
@@ -678,7 +678,7 @@ export default function BoutiqueAdminPage() {
           <div className="space-y-6">
             {pedidos.length === 0 ? (
               <AdminCard>
-                <AdminCardContent className="py-12 text-center text-zinc-400">
+                <AdminCardContent className="py-12 text-center text-muted-foreground">
                   Aucune commande disponible.
                 </AdminCardContent>
               </AdminCard>
@@ -694,7 +694,7 @@ export default function BoutiqueAdminPage() {
                       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                         <div className="space-y-3">
                           <div className="flex flex-wrap items-center gap-2">
-                            <h3 className="text-xl font-semibold text-zinc-100">
+                            <h3 className="text-xl font-semibold text-foreground">
                               Commande #{pedido.id}
                             </h3>
                             <Badge
@@ -707,17 +707,17 @@ export default function BoutiqueAdminPage() {
                           </div>
 
                           <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-                            <div className="rounded-xl border border-white/10 bg-black/20 p-3 text-sm">
-                              <p className="text-xs uppercase tracking-wide text-zinc-500">Client</p>
-                              <p className="mt-1 font-medium text-zinc-100">{pedido.cliente_nombre}</p>
-                              <p className="mt-1 text-zinc-400">{pedido.cliente_email}</p>
+                            <div className="rounded-xl border border-border bg-muted/35 p-3 text-sm">
+                              <p className="text-xs uppercase tracking-wide text-muted-foreground">Client</p>
+                              <p className="mt-1 font-medium text-foreground">{pedido.cliente_nombre}</p>
+                              <p className="mt-1 text-muted-foreground">{pedido.cliente_email}</p>
                               {pedido.cliente_telefono ? (
-                                <p className="text-zinc-400">{pedido.cliente_telefono}</p>
+                                <p className="text-muted-foreground">{pedido.cliente_telefono}</p>
                               ) : null}
                             </div>
-                            <div className="rounded-xl border border-white/10 bg-black/20 p-3 text-sm">
-                              <p className="text-xs uppercase tracking-wide text-zinc-500">Adresse</p>
-                              <p className="mt-1 text-zinc-200">
+                            <div className="rounded-xl border border-border bg-muted/35 p-3 text-sm">
+                              <p className="text-xs uppercase tracking-wide text-muted-foreground">Adresse</p>
+                              <p className="mt-1 text-foreground">
                                 {pedido.cliente_direccion || 'Non spécifiée'}
                               </p>
                             </div>
@@ -726,22 +726,22 @@ export default function BoutiqueAdminPage() {
 
                         <div className="rounded-xl border border-primary/25 bg-primary/10 px-4 py-3 text-right">
                           <p className="text-2xl font-semibold text-primary">
-                            {parseFloat(pedido.total).toFixed(2)}€
+                            {parseFloat(pedido.total).toFixed(2)} CHF
                           </p>
-                          <p className="text-xs text-zinc-400">{formatDate(pedido.created_at)}</p>
+                          <p className="text-xs text-muted-foreground">{formatDate(pedido.created_at)}</p>
                         </div>
                       </div>
 
                       {pedido.items && pedido.items.length > 0 ? (
-                        <div className="space-y-2 border-t border-white/10 pt-4">
-                          <h4 className="text-sm font-semibold uppercase tracking-wide text-zinc-300">
+                        <div className="space-y-2 border-t border-border pt-4">
+                          <h4 className="text-sm font-semibold uppercase tracking-wide text-foreground">
                             Articles commandés
                           </h4>
                           <div className="space-y-2">
                             {pedido.items.map((item) => (
                               <div
                                 key={item.id}
-                                className="flex items-center gap-3 rounded-xl border border-white/10 bg-black/20 p-3"
+                                className="flex items-center gap-3 rounded-xl border border-border bg-muted/35 p-3"
                               >
                                 {item.producto ? (
                                   <div className="relative h-12 w-12 overflow-hidden rounded-lg">
@@ -754,15 +754,15 @@ export default function BoutiqueAdminPage() {
                                   </div>
                                 ) : null}
                                 <div className="flex-1">
-                                  <p className="font-medium text-zinc-100">
+                                  <p className="font-medium text-foreground">
                                     {item.producto?.nombre || `Produit #${item.producto_id}`}
                                   </p>
-                                  <p className="text-sm text-zinc-400">
-                                    Quantité: {item.cantidad} × {parseFloat(item.precio_unitario).toFixed(2)}€
+                                  <p className="text-sm text-muted-foreground">
+                                    Quantité: {item.cantidad} × {parseFloat(item.precio_unitario).toFixed(2)} CHF
                                   </p>
                                 </div>
                                 <p className="font-semibold text-primary">
-                                  {parseFloat(item.subtotal).toFixed(2)}€
+                                  {parseFloat(item.subtotal).toFixed(2)} CHF
                                 </p>
                               </div>
                             ))}
@@ -770,9 +770,9 @@ export default function BoutiqueAdminPage() {
                         </div>
                       ) : null}
 
-                      <div className="flex flex-col gap-3 border-t border-white/10 pt-4 md:flex-row md:items-end md:justify-between">
+                      <div className="flex flex-col gap-3 border-t border-border pt-4 md:flex-row md:items-end md:justify-between">
                         <div className="w-full md:max-w-xs">
-                          <label className="mb-2 block text-sm font-medium text-zinc-200">
+                          <label className="mb-2 block text-sm font-medium text-foreground">
                             Statut de la commande
                           </label>
                           <Select
@@ -795,7 +795,7 @@ export default function BoutiqueAdminPage() {
                           variant="secondary"
                           onClick={() => {
                             alert(
-                              `Détails de la commande #${pedido.id}\n\nClient: ${pedido.cliente_nombre}\nEmail: ${pedido.cliente_email}\nTotal: ${pedido.total}€\nStatut: ${getStatusText(pedido.estado)}`
+                              `Détails de la commande #${pedido.id}\n\nClient: ${pedido.cliente_nombre}\nEmail: ${pedido.cliente_email}\nTotal: ${pedido.total} CHF\nStatut: ${getStatusText(pedido.estado)}`
                             );
                           }}
                         >

@@ -191,7 +191,7 @@ function CheckoutSuccessContent() {
                 
                 <div className="flex justify-between">
                   <span className="text-text-medium">Total:</span>
-                  <span className="text-primary font-bold text-xl">{pedido.total.toFixed(2)}€</span>
+                  <span className="text-primary font-bold text-xl">{pedido.total.toFixed(2)} CHF</span>
                 </div>
                 
                 <div className="flex justify-between">

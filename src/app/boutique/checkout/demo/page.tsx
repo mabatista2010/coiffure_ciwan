@@ -167,7 +167,7 @@ export default function DemoPage() {
                     </div>
                     <div className="text-right">
                       <p className="text-primary font-bold">
-                        {(item.producto.precio * item.cantidad).toFixed(2)}€
+                        {(item.producto.precio * item.cantidad).toFixed(2)} CHF
                       </p>
                     </div>
                   </div>

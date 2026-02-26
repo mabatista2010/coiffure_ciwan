@@ -24,11 +24,11 @@ function SectionHeader({
       {...props}
     >
       <div className="space-y-1">
-        <h2 className="text-2xl font-semibold tracking-tight text-zinc-100 md:text-3xl">
+        <h2 className="text-2xl font-semibold tracking-tight text-foreground md:text-3xl">
           {title}
         </h2>
         {description ? (
-          <p className="max-w-3xl text-sm leading-relaxed text-zinc-400">
+          <p className="max-w-3xl text-sm leading-relaxed text-muted-foreground">
             {description}
           </p>
         ) : null}

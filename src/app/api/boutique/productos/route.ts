@@ -61,7 +61,7 @@ export async function POST(request: Request) {
       const stripePrice = await stripe.prices.create({
         product: stripeProduct.id,
         unit_amount: Math.round(precio * 100), // Convertir a centavos
-        currency: 'eur',
+        currency: 'chf',
       });
 
       stripeProductId = stripeProduct.id;

@@ -271,7 +271,7 @@ export default function ClientCRMPage() {
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat('fr-FR', {
       style: 'currency',
-      currency: 'EUR'
+      currency: 'CHF'
     }).format(price);
   };
 
@@ -287,7 +287,7 @@ export default function ClientCRMPage() {
 
   if (selectedClient) {
     return (
-      <div className="admin-scope min-h-screen bg-dark px-4 py-8 text-zinc-100">
+      <div className="admin-scope min-h-screen bg-background px-4 py-8 text-foreground">
         <div className="mx-auto flex w-full max-w-7xl flex-col gap-6">
           <SectionHeader
             title="Détails du client"
@@ -303,14 +303,14 @@ export default function ClientCRMPage() {
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <AdminCard>
               <AdminCardHeader>
-                <h3 className="text-lg font-semibold text-zinc-100">
+                <h3 className="text-lg font-semibold text-foreground">
                   Informations personnelles
                 </h3>
               </AdminCardHeader>
-              <AdminCardContent className="space-y-2 text-sm text-zinc-300">
+              <AdminCardContent className="space-y-2 text-sm text-foreground">
                 <p className="flex items-center gap-2">
                   <FaUser className="text-primary" />
-                  <span className="font-semibold text-zinc-100">
+                  <span className="font-semibold text-foreground">
                     {selectedClient.name}
                   </span>
                 </p>
@@ -327,11 +327,11 @@ export default function ClientCRMPage() {
 
             <AdminCard>
               <AdminCardHeader>
-                <h3 className="text-lg font-semibold text-zinc-100">
+                <h3 className="text-lg font-semibold text-foreground">
                   Statistiques
                 </h3>
               </AdminCardHeader>
-              <AdminCardContent className="space-y-2 text-sm text-zinc-300">
+              <AdminCardContent className="space-y-2 text-sm text-foreground">
                 <p>
                   Première visite:{" "}
                   <span className="font-semibold text-primary">
@@ -363,11 +363,11 @@ export default function ClientCRMPage() {
           <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
             <AdminCard>
               <AdminCardHeader>
-                <h3 className="text-base font-semibold text-zinc-100">
+                <h3 className="text-base font-semibold text-foreground">
                   Centre préféré
                 </h3>
               </AdminCardHeader>
-              <AdminCardContent className="text-sm text-zinc-300">
+              <AdminCardContent className="text-sm text-foreground">
                 <p className="flex items-center gap-2">
                   <FaMapMarkerAlt className="text-primary" />
                   {selectedClient.favorite_location?.name || "Non défini"}
@@ -377,11 +377,11 @@ export default function ClientCRMPage() {
 
             <AdminCard>
               <AdminCardHeader>
-                <h3 className="text-base font-semibold text-zinc-100">
+                <h3 className="text-base font-semibold text-foreground">
                   Styliste préféré
                 </h3>
               </AdminCardHeader>
-              <AdminCardContent className="text-sm text-zinc-300">
+              <AdminCardContent className="text-sm text-foreground">
                 <p className="flex items-center gap-2">
                   <FaUserTie className="text-primary" />
                   {selectedClient.favorite_stylist?.name || "Non défini"}
@@ -391,11 +391,11 @@ export default function ClientCRMPage() {
 
             <AdminCard>
               <AdminCardHeader>
-                <h3 className="text-base font-semibold text-zinc-100">
+                <h3 className="text-base font-semibold text-foreground">
                   Service préféré
                 </h3>
               </AdminCardHeader>
-              <AdminCardContent className="text-sm text-zinc-300">
+              <AdminCardContent className="text-sm text-foreground">
                 <p className="flex items-center gap-2">
                   <FaCut className="text-primary" />
                   {selectedClient.favorite_service?.nombre || "Non défini"}
@@ -406,7 +406,7 @@ export default function ClientCRMPage() {
 
           <AdminCard>
             <AdminCardHeader>
-              <h3 className="text-lg font-semibold text-zinc-100">
+              <h3 className="text-lg font-semibold text-foreground">
                 Historique des réservations
               </h3>
             </AdminCardHeader>
@@ -462,7 +462,7 @@ export default function ClientCRMPage() {
                   </TableBody>
                 </Table>
               ) : (
-                <p className="text-zinc-400">Aucune réservation trouvée.</p>
+                <p className="text-muted-foreground">Aucune réservation trouvée.</p>
               )}
             </AdminCardContent>
           </AdminCard>
@@ -472,7 +472,7 @@ export default function ClientCRMPage() {
   }
 
   return (
-    <div className="admin-scope min-h-screen bg-dark px-4 py-8 text-zinc-100">
+    <div className="admin-scope min-h-screen bg-background px-4 py-8 text-foreground">
       <div className="mx-auto flex w-full max-w-7xl flex-col gap-6">
         <SectionHeader
           title="Gestion des clients"
@@ -510,7 +510,7 @@ export default function ClientCRMPage() {
           }
         >
           <div className="relative md:col-span-2">
-            <FaSearch className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" />
+            <FaSearch className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
             <Input
               type="text"
               className="pl-10"
@@ -519,7 +519,7 @@ export default function ClientCRMPage() {
               onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
-          <div className="flex h-11 items-center rounded-xl border border-white/10 bg-black/20 px-4 text-sm text-zinc-300">
+          <div className="flex h-11 items-center rounded-xl border border-border bg-card px-4 text-sm text-foreground shadow-[var(--admin-shadow-soft)]">
             <span className="font-semibold text-primary">{filteredClients.length}</span>
             <span className="ml-2">
               client{filteredClients.length !== 1 ? 's' : ''} trouvé{filteredClients.length !== 1 ? 's' : ''}
@@ -540,8 +540,8 @@ export default function ClientCRMPage() {
                 </AdminCardContent>
               </AdminCard>
             ) : filteredClients.length === 0 ? (
-              <div className="py-10 text-center text-zinc-400">
-                <FaUser className="mx-auto mb-3 text-4xl text-zinc-500" />
+              <div className="py-10 text-center text-muted-foreground">
+                <FaUser className="mx-auto mb-3 text-4xl text-muted-foreground" />
                 Aucun client trouvé
               </div>
             ) : (
@@ -549,40 +549,40 @@ export default function ClientCRMPage() {
                 {filteredClients.map((client) => (
                   <AdminCard
                     key={client.email}
-                    className="cursor-pointer border-white/10 hover:border-primary/45"
+                    className="cursor-pointer border-border hover:border-primary/45"
                     onClick={() => viewClientDetails(client)}
                   >
                     <AdminCardContent className="space-y-4 pt-6">
                       <div>
-                        <h3 className="text-lg font-semibold text-zinc-100">
+                        <h3 className="text-lg font-semibold text-foreground">
                           {client.name}
                         </h3>
-                        <p className="mt-1 flex items-center gap-2 text-sm text-zinc-400">
+                        <p className="mt-1 flex items-center gap-2 text-sm text-muted-foreground">
                           <FaEnvelope className="text-primary" />
                           {client.email}
                         </p>
-                        <p className="mt-1 flex items-center gap-2 text-sm text-zinc-400">
+                        <p className="mt-1 flex items-center gap-2 text-sm text-muted-foreground">
                           <FaPhone className="text-primary" />
                           {client.phone}
                         </p>
                       </div>
 
                       <div className="grid grid-cols-2 gap-2">
-                        <div className="rounded-lg border border-white/10 bg-black/25 p-2">
-                          <p className="text-xs text-zinc-400">Visites</p>
+                        <div className="rounded-lg border border-border bg-muted/40 p-2">
+                          <p className="text-xs text-muted-foreground">Visites</p>
                           <p className="text-lg font-semibold text-primary">
                             {client.total_visits}
                           </p>
                         </div>
-                        <div className="rounded-lg border border-white/10 bg-black/25 p-2">
-                          <p className="text-xs text-zinc-400">Dépensé</p>
+                        <div className="rounded-lg border border-border bg-muted/40 p-2">
+                          <p className="text-xs text-muted-foreground">Dépensé</p>
                           <p className="text-sm font-semibold text-primary">
                             {formatPrice(client.total_spent)}
                           </p>
                         </div>
                       </div>
 
-                      <div className="flex items-center justify-between text-xs text-zinc-400">
+                      <div className="flex items-center justify-between text-xs text-muted-foreground">
                         <span>
                           Dernière visite:{" "}
                           <span className="text-primary">

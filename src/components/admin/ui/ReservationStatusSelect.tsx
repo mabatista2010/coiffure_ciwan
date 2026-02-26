@@ -16,10 +16,10 @@ interface ReservationStatusSelectProps {
 }
 
 const STATUS_STYLES: Record<ReservationStatus, string> = {
-  pending: "border-amber-500/45 bg-amber-500/15 text-amber-100",
-  confirmed: "border-blue-500/45 bg-blue-500/15 text-blue-100",
-  cancelled: "border-destructive/45 bg-destructive/15 text-red-100",
-  completed: "border-emerald-500/45 bg-emerald-500/15 text-emerald-100",
+  pending: "border-amber-300 bg-amber-50 text-amber-700",
+  confirmed: "border-blue-300 bg-blue-50 text-blue-700",
+  cancelled: "border-red-300 bg-red-50 text-red-700",
+  completed: "border-emerald-300 bg-emerald-50 text-emerald-700",
 };
 
 function ReservationStatusSelect({

@@ -10,7 +10,7 @@ function FilterBar({ className, children, actions, ...props }: FilterBarProps) {
   return (
     <div
       className={cn(
-        "rounded-2xl border border-white/10 bg-black/35 p-4 shadow-[0_18px_45px_-34px_rgba(0,0,0,0.9)]",
+        "rounded-2xl border border-border bg-card p-4 shadow-[0_18px_45px_-34px_rgba(15,23,42,0.25)]",
         className
       )}
       {...props}

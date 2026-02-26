@@ -79,7 +79,7 @@ export async function PUT(
           const newPrice = await stripe.prices.create({
             product: currentProduct.stripe_product_id,
             unit_amount: Math.round(precio * 100), // Convertir a centavos
-            currency: 'eur',
+            currency: 'chf',
           });
 
           // Actualizar el stripe_price_id en la base de datos

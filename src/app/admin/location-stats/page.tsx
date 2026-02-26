@@ -460,7 +460,7 @@ export default function LocationStatsPage() {
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat("fr-FR", {
       style: "currency",
-      currency: "EUR",
+      currency: "CHF",
     }).format(amount);
   };
 
@@ -470,7 +470,7 @@ export default function LocationStatsPage() {
   );
 
   return (
-    <main className="admin-scope min-h-screen bg-dark px-4 py-8">
+    <main className="admin-scope min-h-screen bg-background px-4 py-8">
       <div className="mx-auto flex w-full max-w-7xl flex-col gap-6">
         <SectionHeader
           title="Statistiques des Centres"
@@ -481,7 +481,7 @@ export default function LocationStatsPage() {
           <AdminCardContent className="space-y-4 pt-6">
             <FilterBar>
               <div className="space-y-2">
-                <label htmlFor="location-select" className="text-xs font-semibold uppercase tracking-wide text-zinc-400">
+                <label htmlFor="location-select" className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                   Centre
                 </label>
                 <Select
@@ -506,7 +506,7 @@ export default function LocationStatsPage() {
 
               {dateRangeType === "personalizado" ? (
                 <div className="space-y-2">
-                  <label htmlFor="start-date" className="text-xs font-semibold uppercase tracking-wide text-zinc-400">
+                  <label htmlFor="start-date" className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                     Date de debut
                   </label>
                   <Input
@@ -520,7 +520,7 @@ export default function LocationStatsPage() {
 
               {dateRangeType === "personalizado" ? (
                 <div className="space-y-2">
-                  <label htmlFor="end-date" className="text-xs font-semibold uppercase tracking-wide text-zinc-400">
+                  <label htmlFor="end-date" className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                     Date de fin
                   </label>
                   <Input
@@ -533,16 +533,16 @@ export default function LocationStatsPage() {
               ) : null}
 
               <div className="space-y-2">
-                <p className="text-xs font-semibold uppercase tracking-wide text-zinc-400">
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                   Periode active
                 </p>
-                <p className="rounded-xl border border-primary/20 bg-black/35 px-3 py-2 text-sm text-primary">
+                <p className="rounded-xl border border-primary/20 bg-card px-3 py-2 text-sm text-primary">
                   {selectedDateRangeLabel}
                 </p>
               </div>
 
               <div className="space-y-2 md:col-span-2 xl:col-span-4">
-                <p className="text-xs font-semibold uppercase tracking-wide text-zinc-400">
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                   Raccourcis de periode
                 </p>
                 <div className="flex flex-wrap gap-2">
@@ -586,7 +586,7 @@ export default function LocationStatsPage() {
 
         {loading ? (
           <AdminCard>
-            <AdminCardContent className="flex min-h-56 items-center justify-center gap-3 text-zinc-300">
+            <AdminCardContent className="flex min-h-56 items-center justify-center gap-3 text-foreground">
               <FaCalendarAlt className="h-5 w-5 animate-spin text-primary" />
               Chargement des statistiques...
             </AdminCardContent>
@@ -602,14 +602,14 @@ export default function LocationStatsPage() {
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
               <AdminCard>
                 <AdminCardContent className="space-y-2 pt-6">
-                  <p className="flex items-center gap-2 text-zinc-300">
+                  <p className="flex items-center gap-2 text-foreground">
                     <FaCalendarCheck className="text-primary" />
                     Reservations
                   </p>
                   <p className="text-3xl font-semibold text-primary">
                     {stats.totalBookings}
                   </p>
-                  <div className="space-y-1 text-sm text-zinc-400">
+                  <div className="space-y-1 text-sm text-muted-foreground">
                     <p>Completees: {stats.completedBookings}</p>
                     <p>Confirmees: {stats.confirmedBookings}</p>
                     <p>En attente: {stats.pendingBookings}</p>
@@ -620,14 +620,14 @@ export default function LocationStatsPage() {
 
               <AdminCard>
                 <AdminCardContent className="space-y-2 pt-6">
-                  <p className="flex items-center gap-2 text-zinc-300">
+                  <p className="flex items-center gap-2 text-foreground">
                     <FaEuroSign className="text-primary" />
                     Revenus
                   </p>
                   <p className="text-3xl font-semibold text-primary">
                     {formatCurrency(stats.totalRevenue)}
                   </p>
-                  <p className="text-sm text-zinc-400">
+                  <p className="text-sm text-muted-foreground">
                     Moyenne par reservation: {" "}
                     {formatCurrency(
                       stats.completedBookings
@@ -640,13 +640,13 @@ export default function LocationStatsPage() {
 
               <AdminCard>
                 <AdminCardContent className="space-y-2 pt-6">
-                  <p className="flex items-center gap-2 text-zinc-300">
+                  <p className="flex items-center gap-2 text-foreground">
                     <FaUserTie className="text-primary" />
                     Stylistes actifs
                   </p>
                   <div className="space-y-2 text-sm">
                     {stats.topStylists.slice(0, 3).map((stylist, index) => (
-                      <p key={index} className="flex justify-between gap-3 text-zinc-300">
+                      <p key={index} className="flex justify-between gap-3 text-foreground">
                         <span className="truncate" title={stylist.stylist_name}>
                           {stylist.stylist_name}
                         </span>
@@ -659,13 +659,13 @@ export default function LocationStatsPage() {
 
               <AdminCard>
                 <AdminCardContent className="space-y-2 pt-6">
-                  <p className="flex items-center gap-2 text-zinc-300">
+                  <p className="flex items-center gap-2 text-foreground">
                     <FaCut className="text-primary" />
                     Services populaires
                   </p>
                   <div className="space-y-2 text-sm">
                     {stats.topServices.slice(0, 3).map((service, index) => (
-                      <p key={index} className="flex justify-between gap-3 text-zinc-300">
+                      <p key={index} className="flex justify-between gap-3 text-foreground">
                         <span className="truncate" title={service.service_name}>
                           {service.service_name}
                         </span>
@@ -680,7 +680,7 @@ export default function LocationStatsPage() {
             <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
               <AdminCard>
                 <AdminCardHeader>
-                  <h3 className="text-lg font-semibold text-zinc-100">
+                  <h3 className="text-lg font-semibold text-foreground">
                     Stylistes les plus actifs
                   </h3>
                 </AdminCardHeader>
@@ -691,13 +691,13 @@ export default function LocationStatsPage() {
 
                     return (
                       <div key={index} className="space-y-1">
-                        <div className="flex items-center justify-between gap-3 text-sm text-zinc-300">
+                        <div className="flex items-center justify-between gap-3 text-sm text-foreground">
                           <span className="truncate" title={stylist.stylist_name}>
                             {stylist.stylist_name}
                           </span>
                           <span className="font-semibold text-primary">{stylist.count}</span>
                         </div>
-                        <div className="h-2.5 rounded-full bg-black/55">
+                        <div className="h-2.5 rounded-full bg-muted/40">
                           <div
                             className="h-2.5 rounded-full bg-primary transition-all"
                             style={{ width: `${width}%` }}
@@ -711,7 +711,7 @@ export default function LocationStatsPage() {
 
               <AdminCard>
                 <AdminCardHeader>
-                  <h3 className="text-lg font-semibold text-zinc-100">
+                  <h3 className="text-lg font-semibold text-foreground">
                     Services les plus demandes
                   </h3>
                 </AdminCardHeader>
@@ -722,13 +722,13 @@ export default function LocationStatsPage() {
 
                     return (
                       <div key={index} className="space-y-1">
-                        <div className="flex items-center justify-between gap-3 text-sm text-zinc-300">
+                        <div className="flex items-center justify-between gap-3 text-sm text-foreground">
                           <span className="truncate" title={service.service_name}>
                             {service.service_name}
                           </span>
                           <span className="font-semibold text-primary">{service.count}</span>
                         </div>
-                        <div className="h-2.5 rounded-full bg-black/55">
+                        <div className="h-2.5 rounded-full bg-muted/40">
                           <div
                             className="h-2.5 rounded-full bg-primary transition-all"
                             style={{ width: `${width}%` }}
@@ -744,12 +744,12 @@ export default function LocationStatsPage() {
             <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
               <AdminCard>
                 <AdminCardHeader>
-                  <h3 className="text-lg font-semibold text-zinc-100">
+                  <h3 className="text-lg font-semibold text-foreground">
                     Jours les plus occupes
                   </h3>
                 </AdminCardHeader>
                 <AdminCardContent className="space-y-4">
-                  <p className="text-sm text-zinc-400">
+                  <p className="text-sm text-muted-foreground">
                     Moyenne de reservations par jour: {" "}
                     <span className="font-semibold text-primary">
                       {stats.averageBookingsPerDay.toFixed(1)}
@@ -763,11 +763,11 @@ export default function LocationStatsPage() {
 
                       return (
                         <div key={index} className="space-y-1">
-                          <div className="flex items-center justify-between gap-3 text-sm text-zinc-300">
+                          <div className="flex items-center justify-between gap-3 text-sm text-foreground">
                             <span>{day.day}</span>
                             <span className="font-semibold text-primary">{day.count}</span>
                           </div>
-                          <div className="h-2.5 rounded-full bg-black/55">
+                          <div className="h-2.5 rounded-full bg-muted/40">
                             <div
                               className="h-2.5 rounded-full bg-primary transition-all"
                               style={{ width: `${width}%` }}
@@ -782,11 +782,11 @@ export default function LocationStatsPage() {
 
               <AdminCard>
                 <AdminCardHeader>
-                  <h3 className="flex items-center gap-2 text-lg font-semibold text-zinc-100">
+                  <h3 className="flex items-center gap-2 text-lg font-semibold text-foreground">
                     <FaChartLine className="text-primary" />
                     Tendance des reservations
                   </h3>
-                  <p className="text-sm text-zinc-400">
+                  <p className="text-sm text-muted-foreground">
                     {stats.bookingsByMonth.length > 0
                       ? `${formatMonthYear(stats.bookingsByMonth[0].month)} - ${formatMonthYear(
                           stats.bookingsByMonth[stats.bookingsByMonth.length - 1].month
@@ -807,7 +807,7 @@ export default function LocationStatsPage() {
                               className="w-full rounded-t bg-primary transition-all"
                               style={{ height: `${height}%` }}
                             />
-                            <span className="text-[10px] text-zinc-400 sm:text-xs">
+                            <span className="text-[10px] text-muted-foreground sm:text-xs">
                               {formatMonthYear(item.month)}
                             </span>
                             <span className="text-xs font-semibold text-primary">
@@ -818,7 +818,7 @@ export default function LocationStatsPage() {
                       })}
                     </div>
                   ) : (
-                    <div className="flex h-28 items-center justify-center text-sm text-zinc-400">
+                    <div className="flex h-28 items-center justify-center text-sm text-muted-foreground">
                       Aucune reservation trouvee pour cette periode.
                     </div>
                   )}
@@ -828,7 +828,7 @@ export default function LocationStatsPage() {
           </>
         ) : (
           <AdminCard>
-            <AdminCardContent className="py-8 text-center text-zinc-400">
+            <AdminCardContent className="py-8 text-center text-muted-foreground">
               Selectionnez un centre pour afficher ses statistiques.
             </AdminCardContent>
           </AdminCard>

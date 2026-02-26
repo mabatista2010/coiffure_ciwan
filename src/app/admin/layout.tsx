@@ -9,6 +9,8 @@ import { AdminCard, AdminCardContent, AdminCardHeader } from '@/components/admin
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 
+const ADMIN_THEME_CLASSES = ['admin-theme', 'admin-theme-blue'];
+
 export default function AdminLayout({
   children,
 }: {
@@ -21,6 +23,23 @@ export default function AdminLayout({
   const [errorMessage, setErrorMessage] = useState('');
   const router = useRouter();
   const pathname = usePathname();
+
+  useEffect(() => {
+    const html = document.documentElement;
+    const body = document.body;
+
+    ADMIN_THEME_CLASSES.forEach((className) => {
+      html.classList.add(className);
+      body.classList.add(className);
+    });
+
+    return () => {
+      ADMIN_THEME_CLASSES.forEach((className) => {
+        html.classList.remove(className);
+        body.classList.remove(className);
+      });
+    };
+  }, []);
   
   useEffect(() => {
     const checkSession = async () => {
@@ -80,8 +99,8 @@ export default function AdminLayout({
 
   if (isAuthenticated === null) {
     return (
-      <div className="admin-scope">
-        <div className="min-h-screen bg-dark px-4 py-8">
+      <div className="admin-scope admin-theme admin-theme-blue">
+        <div className="min-h-screen bg-background px-4 py-8">
           <div className="mx-auto w-full max-w-md">
             <AdminCard>
               <AdminCardContent className="py-12 text-center">
@@ -96,14 +115,14 @@ export default function AdminLayout({
 
   if (isAuthenticated === false) {
     return (
-      <div className="admin-scope">
-        <div className="min-h-screen bg-dark px-4 py-8">
+      <div className="admin-scope admin-theme admin-theme-blue">
+        <div className="min-h-screen bg-background px-4 py-8">
           <div className="mx-auto w-full max-w-md">
             <AdminCard>
               <AdminCardHeader>
                 <div className="text-center">
                   <h1 className="text-2xl font-bold text-primary">Panel de administración</h1>
-                  <p className="mt-2 text-zinc-300">
+                  <p className="mt-2 text-muted-foreground">
                     Inicia sesión para acceder al panel.
                   </p>
                 </div>
@@ -117,7 +136,7 @@ export default function AdminLayout({
 
                 <form className="space-y-4" onSubmit={handleLogin}>
                   <div className="space-y-1">
-                    <label htmlFor="email" className="text-sm text-zinc-300">Email</label>
+                    <label htmlFor="email" className="text-sm text-muted-foreground">Email</label>
                     <Input
                       id="email"
                       name="email"
@@ -129,7 +148,7 @@ export default function AdminLayout({
                   </div>
 
                   <div className="space-y-1">
-                    <label htmlFor="password" className="text-sm text-zinc-300">Contraseña</label>
+                    <label htmlFor="password" className="text-sm text-muted-foreground">Contraseña</label>
                     <Input
                       id="password"
                       name="password"
@@ -159,13 +178,13 @@ export default function AdminLayout({
     
     if (!isAllowed) {
       return (
-        <div className="admin-scope">
-          <div className="min-h-screen bg-dark px-4 py-8">
+        <div className="admin-scope admin-theme admin-theme-blue">
+          <div className="min-h-screen bg-background px-4 py-8">
             <div className="mx-auto w-full max-w-md">
               <AdminCard>
                 <AdminCardContent className="py-10 text-center">
                   <h1 className="text-2xl font-bold text-primary">Acceso denegado</h1>
-                  <p className="mt-2 text-zinc-300">
+                  <p className="mt-2 text-muted-foreground">
                     No tienes permisos para acceder a esta sección.
                   </p>
                   <Button
@@ -184,9 +203,9 @@ export default function AdminLayout({
   }
 
   return (
-    <div className="admin-scope">
+    <div className="admin-scope admin-theme admin-theme-blue">
       <AdminNav />
-      <main className="min-h-screen bg-dark">
+      <main className="min-h-screen bg-background text-foreground md:pl-20">
         {children}
       </main>
     </div>

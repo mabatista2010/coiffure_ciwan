@@ -88,7 +88,7 @@ export default function ServiceSelect({ onServiceSelect }: ServiceSelectProps) {
                     {service.nombre}
                   </h3>
                   <span className="text-lg font-bold text-primary bg-secondary px-2 py-1 rounded">
-                    {service.precio}€
+                    {service.precio} CHF
                   </span>
                 </div>
                 <p className="text-gray-700 mb-2">

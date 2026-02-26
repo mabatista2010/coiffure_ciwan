@@ -1,0 +1,117 @@
+/* Tokens visuales exclusivos del panel admin.
+   Cambia esta paleta y el admin completo se actualiza. */
+
+.admin-theme {
+  color-scheme: light;
+
+  /* Core */
+  --admin-bg: #f4f7fc;
+  --admin-surface: #ffffff;
+  --admin-surface-muted: #f8fafe;
+  --admin-surface-strong: #ecf2ff;
+  --admin-border: #d8e1f0;
+  --admin-border-strong: #c5d2e7;
+  --admin-text: #1f2937;
+  --admin-text-strong: #0f172a;
+  --admin-text-muted: #64748b;
+
+  /* Accent */
+  --admin-primary: #3b82f6;
+  --admin-primary-foreground: #ffffff;
+  --admin-primary-soft: #dbeafe;
+  --admin-ring: #3b82f6;
+
+  /* Status */
+  --admin-success: #16a34a;
+  --admin-warning: #d97706;
+  --admin-danger: #dc2626;
+
+  /* Calendar status */
+  --admin-calendar-empty-bg: #eef2f94d;
+  --admin-calendar-empty-border: #d5deec;
+  --admin-calendar-empty-text: transparent;
+  --admin-calendar-empty-dot: transparent;
+
+  --admin-calendar-available-bg: #dcfce7;
+  --admin-calendar-available-border: #86efac;
+  --admin-calendar-available-text: #166534;
+  --admin-calendar-available-dot: #22c55e;
+
+  --admin-calendar-partial-bg: #fef3c7;
+  --admin-calendar-partial-border: #fcd34d;
+  --admin-calendar-partial-text: #92400e;
+  --admin-calendar-partial-dot: #f59e0b;
+
+  --admin-calendar-full-bg: #fee2e2;
+  --admin-calendar-full-border: #fca5a5;
+  --admin-calendar-full-text: #b91c1c;
+  --admin-calendar-full-dot: #ef4444;
+
+  /* Elevation */
+  --admin-shadow-soft: 0 12px 28px -22px rgba(15, 23, 42, 0.22);
+  --admin-shadow-card:
+    0 22px 50px -34px rgba(15, 23, 42, 0.24),
+    0 10px 22px -18px rgba(15, 23, 42, 0.14);
+  --admin-shadow-card-strong:
+    0 24px 56px -36px rgba(15, 23, 42, 0.24),
+    0 12px 24px -18px rgba(15, 23, 42, 0.14);
+  --admin-overlay: rgba(244, 247, 252, 0.76);
+
+  /* Sidebar */
+  --admin-sidebar-bg: #0f172a;
+  --admin-sidebar-surface: #111c33;
+  --admin-sidebar-border: #1e293b;
+  --admin-sidebar-hover: #1b2a48;
+  --admin-sidebar-active: #1d4ed8;
+  --admin-sidebar-text: #e2e8f0;
+  --admin-sidebar-muted: #94a3b8;
+
+  /* shadcn semantic tokens */
+  --background: var(--admin-bg);
+  --foreground: var(--admin-text);
+  --card: var(--admin-surface);
+  --card-foreground: var(--admin-text);
+  --popover: var(--admin-surface);
+  --popover-foreground: var(--admin-text);
+  --primary: var(--admin-primary);
+  --primary-foreground: var(--admin-primary-foreground);
+  --secondary: var(--admin-surface-muted);
+  --secondary-foreground: var(--admin-text);
+  --muted: var(--admin-surface-strong);
+  --muted-foreground: var(--admin-text-muted);
+  --accent: var(--admin-primary-soft);
+  --accent-foreground: var(--admin-text-strong);
+  --destructive: var(--admin-danger);
+  --destructive-foreground: #ffffff;
+  --border: var(--admin-border);
+  --input: var(--admin-border-strong);
+  --ring: var(--admin-ring);
+
+  --sidebar: var(--admin-sidebar-bg);
+  --sidebar-foreground: var(--admin-sidebar-text);
+  --sidebar-primary: var(--admin-primary);
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: var(--admin-sidebar-surface);
+  --sidebar-accent-foreground: var(--admin-sidebar-text);
+  --sidebar-border: var(--admin-sidebar-border);
+  --sidebar-ring: var(--admin-primary);
+
+  /* Backward compatibility con utilidades legacy del admin */
+  --color-primary: var(--admin-primary);
+  --color-primary-rgb: 59, 130, 246;
+  --color-secondary: var(--admin-surface);
+  --color-accent: var(--admin-surface-strong);
+  --color-coral: var(--admin-danger);
+
+  --color-text-dark: var(--admin-text-strong);
+  --color-text-light: var(--admin-text);
+  --color-text-medium: var(--admin-text-muted);
+
+  --color-bg-dark: var(--admin-bg);
+  --color-bg-card: var(--admin-surface);
+  --color-bg-light: #ffffff;
+}
+
+.admin-theme.admin-theme-blue {
+  /* Alias explícito para futuras variantes */
+}

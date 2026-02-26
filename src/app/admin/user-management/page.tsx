@@ -185,10 +185,10 @@ export default function UserManagement() {
 
   if (loading && !isUserAdmin) {
     return (
-      <main className="admin-scope min-h-screen bg-dark px-4 py-8">
+      <main className="admin-scope min-h-screen bg-background px-4 py-8">
         <div className="mx-auto max-w-3xl">
           <AdminCard>
-            <AdminCardContent className="flex items-center justify-center gap-3 py-12 text-zinc-300">
+            <AdminCardContent className="flex items-center justify-center gap-3 py-12 text-foreground">
               <FaSpinner className="h-5 w-5 animate-spin text-primary" />
               Verification des droits en cours...
             </AdminCardContent>
@@ -200,13 +200,13 @@ export default function UserManagement() {
 
   if (!isUserAdmin) {
     return (
-      <main className="admin-scope min-h-screen bg-dark px-4 py-8">
+      <main className="admin-scope min-h-screen bg-background px-4 py-8">
         <div className="mx-auto max-w-3xl">
           <AdminCard tone="highlight" className="border-destructive/35">
             <AdminCardHeader>
               <h1 className="text-2xl font-bold text-primary">Acces refuse</h1>
             </AdminCardHeader>
-            <AdminCardContent className="text-zinc-300">
+            <AdminCardContent className="text-foreground">
               Vous n&apos;avez pas les permissions pour acceder a cette page.
               Seuls les administrateurs peuvent gerer les utilisateurs.
             </AdminCardContent>
@@ -217,7 +217,7 @@ export default function UserManagement() {
   }
 
   return (
-    <main className="admin-scope min-h-screen bg-dark px-4 py-8">
+    <main className="admin-scope min-h-screen bg-background px-4 py-8">
       <div className="mx-auto flex w-full max-w-7xl flex-col gap-6">
         <SectionHeader
           title="Gestion des Utilisateurs"
@@ -234,7 +234,7 @@ export default function UserManagement() {
 
         {success ? (
           <AdminCard className="border-emerald-500/35 bg-emerald-500/12">
-            <AdminCardContent className="py-4 text-sm text-emerald-300">
+            <AdminCardContent className="py-4 text-sm text-emerald-700">
               {success}
             </AdminCardContent>
           </AdminCard>
@@ -242,12 +242,12 @@ export default function UserManagement() {
 
         <AdminCard>
           <AdminCardHeader>
-            <h2 className="flex items-center gap-2 text-xl font-semibold text-zinc-100">
+            <h2 className="flex items-center gap-2 text-xl font-semibold text-foreground">
               <FaInfoCircle className="text-primary" />
               Informations sur la gestion des utilisateurs
             </h2>
           </AdminCardHeader>
-          <AdminCardContent className="space-y-4 text-sm text-zinc-300">
+          <AdminCardContent className="space-y-4 text-sm text-foreground">
             <p>Le processus fonctionne comme suit :</p>
             <ol className="list-decimal space-y-2 pl-6">
               <li>
@@ -260,7 +260,7 @@ export default function UserManagement() {
                 et peut associer un styliste.
               </li>
             </ol>
-            <p className="rounded-xl border border-primary/30 bg-black/30 p-3 text-primary">
+            <p className="rounded-xl border border-primary/30 bg-primary/10 p-3 text-primary">
               Les nouveaux utilisateurs recoivent automatiquement le role
               Employe.
             </p>
@@ -269,18 +269,18 @@ export default function UserManagement() {
 
         <AdminCard>
           <AdminCardHeader>
-            <h2 className="text-xl font-semibold text-zinc-100">
+            <h2 className="text-xl font-semibold text-foreground">
               Utilisateurs du systeme
             </h2>
           </AdminCardHeader>
           <AdminCardContent>
             {loading ? (
-              <div className="flex flex-col items-center justify-center gap-3 py-12 text-zinc-300">
+              <div className="flex flex-col items-center justify-center gap-3 py-12 text-foreground">
                 <FaSpinner className="h-8 w-8 animate-spin text-primary" />
                 Chargement des utilisateurs...
               </div>
             ) : users.length === 0 ? (
-              <div className="flex flex-col items-center justify-center gap-3 py-12 text-zinc-400">
+              <div className="flex flex-col items-center justify-center gap-3 py-12 text-muted-foreground">
                 <FaUser className="h-12 w-12 text-primary/60" />
                 Aucun utilisateur a afficher.
               </div>
@@ -292,15 +292,15 @@ export default function UserManagement() {
                   return (
                     <AdminCard
                       key={user.id}
-                      className="h-full border-white/8 bg-black/35 shadow-none"
+                      className="h-full border-border/80 bg-card"
                     >
                       <AdminCardContent className="space-y-4 pt-6">
                         <div className="flex items-start gap-3">
-                          <div className="rounded-full border border-primary/20 bg-secondary p-3">
+                          <div className="rounded-full border border-border bg-muted/40 p-3">
                             <FaUser className="h-4 w-4 text-primary" />
                           </div>
                           <div className="min-w-0 flex-1 space-y-2">
-                            <p className="flex items-center gap-2 text-sm text-zinc-300">
+                            <p className="flex items-center gap-2 text-sm text-foreground">
                               <FaEnvelope className="h-3.5 w-3.5 text-primary/70" />
                               <span className="truncate">{user.email}</span>
                             </p>
@@ -321,8 +321,8 @@ export default function UserManagement() {
                           </div>
                         </div>
 
-                        <div className="rounded-xl border border-white/10 bg-secondary/50 p-3 text-sm">
-                          <p className="mb-1 font-medium text-zinc-300">
+                        <div className="rounded-xl border border-border bg-muted/30 p-3 text-sm">
+                          <p className="mb-1 font-medium text-foreground">
                             Styliste associe
                           </p>
                           {user.stylist_name ? (
@@ -331,14 +331,14 @@ export default function UserManagement() {
                               {user.stylist_name}
                             </p>
                           ) : (
-                            <p className="text-zinc-500">Non assigne</p>
+                            <p className="text-muted-foreground">Non assigne</p>
                           )}
                         </div>
 
                         {isEditing ? (
-                          <div className="space-y-3 rounded-xl border border-primary/20 bg-black/25 p-3">
+                          <div className="space-y-3 rounded-xl border border-primary/20 bg-muted/40 p-3">
                             <div className="space-y-2">
-                              <label className="text-xs font-semibold uppercase tracking-wide text-zinc-400">
+                              <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                                 Role
                               </label>
                               <div className="flex flex-col gap-2 sm:flex-row">
@@ -379,7 +379,7 @@ export default function UserManagement() {
                             </div>
 
                             <div className="space-y-2">
-                              <label className="text-xs font-semibold uppercase tracking-wide text-zinc-400">
+                              <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                                 Styliste
                               </label>
                               <div className="flex flex-col gap-2 sm:flex-row">

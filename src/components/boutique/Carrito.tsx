@@ -153,7 +153,7 @@ export default function Carrito({ isOpen, onClose, items, onUpdateQuantity, onRe
                             {item.producto.nombre}
                           </h3>
                           <p className="text-2xl font-bold text-primary mb-3">
-                            {item.producto.precio.toFixed(2)}€
+                            {item.producto.precio.toFixed(2)} CHF
                           </p>
                           <div className="flex items-center justify-between">
                             <div className="flex items-center gap-3">
@@ -208,7 +208,7 @@ export default function Carrito({ isOpen, onClose, items, onUpdateQuantity, onRe
                     <p className="text-text-medium text-sm">Livraison gratuite incluse</p>
                   </div>
                   <span className="text-3xl font-bold text-primary">
-                    {total.toFixed(2)}€
+                    {total.toFixed(2)} CHF
                   </span>
                 </div>
                 <motion.button

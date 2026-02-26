@@ -8,6 +8,15 @@ import Image from 'next/image';
 import { AdminCard, AdminCardContent, SectionHeader } from '@/components/admin/ui';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import {
   Select,
   SelectContent,
@@ -15,7 +24,26 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { Textarea } from '@/components/ui/textarea';
+import { getImageUrl } from '@/lib/getImageUrl';
+
+type TimeSlotPeriod = 'morning' | 'afternoon' | 'evening';
+
+const timeSlotLabels: Record<TimeSlotPeriod, string> = {
+  morning: 'Matin',
+  afternoon: 'Après-midi',
+  evening: 'Soir',
+};
+
+function getTimeSlotPeriod(time: string): TimeSlotPeriod {
+  const [rawHour] = time.split(':');
+  const hour = Number(rawHour);
+
+  if (hour < 12) return 'morning';
+  if (hour < 18) return 'afternoon';
+  return 'evening';
+}
 
 export default function NuevaReservacion() {
   const router = useRouter();
@@ -62,7 +90,6 @@ export default function NuevaReservacion() {
   const [serviceLocations, setServiceLocations] = useState<Record<string, string[]>>({});
   
   // Añadir nuevos estados para controlar la disponibilidad de los días
-  const [daysWithBookings, setDaysWithBookings] = useState<string[]>([]);
   const [closedDays, setClosedDays] = useState<string[]>([]);
   const [fullyBookedDays, setFullyBookedDays] = useState<string[]>([]);
   const [partiallyBookedDays, setPartiallyBookedDays] = useState<string[]>([]);
@@ -396,6 +423,11 @@ export default function NuevaReservacion() {
     setSelectedService('');
     setStylistDetail(null);
     setLocationDetail(null);
+    setSelectedDate(null);
+    setSelectedTime('');
+    setAvailableSlots([]);
+    setShowTimeModal(false);
+    setShowCustomerModal(false);
     setStylists(allStylists);
     setLocations(allLocations);
     setServices(allServices);
@@ -460,17 +492,20 @@ export default function NuevaReservacion() {
   const selectDate = (day: number) => {
     if (!day) return;
     
+    if (!selectedStylist || !selectedLocation || !selectedService) {
+      alert('Veuillez sélectionner un styliste, un centre et un service avant de choisir la date');
+      return;
+    }
+
     const year = currentMonth.getFullYear();
     const month = currentMonth.getMonth();
     const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
     
     setSelectedDate(dateStr);
-    if (selectedStylist && selectedLocation && selectedService) {
-      fetchAvailableSlots(dateStr);
-      setShowTimeModal(true);
-    } else {
-      alert('Veuillez sélectionner un styliste, un centre et un service avant de choisir la date');
-    }
+    setSelectedTime('');
+    setShowCustomerModal(false);
+    fetchAvailableSlots(dateStr);
+    setShowTimeModal(true);
   };
 
   // Obtenir les slots disponibles pour la date sélectionnée
@@ -496,12 +531,22 @@ export default function NuevaReservacion() {
   };
 
   // Réserver un horaire
-  const bookAppointment = async (time: string) => {
+  const bookAppointment = (time: string) => {
     if (!selectedDate || !selectedStylist || !selectedLocation || !selectedService) {
       return;
     }
     
     setSelectedTime(time);
+    setShowTimeModal(false);
+    setShowCustomerModal(false);
+  };
+
+  const openCustomerDataModal = () => {
+    if (!selectedDate || !selectedTime) {
+      alert('Veuillez sélectionner une date et un horaire avant de continuer');
+      return;
+    }
+
     setShowCustomerModal(true);
   };
 
@@ -527,7 +572,7 @@ export default function NuevaReservacion() {
     
     try {
       // Calculer l'heure de fin basée sur la durée du service
-      const selectedServiceObj = services.find(s => s.id.toString() === selectedService);
+      const selectedServiceObj = allServices.find(s => s.id.toString() === selectedService);
       const serviceDuration = selectedServiceObj?.duration || 30; // Durée par défaut: 30 minutes
       
       const [hours, minutes] = selectedTime.split(':').map(num => parseInt(num, 10));
@@ -719,7 +764,6 @@ export default function NuevaReservacion() {
         setClosedDays(closed);
         setFullyBookedDays(fullyBooked);
         setPartiallyBookedDays(partiallyBooked);
-        setDaysWithBookings(Object.keys(bookingsByDate));
         
       } catch (err) {
         console.error('Erreur lors du chargement des disponibilités:', err);
@@ -731,11 +775,19 @@ export default function NuevaReservacion() {
     fetchAvailabilityData();
   }, [currentMonth, selectedLocation, selectedStylist]);
 
+  useEffect(() => {
+    setSelectedDate(null);
+    setSelectedTime('');
+    setAvailableSlots([]);
+    setShowTimeModal(false);
+    setShowCustomerModal(false);
+  }, [selectedStylist, selectedLocation, selectedService]);
+
   // Renderizaciones condicionales basadas en el estado
   if (isLoading) {
     return (
-      <div className="flex flex-col min-h-screen bg-dark">
-        <div className="flex-grow container mx-auto px-4 py-12 flex items-center justify-center">
+      <div className="admin-scope min-h-screen bg-dark px-4 py-12">
+        <div className="mx-auto flex w-full max-w-7xl items-center justify-center">
           <div className="text-center">
             <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary mx-auto mb-4"></div>
             <p className="text-lg text-light">Chargement du système de réservation...</p>
@@ -745,10 +797,28 @@ export default function NuevaReservacion() {
     );
   }
 
+  const selectedServiceDetail =
+    selectedService ? allServices.find(service => service.id.toString() === selectedService) : null;
+  const selectedDateLabel = selectedDate
+    ? new Date(`${selectedDate}T00:00:00`).toLocaleDateString('fr-FR', {
+        weekday: 'long',
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric',
+      })
+    : null;
+  const groupedSlots = availableSlots.reduce<Record<TimeSlotPeriod, AvailabilitySlot[]>>(
+    (acc, slot) => {
+      const period = getTimeSlotPeriod(slot.time);
+      acc[period].push(slot);
+      return acc;
+    },
+    { morning: [], afternoon: [], evening: [] }
+  );
+
   return (
-    <main className="admin-scope min-h-screen flex flex-col bg-dark">
-      <div className="flex-grow pt-24 pb-12">
-        <div className="container mx-auto px-4">
+    <main className="admin-scope min-h-screen bg-dark px-4 pb-12 pt-24">
+      <div className="mx-auto w-full max-w-7xl">
           <SectionHeader
             title="Nouvelle Réservation"
             description="Créez un nouveau rendez-vous en sélectionnant un styliste, un centre et une date."
@@ -781,7 +851,7 @@ export default function NuevaReservacion() {
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {/* Selector de Styliste */}
               <div>
-                <label className="block text-sm font-medium text-light mb-1">
+                <label className="block text-sm font-medium text-muted-foreground mb-1">
                   <FaUser className="inline mr-2" /> Styliste
                 </label>
                 <Select
@@ -806,14 +876,14 @@ export default function NuevaReservacion() {
                 </Select>
                 {stylists.length === 0 && (
                   <p className="text-xs text-coral mt-1">
-                    Aucun styliste disponible con los filtros actuales
+                    Aucun styliste disponible avec les filtres actuels
                   </p>
                 )}
               </div>
               
               {/* Selector de Centre */}
               <div>
-                <label className="block text-sm font-medium text-light mb-1">
+                <label className="block text-sm font-medium text-muted-foreground mb-1">
                   <FaMapMarkerAlt className="inline mr-2" /> Centre
                 </label>
                 <Select
@@ -838,15 +908,15 @@ export default function NuevaReservacion() {
                 </Select>
                 {locations.length === 0 && (
                   <p className="text-xs text-coral mt-1">
-                    Aucun centro disponible con los filtros actuales
+                    Aucun centre disponible avec les filtres actuels
                   </p>
                 )}
               </div>
               
               {/* Selector de Service */}
               <div>
-                <label className="block text-sm font-medium text-light mb-1">
-                  <FaCalendarDay className="inline mr-2" /> Servicio
+                <label className="block text-sm font-medium text-muted-foreground mb-1">
+                  <FaCalendarDay className="inline mr-2" /> Service
                 </label>
                 <Select
                   value={selectedService}
@@ -863,14 +933,14 @@ export default function NuevaReservacion() {
                   <SelectContent>
                     {services.map(service => (
                       <SelectItem key={service.id} value={service.id.toString()}>
-                        {service.nombre} - {service.precio}€
+                        {service.nombre} - {service.precio} CHF
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
                 {services.length === 0 && (
                   <p className="text-xs text-coral mt-1">
-                    Aucun servicio disponible con los filtros actuales
+                    Aucun service disponible avec les filtres actuels
                   </p>
                 )}
               </div>
@@ -899,31 +969,33 @@ export default function NuevaReservacion() {
             {/* Columna 1: Calendario */}
             <div className="bg-secondary rounded-lg shadow-md overflow-hidden">
               <div className="p-4 border-b border-dark">
-                <div className="flex justify-between items-center">
-                  <h2 className="text-lg font-semibold text-primary">Calendrier</h2>
-                  <div className="flex space-x-2">
-                    <Button 
-                      onClick={prevMonth}
-                      className="p-2 rounded-md bg-dark hover:bg-opacity-80 flex items-center justify-center text-light"
-                      aria-label="Mois précédent"
-                    >
-                      &larr;
-                    </Button>
-                    <span className="font-medium text-light min-w-[140px] text-center">
-                      {currentMonth.toLocaleString('fr-FR', { month: 'long', year: 'numeric' })}
-                    </span>
-                    <Button 
-                      onClick={nextMonth}
-                      className="p-2 rounded-md bg-dark hover:bg-opacity-80 flex items-center justify-center text-light"
-                      aria-label="Mois suivant"
-                    >
-                      &rarr;
-                    </Button>
-                  </div>
-                </div>
+                <h2 className="text-lg font-semibold text-foreground">Calendrier</h2>
               </div>
               
               <div className="p-4">
+                <div className="mb-4 flex items-center justify-center gap-4">
+                  <Button
+                    onClick={prevMonth}
+                    variant="outline"
+                    size="icon"
+                    className="h-10 w-10 rounded-full border-border bg-background text-foreground shadow-sm hover:bg-accent"
+                    aria-label="Mois précédent"
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                  </Button>
+                  <span className="min-w-[160px] text-center text-2xl font-medium text-foreground capitalize">
+                    {currentMonth.toLocaleString('fr-FR', { month: 'long', year: 'numeric' })}
+                  </span>
+                  <Button
+                    onClick={nextMonth}
+                    variant="outline"
+                    size="icon"
+                    className="h-10 w-10 rounded-full border-border bg-background text-foreground shadow-sm hover:bg-accent"
+                    aria-label="Mois suivant"
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                </div>
                 {loadingAvailability && (
                   <div className="absolute inset-0 bg-dark bg-opacity-50 flex items-center justify-center z-10">
                     <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-primary"></div>
@@ -931,7 +1003,7 @@ export default function NuevaReservacion() {
                 )}
                 <div className="grid grid-cols-7 gap-1 sm:gap-2 mb-2">
                   {['L', 'M', 'M', 'J', 'V', 'S', 'D'].map((day, idx) => (
-                    <div key={idx} className="text-center font-medium text-light py-2 text-xs">
+                    <div key={idx} className="text-center font-medium text-muted-foreground py-2 text-xs">
                       {day}
                     </div>
                   ))}
@@ -950,20 +1022,20 @@ export default function NuevaReservacion() {
                     const isFullyBooked = fullyBookedDays.includes(dateStr);
                     const isPartiallyBooked = partiallyBookedDays.includes(dateStr);
                     
-                    let buttonClasses = 'text-center h-10 sm:h-12 flex flex-col items-center justify-center rounded-md text-xs sm:text-sm transition-colors duration-200';
-                    let dotColor = 'bg-primary';
+                    let buttonClasses = 'text-center h-10 sm:h-12 flex flex-col items-center justify-center rounded-md border border-border/70 bg-card text-foreground shadow-sm text-xs sm:text-sm transition-colors duration-200';
+                    let dotColor = 'bg-green-500';
                     
                     if (isClosed) {
-                      buttonClasses += ' bg-red-100 cursor-not-allowed text-red-800 opacity-60';
+                      buttonClasses += ' cursor-not-allowed opacity-65';
                       dotColor = 'bg-red-500';
                     } else if (isFullyBooked) {
-                      buttonClasses += ' bg-red-100 text-red-800 hover:bg-red-200 cursor-pointer';
+                      buttonClasses += ' cursor-pointer hover:bg-muted/60';
                       dotColor = 'bg-red-500';
                     } else if (isPartiallyBooked) {
-                      buttonClasses += ' bg-yellow-100 text-yellow-800 hover:bg-yellow-200 cursor-pointer';
+                      buttonClasses += ' cursor-pointer hover:bg-muted/60';
                       dotColor = 'bg-yellow-500';
                     } else {
-                      buttonClasses += ' bg-green-100 text-green-800 hover:bg-green-200 cursor-pointer';
+                      buttonClasses += ' cursor-pointer hover:bg-muted/60';
                       dotColor = 'bg-green-500';
                     }
                     
@@ -973,9 +1045,6 @@ export default function NuevaReservacion() {
                       buttonClasses += ' ring-2 ring-primary ring-opacity-70';
                     }
                     
-                    // Determinar si hay reservas este día
-                    const hasBookings = daysWithBookings.includes(dateStr);
-                    
                     return (
                       <Button
                         key={index}
@@ -984,38 +1053,36 @@ export default function NuevaReservacion() {
                         className={buttonClasses}
                       >
                         <span>{day}</span>
-                        {hasBookings && (
-                          <span className="h-1 w-1 sm:h-1.5 sm:w-1.5 rounded-full mt-0.5" style={{backgroundColor: dotColor}}></span>
-                        )}
+                        <span className={`h-1 w-1 sm:h-1.5 sm:w-1.5 rounded-full mt-0.5 ${dotColor}`}></span>
                       </Button>
                     );
                   })}
                 </div>
                 
-                <div className="mt-4 text-xs text-light">
-                  <div className="flex items-center mb-1">
-                    <span className="h-3 w-3 rounded-full bg-green-500 mr-2"></span>
+                <div className="mt-4 text-[11px] text-muted-foreground sm:text-xs">
+                  <div className="mb-1 flex items-center">
+                    <span className="mr-1.5 h-2.5 w-2.5 rounded-full bg-green-500"></span>
                     <span>Disponible</span>
                   </div>
-                  <div className="flex items-center mb-1">
-                    <span className="h-3 w-3 rounded-full bg-yellow-500 mr-2"></span>
+                  <div className="mb-1 flex items-center">
+                    <span className="mr-1.5 h-2.5 w-2.5 rounded-full bg-yellow-500"></span>
                     <span>Partiellement réservé</span>
                   </div>
-                  <div className="flex items-center mb-1">
-                    <span className="h-3 w-3 rounded-full bg-red-500 mr-2"></span>
+                  <div className="mb-1 flex items-center">
+                    <span className="mr-1.5 h-2.5 w-2.5 rounded-full bg-red-500"></span>
                     <span>Complet/Fermé</span>
                   </div>
                 </div>
               </div>
             </div>
             
-            {/* Columna 2: Detalles del Estilista y Centro */}
-            <div className="space-y-6">
-              {/* Detalles del Estilista */}
+            {/* Zona derecha: tarjetas sincronizadas por filas */}
+            <div className="lg:col-span-2 grid grid-cols-1 lg:grid-cols-2 auto-rows-fr gap-6">
+              {/* Styliste */}
               {stylistDetail && (
-                <div className="bg-secondary rounded-lg shadow-md overflow-hidden">
+                <div className="bg-secondary rounded-lg shadow-md overflow-hidden h-full min-h-[280px]">
                   <div className="p-4 border-b border-dark">
-                    <h2 className="text-lg font-semibold text-primary">Styliste</h2>
+                    <h2 className="text-lg font-semibold text-foreground">Styliste</h2>
                   </div>
                   <div className="p-4">
                     <div className="flex items-center mb-4">
@@ -1040,203 +1107,317 @@ export default function NuevaReservacion() {
                       <div>
                         <h3 className="text-lg font-semibold text-light">{stylistDetail.name}</h3>
                         <p className="text-sm text-light opacity-70">
-                          {stylistDetail.specialties && stylistDetail.specialties.length > 0 
-                            ? stylistDetail.specialties.join(', ') 
-                            : 'Styliste profesional'}
+                          {stylistDetail.specialties && stylistDetail.specialties.length > 0
+                            ? stylistDetail.specialties.join(', ')
+                            : 'Styliste professionnel'}
                         </p>
                       </div>
                     </div>
                     <p className="text-light text-sm mb-3">
-                      {stylistDetail.bio || 'Información sobre el styliste no disponible.'}
+                      {stylistDetail.bio || 'Informations sur le styliste non disponibles.'}
                     </p>
-                    <div className="text-xs text-light opacity-70">
-                      <p>Email: No disponible</p>
-                      <p>Teléfono: No disponible</p>
+                  </div>
+                </div>
+              )}
+
+              {/* Service sélectionné */}
+              {selectedServiceDetail && (
+                <div className="bg-secondary rounded-lg shadow-md overflow-hidden h-full min-h-[280px]">
+                  <div className="p-4 border-b border-dark">
+                    <h2 className="text-lg font-semibold text-foreground">Service sélectionné</h2>
+                  </div>
+                  <div className="p-4">
+                    <div className="mb-4">
+                      <h3 className="text-lg font-semibold text-light">{selectedServiceDetail.nombre}</h3>
+                      <div className="flex justify-between items-center my-2">
+                        <span className="text-light text-sm">Durée estimée :</span>
+                        <span className="bg-dark text-light text-xs px-2 py-1 rounded">
+                          {selectedServiceDetail.duration} min
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-light text-sm">Prix :</span>
+                        <span className="text-primary font-bold">
+                          {selectedServiceDetail.precio.toFixed(2)} CHF
+                        </span>
+                      </div>
+                      <p className="text-light text-sm mt-3">
+                        {selectedServiceDetail.descripcion || 'Aucune description disponible.'}
+                      </p>
                     </div>
                   </div>
                 </div>
               )}
-                            
-              {/* Detalles del Centro */}
+
+              {/* Centre */}
               {locationDetail && (
-                <div className="bg-secondary rounded-lg shadow-md overflow-hidden">
+                <div className="bg-secondary rounded-lg shadow-md overflow-hidden h-full min-h-[320px]">
                   <div className="p-4 border-b border-dark">
-                    <h2 className="text-lg font-semibold text-primary">Centro</h2>
+                    <h2 className="text-lg font-semibold text-foreground">Centre</h2>
+                  </div>
+                  <div className="relative h-36 w-full border-b border-dark/60 bg-dark/10">
+                    {locationDetail.image ? (
+                      <Image
+                        src={getImageUrl(locationDetail.image)}
+                        alt={locationDetail.name}
+                        fill
+                        className="object-cover"
+                        sizes="(min-width: 1024px) 33vw, 100vw"
+                      />
+                    ) : (
+                      <div className="flex h-full w-full items-center justify-center text-light/60">
+                        <FaMapMarkerAlt className="mr-2" />
+                        <span className="text-sm">Image du centre</span>
+                      </div>
+                    )}
                   </div>
                   <div className="p-4">
                     <h3 className="text-lg font-semibold text-light mb-2">{locationDetail.name}</h3>
                     <p className="text-light text-sm mb-3">
-                      <FaMapMarkerAlt className="inline-block mr-1" /> 
-                      {locationDetail.address || 'Dirección no disponible'}
+                      <FaMapMarkerAlt className="inline-block mr-1" />
+                      {locationDetail.address || 'Adresse non disponible'}
                     </p>
                     <div className="text-xs text-light opacity-70">
-                      <p>Email: {locationDetail.email || 'No disponible'}</p>
-                      <p>Teléfono: {locationDetail.phone || 'No disponible'}</p>
+                      <p>E-mail: {locationDetail.email || 'Non disponible'}</p>
+                      <p>Téléphone: {locationDetail.phone || 'Non disponible'}</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Résumé de réservation et action client */}
+              {selectedServiceDetail && selectedDate && (
+                <div className="bg-secondary rounded-lg shadow-md overflow-hidden h-full min-h-[320px] flex flex-col">
+                  <div className="p-4 border-b border-dark">
+                    <h2 className="text-lg font-semibold text-foreground">Résumé de réservation</h2>
+                  </div>
+                  <div className="p-4 flex h-full flex-col">
+                    <div className="space-y-2 text-sm text-light">
+                      <div className="flex justify-between gap-3">
+                        <span className="opacity-70">Styliste :</span>
+                        <span className="font-medium text-right">{stylistDetail?.name || '-'}</span>
+                      </div>
+                      <div className="flex justify-between gap-3">
+                        <span className="opacity-70">Centre :</span>
+                        <span className="font-medium text-right">{locationDetail?.name || '-'}</span>
+                      </div>
+                      <div className="flex justify-between gap-3">
+                        <span className="opacity-70">Service :</span>
+                        <span className="font-medium text-right">{selectedServiceDetail.nombre}</span>
+                      </div>
+                      <div className="flex justify-between gap-3">
+                        <span className="opacity-70">Date :</span>
+                        <span className="font-medium text-right capitalize">{selectedDateLabel || '-'}</span>
+                      </div>
+                      <div className="flex justify-between gap-3">
+                        <span className="opacity-70">Horaire :</span>
+                        <span className="font-medium text-right">{selectedTime || 'Non sélectionné'}</span>
+                      </div>
+                    </div>
+
+                    <div className="mt-auto pt-4">
+                      <div className="flex flex-wrap gap-2">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={() => setShowTimeModal(true)}
+                        >
+                          Modifier l&apos;horaire
+                        </Button>
+                        <Button
+                          type="button"
+                          onClick={openCustomerDataModal}
+                          disabled={!selectedTime}
+                          className="text-primary-foreground"
+                        >
+                          Données du client
+                        </Button>
+                      </div>
+
+                      {!selectedTime && (
+                        <p className="mt-3 text-xs text-light opacity-70">
+                          Sélectionnez un horaire pour continuer vers les données du client.
+                        </p>
+                      )}
                     </div>
                   </div>
                 </div>
               )}
             </div>
-            
-            {/* Columna 3: Servicio seleccionado y próximos pasos */}
-            <div className="space-y-6">
-              {/* Servicio seleccionado */}
-              {selectedService && services.length > 0 && (
-                <div className="bg-secondary rounded-lg shadow-md overflow-hidden">
-                  <div className="p-4 border-b border-dark">
-                    <h2 className="text-lg font-semibold text-primary">Servicio seleccionado</h2>
-                  </div>
-                  <div className="p-4">
-                    {services.filter(s => s.id.toString() === selectedService).map(service => (
-                      <div key={service.id} className="mb-4">
-                        <h3 className="text-lg font-semibold text-light">{service.nombre}</h3>
-                        <div className="flex justify-between items-center my-2">
-                          <span className="text-light text-sm">Duración estimada:</span>
-                          <span className="bg-dark text-light text-xs px-2 py-1 rounded">
-                            {service.duration} min
-                          </span>
-                        </div>
-                        <div className="flex justify-between items-center">
-                          <span className="text-light text-sm">Precio:</span>
-                          <span className="text-primary font-bold">
-                            {service.precio.toFixed(2)} €
-                          </span>
-                        </div>
-                        <p className="text-light text-sm mt-3">
-                          {service.descripcion || 'Sin descripción disponible.'}
-                        </p>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
           </div>
-        </div>
       </div>
       
       {/* Modal pour sélectionner une heure */}
-      {showTimeModal && selectedDate && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-secondary rounded-xl shadow-lg max-w-md w-full p-6">
-            <h3 className="text-xl font-bold mb-4 text-primary">
-              Horarios disponibles para {new Date(selectedDate!).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })}
-            </h3>
-            
+      <Dialog open={showTimeModal && Boolean(selectedDate)} onOpenChange={setShowTimeModal}>
+        <DialogContent className="w-[calc(100vw-2rem)] max-w-md p-0 max-h-[85dvh] overflow-hidden">
+          <div className="flex h-full max-h-[85dvh] flex-col">
+            <DialogHeader className="border-b border-border px-6 py-4 pr-12">
+              <DialogTitle className="text-lg sm:text-xl">
+                Horaires disponibles pour le{" "}
+                {selectedDate
+                  ? new Date(`${selectedDate}T00:00:00`).toLocaleDateString("fr-FR", {
+                      weekday: "long",
+                      day: "numeric",
+                      month: "long",
+                    })
+                  : ""}
+              </DialogTitle>
+              <DialogDescription>
+                Choisissez un créneau pour continuer avec la réservation.
+              </DialogDescription>
+            </DialogHeader>
+
             {loadingSlots ? (
-              <div className="py-8 flex flex-col items-center justify-center">
-                <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-primary mb-2"></div>
-                <p className="text-light"> Chargement des horaires disponibles...</p>
+              <div className="flex flex-1 flex-col items-center justify-center px-6 py-8">
+                <div className="mb-2 h-10 w-10 animate-spin rounded-full border-b-2 border-t-2 border-primary"></div>
+                <p className="text-muted-foreground">Chargement des horaires disponibles...</p>
               </div>
             ) : availableSlots.length === 0 ? (
-              <div className="py-8 text-center text-light">
+              <div className="flex flex-1 items-center justify-center px-6 py-8 text-center text-muted-foreground">
                 Aucun horaire disponible pour cette date
               </div>
             ) : (
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 my-4">
-                {availableSlots.map((slot, index) => (
-                  <Button
-                    key={index}
-                    onClick={() => bookAppointment(slot.time)}
-                    disabled={!slot.available}
-                    className={`
-                      py-2 px-3 rounded-md text-sm font-medium transition-colors
-                      ${slot.available 
-                        ? 'bg-dark hover:bg-opacity-80 text-light' 
-                        : 'bg-opacity-20 bg-gray-500 text-gray-400 cursor-not-allowed'}
-                    `}
-                  >
-                    {slot.time}
-                  </Button>
-                ))}
-              </div>
+              <ScrollArea className="h-[52dvh] px-6 py-4">
+                <div className="space-y-5 pr-3">
+                  {(Object.keys(timeSlotLabels) as TimeSlotPeriod[]).map((period) => {
+                    const periodSlots = groupedSlots[period];
+                    if (periodSlots.length === 0) return null;
+
+                    return (
+                      <section key={period}>
+                        <div className="mb-2 flex items-center gap-2">
+                          <span className="h-1.5 w-1.5 rounded-full bg-primary" />
+                          <h4 className="text-sm font-semibold text-foreground">
+                            {timeSlotLabels[period]}
+                          </h4>
+                        </div>
+                        <div className="grid grid-cols-2 gap-2">
+                          {periodSlots.map((slot, index) => (
+                            <Button
+                              key={`${period}-${slot.time}-${index}`}
+                              onClick={() => bookAppointment(slot.time)}
+                              disabled={!slot.available}
+                              variant={slot.available ? "outline" : "secondary"}
+                              className={`
+                                py-2 px-3 rounded-md text-sm font-medium
+                                ${
+                                  slot.available
+                                    ? "border-border bg-background text-foreground hover:bg-accent hover:text-accent-foreground"
+                                    : "cursor-not-allowed border-border bg-muted text-muted-foreground hover:bg-muted"
+                                }
+                              `}
+                            >
+                              {slot.time}
+                            </Button>
+                          ))}
+                        </div>
+                      </section>
+                    );
+                  })}
+                </div>
+              </ScrollArea>
             )}
-            
-            <div className="flex justify-end mt-4">
+
+            <DialogFooter className="border-t border-border px-6 py-4">
               <Button
                 onClick={() => setShowTimeModal(false)}
-                className="px-4 py-2 bg-dark hover:bg-opacity-80 rounded-md text-light"
+                variant="outline"
+                className="w-full px-4 sm:w-auto"
               >
-                Cerrar
+                Fermer
               </Button>
-            </div>
+            </DialogFooter>
           </div>
-        </div>
-      )}
+        </DialogContent>
+      </Dialog>
 
       {/* Modal pour les données du client */}
-      {showCustomerModal && selectedTime && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-secondary rounded-xl shadow-lg max-w-md w-full p-6">
-            <h3 className="text-xl font-bold mb-2 text-primary">Informations du client</h3>
-            <p className="text-light text-sm mb-4">
-              Veuillez entrer les informations du client pour compléter la réservation
-            </p>
-            
-            <form onSubmit={(e) => { e.preventDefault(); completeBooking(); }}>
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-light mb-1">
-                    Nombre completo*
-                  </label>
-                  <Input
-                    type="text"
-                    value={customerName}
-                    onChange={(e) => setCustomerName(e.target.value)}
-                    className="w-full p-2 border border-primary rounded-md bg-dark text-light focus:outline-none focus:ring-2 focus:ring-primary"
-                    required
-                  />
+      <Dialog
+        open={showCustomerModal && Boolean(selectedTime)}
+        onOpenChange={setShowCustomerModal}
+      >
+        <DialogContent className="w-[calc(100vw-2rem)] max-w-md p-0 max-h-[85dvh] overflow-hidden">
+          <div className="flex h-full max-h-[85dvh] flex-col">
+            <DialogHeader className="border-b border-border px-6 py-4 pr-12">
+              <DialogTitle className="text-lg sm:text-xl">Informations du client</DialogTitle>
+              <DialogDescription>
+                Veuillez entrer les informations du client pour compléter la réservation
+              </DialogDescription>
+            </DialogHeader>
+
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                completeBooking();
+              }}
+              className="flex flex-1 flex-col overflow-hidden"
+            >
+              <ScrollArea className="h-[52dvh] px-6 py-4">
+                <div className="space-y-4 pr-3">
+                  <div>
+                    <label className="mb-1 block text-sm font-semibold text-foreground">
+                      Nom complet*
+                    </label>
+                    <Input
+                      type="text"
+                      value={customerName}
+                      onChange={(e) => setCustomerName(e.target.value)}
+                      className="w-full"
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <label className="mb-1 block text-sm font-semibold text-foreground">
+                      Email
+                    </label>
+                    <Input
+                      type="email"
+                      value={customerEmail}
+                      onChange={(e) => setCustomerEmail(e.target.value)}
+                      className="w-full"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="mb-1 block text-sm font-semibold text-foreground">
+                      Téléphone*
+                    </label>
+                    <Input
+                      type="tel"
+                      value={customerPhone}
+                      onChange={(e) => setCustomerPhone(e.target.value)}
+                      className="w-full"
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <label className="mb-1 block text-sm font-semibold text-foreground">
+                      Notes supplémentaires
+                    </label>
+                    <Textarea
+                      value={notes}
+                      onChange={(e) => setNotes(e.target.value)}
+                      rows={3}
+                      className="w-full"
+                    ></Textarea>
+                  </div>
                 </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-light mb-1">
-                    Email
-                  </label>
-                  <Input
-                    type="email"
-                    value={customerEmail}
-                    onChange={(e) => setCustomerEmail(e.target.value)}
-                    className="w-full p-2 border border-primary rounded-md bg-dark text-light focus:outline-none focus:ring-2 focus:ring-primary"
-                  />
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-light mb-1">
-                    Teléfono*
-                  </label>
-                  <Input
-                    type="tel"
-                    value={customerPhone}
-                    onChange={(e) => setCustomerPhone(e.target.value)}
-                    className="w-full p-2 border border-primary rounded-md bg-dark text-light focus:outline-none focus:ring-2 focus:ring-primary"
-                    required
-                  />
-                </div>
-                
-                <div className="mb-6">
-                  <label className="block text-sm font-medium text-light mb-1">
-                    Notes supplémentaires
-                  </label>
-                  <Textarea
-                    value={notes}
-                    onChange={(e) => setNotes(e.target.value)}
-                    rows={3}
-                    className="w-full p-2 border border-primary rounded-md bg-dark text-light focus:outline-none focus:ring-2 focus:ring-primary"
-                  ></Textarea>
-                </div>
-              </div>
-              
-              <div className="flex justify-between mt-6">
+              </ScrollArea>
+
+              <div className="flex flex-col-reverse gap-2 border-t border-border px-6 py-4 sm:flex-row sm:justify-between">
                 <Button
                   type="button"
                   onClick={() => setShowCustomerModal(false)}
-                  className="px-4 py-2 border border-primary bg-dark text-light rounded-md hover:bg-opacity-80"
+                  variant="outline"
+                  className="w-full px-4 sm:w-auto"
                 >
                   Annuler
                 </Button>
                 <Button
                   type="submit"
-                  className="px-4 py-2 bg-primary text-light rounded-md hover:bg-opacity-90"
+                  className="w-full px-4 text-primary-foreground sm:w-auto"
                   disabled={bookingInProgress}
                 >
                   {bookingInProgress ? (
@@ -1251,17 +1432,17 @@ export default function NuevaReservacion() {
               </div>
             </form>
           </div>
-        </div>
-      )}
+        </DialogContent>
+      </Dialog>
 
       {bookingSuccess && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-secondary rounded-xl shadow-lg max-w-md w-full p-6 text-center">
-            <div className="w-16 h-16 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto mb-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4">
+          <div className="w-full max-w-md rounded-2xl border border-border bg-card p-6 text-center" style={{ boxShadow: "var(--admin-shadow-card-strong)" }}>
+            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-emerald-100 text-emerald-600">
               <FaCheck size={32} />
             </div>
-            <h3 className="text-xl font-bold mb-2 text-primary">¡Reserva confirmada!</h3>
-            <p className="text-light mb-6">
+            <h3 className="mb-2 text-xl font-bold text-foreground">Réservation confirmée</h3>
+            <p className="mb-6 text-muted-foreground">
               La réservation a été créée avec succès
             </p>
             <Button
@@ -1269,29 +1450,30 @@ export default function NuevaReservacion() {
                 setBookingSuccess(false);
                 router.push('/admin/reservations');
               }}
-              className="px-6 py-2 bg-primary text-light font-medium rounded-md"
+              className="px-6 text-primary-foreground"
             >
-              Retourner au calendrier
+              Retour au calendrier
             </Button>
           </div>
         </div>
       )}
 
       {bookingError && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-secondary rounded-xl shadow-lg max-w-md w-full p-6 text-center">
-            <div className="w-16 h-16 bg-red-100 text-red-600 rounded-full flex items-center justify-center mx-auto mb-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4">
+          <div className="w-full max-w-md rounded-2xl border border-border bg-card p-6 text-center" style={{ boxShadow: "var(--admin-shadow-card-strong)" }}>
+            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-red-100 text-red-600">
               <FaUser size={32} />
             </div>
-            <h3 className="text-xl font-bold mb-2 text-primary">Error</h3>
-            <p className="text-light mb-6">
+            <h3 className="mb-2 text-xl font-bold text-foreground">Erreur</h3>
+            <p className="mb-6 text-muted-foreground">
               {bookingError}
             </p>
             <Button
               onClick={() => setBookingError(null)}
-              className="px-6 py-2 bg-coral text-white font-medium rounded-md"
+              variant="destructive"
+              className="px-6"
             >
-              Essayer à nouveau
+              Réessayer
             </Button>
           </div>
         </div>

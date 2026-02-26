@@ -10,9 +10,9 @@ interface AdminCardProps extends React.ComponentPropsWithoutRef<typeof Card> {
 }
 
 const toneClass: Record<AdminCardTone, string> = {
-  default: "border-white/10",
+  default: "border-border/80 bg-card",
   highlight:
-    "border-primary/35 bg-[linear-gradient(165deg,rgba(212,160,23,0.12),rgba(23,23,23,0.9)_65%)]",
+    "border-primary/30 bg-[linear-gradient(165deg,rgba(59,130,246,0.12),rgba(255,255,255,0.98)_65%)]",
 };
 
 const AdminCard = React.forwardRef<
@@ -22,7 +22,7 @@ const AdminCard = React.forwardRef<
   <Card
     ref={ref}
     className={cn(
-      "rounded-2xl text-zinc-100 shadow-[0_24px_55px_-34px_rgba(0,0,0,0.92)]",
+      "rounded-2xl text-card-foreground shadow-[0_24px_55px_-40px_rgba(15,23,42,0.28)]",
       toneClass[tone],
       className
     )}
@@ -56,7 +56,7 @@ const AdminCardFooter = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <CardFooter
     ref={ref}
-    className={cn("border-t border-white/10 p-6 pt-4", className)}
+    className={cn("border-t border-border p-6 pt-4", className)}
     {...props}
   />
 ));

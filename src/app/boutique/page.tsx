@@ -269,11 +269,11 @@ function BoutiqueContent() {
                     <div className="flex items-center justify-between mb-4">
                       <div className="flex items-center gap-3">
                         <span className="text-3xl font-bold text-primary">
-                          {producto.precio.toFixed(2)}€
+                          {producto.precio.toFixed(2)} CHF
                         </span>
                         {producto.precio_original && (
                           <span className="text-text-medium line-through text-lg">
-                            {producto.precio_original.toFixed(2)}€
+                            {producto.precio_original.toFixed(2)} CHF
                           </span>
                         )}
                       </div>
@@ -398,11 +398,11 @@ function BoutiqueContent() {
                   <div className="flex items-center justify-between mb-4">
                     <div className="flex items-center gap-2">
                       <span className="text-2xl font-bold text-primary">
-                        {producto.precio.toFixed(2)}€
+                        {producto.precio.toFixed(2)} CHF
                       </span>
                       {producto.precio_original && (
                         <span className="text-text-medium line-through text-sm">
-                          {producto.precio_original.toFixed(2)}€
+                          {producto.precio_original.toFixed(2)} CHF
                         </span>
                       )}
                     </div>

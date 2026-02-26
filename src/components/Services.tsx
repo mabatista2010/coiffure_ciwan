@@ -298,7 +298,7 @@ return (
                 {service.descripcion}
               </p>
               <div className="mt-4 text-2xl font-bold text-primary" style={{textShadow: '0 2px 4px rgba(0, 0, 0, 0.9)'}}>
-                {service.precio}€
+                {service.precio} CHF
               </div>
             </div>
           </motion.div>

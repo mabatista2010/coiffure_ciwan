@@ -561,7 +561,7 @@ export default function AdminPage() {
   };
 
   return (
-    <div className="admin-scope min-h-screen bg-dark text-light">
+    <div className="admin-scope min-h-screen bg-background text-foreground">
       <div className="container mx-auto px-4 py-8">
         {/* Mensaje de error si existe */}
         {errorMessage && (
@@ -607,7 +607,7 @@ export default function AdminPage() {
                 <AdminCardContent>
                   <form onSubmit={handleAddService} className="grid grid-cols-1 gap-4 md:grid-cols-2">
                     <div className="space-y-2">
-                      <label className="text-xs font-semibold uppercase tracking-wide text-zinc-400">
+                      <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                         Nom
                       </label>
                       <Input
@@ -619,7 +619,7 @@ export default function AdminPage() {
                     </div>
 
                     <div className="space-y-2">
-                      <label className="text-xs font-semibold uppercase tracking-wide text-zinc-400">
+                      <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                         Prix (CHF)
                       </label>
                       <Input
@@ -631,7 +631,7 @@ export default function AdminPage() {
                     </div>
 
                     <div className="space-y-2 md:col-span-2">
-                      <label className="text-xs font-semibold uppercase tracking-wide text-zinc-400">
+                      <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                         Description
                       </label>
                       <Textarea
@@ -644,7 +644,7 @@ export default function AdminPage() {
                     </div>
 
                     <div className="space-y-2 md:col-span-2">
-                      <label className="text-xs font-semibold uppercase tracking-wide text-zinc-400">
+                      <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                         Image
                       </label>
                       <div className="grid gap-3 md:grid-cols-[1fr_auto] md:items-end">
@@ -656,7 +656,7 @@ export default function AdminPage() {
                             className="h-auto py-2 file:mr-3 file:rounded-lg file:border file:border-primary/45 file:bg-primary/12 file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-primary"
                             onChange={(e) => handleFileChange(e, setServiceImageFile, setServiceImagePreview)}
                           />
-                          <p className="text-xs text-zinc-500">
+                          <p className="text-xs text-muted-foreground">
                             Format recommandé: JPEG ou PNG, taille maximale 2MB
                           </p>
                         </div>
@@ -697,7 +697,7 @@ export default function AdminPage() {
               </AdminCardHeader>
               <AdminCardContent>
                 {services.length === 0 ? (
-                  <div className="rounded-xl border border-white/10 bg-black/25 p-6 text-sm text-zinc-400">
+                  <div className="rounded-xl border border-border bg-card p-6 text-sm text-muted-foreground">
                     Aucun service disponible.
                   </div>
                 ) : (
@@ -705,7 +705,7 @@ export default function AdminPage() {
                     {services.map((service) => (
                       <article
                         key={service.id}
-                        className="overflow-hidden rounded-2xl border border-white/10 bg-black/25 shadow-[0_18px_35px_-26px_rgba(0,0,0,0.95)]"
+                        className="overflow-hidden rounded-2xl border border-border bg-card shadow-[var(--admin-shadow-card)]"
                       >
                         <div className="relative h-48 w-full">
                           {service.imagen_url ? (
@@ -716,7 +716,7 @@ export default function AdminPage() {
                               className="object-cover"
                             />
                           ) : (
-                            <div className="flex h-full w-full items-center justify-center bg-black/55">
+                            <div className="flex h-full w-full items-center justify-center bg-muted/35">
                               <span className="text-5xl font-bold text-primary">
                                 {service.nombre.charAt(0)}
                               </span>
@@ -726,13 +726,13 @@ export default function AdminPage() {
 
                         <div className="space-y-3 p-5">
                           <div className="flex items-start justify-between gap-3">
-                            <h3 className="text-lg font-semibold text-zinc-100">{service.nombre}</h3>
+                            <h3 className="text-lg font-semibold text-foreground">{service.nombre}</h3>
                             <p className="text-sm font-semibold text-primary">{service.precio} CHF</p>
                           </div>
-                          <p className="text-sm leading-relaxed text-zinc-400">{service.descripcion}</p>
+                          <p className="text-sm leading-relaxed text-muted-foreground">{service.descripcion}</p>
                         </div>
 
-                        <div className="flex gap-2 border-t border-white/10 p-4">
+                        <div className="flex gap-2 border-t border-border p-4">
                           <Button
                             type="button"
                             variant="outline"
@@ -776,7 +776,7 @@ export default function AdminPage() {
               }}
               variant={showGalleryForm ? 'outline' : 'default'}
             >
-              {showGalleryForm ? 'Fermer' : 'Ajouter nouvelle image'}
+              {showGalleryForm ? 'Fermer formulaire' : 'Ajouter nouvelle image'}
             </Button>
             
             {showGalleryForm && (
@@ -789,7 +789,7 @@ export default function AdminPage() {
                 <AdminCardContent>
                   <form onSubmit={handleAddImage} className="grid grid-cols-1 gap-4 md:grid-cols-2">
                     <div className="space-y-2">
-                      <label className="text-xs font-semibold uppercase tracking-wide text-zinc-400">
+                      <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                         Description
                       </label>
                       <Input
@@ -801,7 +801,7 @@ export default function AdminPage() {
                     </div>
                     
                     <div className="space-y-2">
-                      <label className="text-xs font-semibold uppercase tracking-wide text-zinc-400">
+                      <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                         Date
                       </label>
                       <Input
@@ -813,7 +813,7 @@ export default function AdminPage() {
                     </div>
                     
                     <div className="space-y-2 md:col-span-2">
-                      <label className="text-xs font-semibold uppercase tracking-wide text-zinc-400">
+                      <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                         Image pour la galerie
                       </label>
                       <div className="grid gap-3 md:grid-cols-[1fr_auto] md:items-end">
@@ -826,7 +826,7 @@ export default function AdminPage() {
                             onChange={(e) => handleFileChange(e, setGalleryImageFile, setGalleryImagePreview)}
                             required={!editingGalleryId}
                           />
-                          <p className="text-xs text-zinc-500">
+                          <p className="text-xs text-muted-foreground">
                             Format recommandé: JPEG ou PNG, taille maximale 2MB
                           </p>
                         </div>
@@ -870,7 +870,7 @@ export default function AdminPage() {
               </AdminCardHeader>
               <AdminCardContent>
                 {galleryImages.length === 0 ? (
-                  <div className="rounded-xl border border-white/10 bg-black/25 p-6 text-sm text-zinc-400">
+                  <div className="rounded-xl border border-border bg-card p-6 text-sm text-muted-foreground">
                     Aucune image disponible.
                   </div>
                 ) : (
@@ -878,7 +878,7 @@ export default function AdminPage() {
                     {galleryImages.map((image) => (
                       <article
                         key={image.id}
-                        className="overflow-hidden rounded-2xl border border-white/10 bg-black/25 shadow-[0_18px_35px_-26px_rgba(0,0,0,0.95)]"
+                        className="overflow-hidden rounded-2xl border border-border bg-card shadow-[var(--admin-shadow-card)]"
                       >
                         <div className="relative h-48 w-full">
                           <Image
@@ -890,13 +890,13 @@ export default function AdminPage() {
                         </div>
 
                         <div className="space-y-2 p-5">
-                          <h3 className="text-base font-semibold text-zinc-100">{image.descripcion}</h3>
-                          <p className="text-xs text-zinc-400">
+                          <h3 className="text-base font-semibold text-foreground">{image.descripcion}</h3>
+                          <p className="text-xs text-muted-foreground">
                             {new Date(image.fecha).toLocaleDateString('fr-FR')}
                           </p>
                         </div>
                         
-                        <div className="flex gap-2 border-t border-white/10 p-4">
+                        <div className="flex gap-2 border-t border-border p-4">
                           <Button
                             type="button"
                             variant="outline"
@@ -942,32 +942,32 @@ export default function AdminPage() {
               description="Gestion des images desktop/mobile et fonds de section services."
             />
             
-            <div className="bg-secondary shadow-lg rounded-lg overflow-hidden mb-8">
+            <div className="mb-8 overflow-hidden rounded-lg border border-border bg-card shadow-[var(--admin-shadow-soft)]">
               <div className="p-6">
                 <h2 className="text-xl font-bold text-primary mb-4">Images du Hero</h2>
                 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   {/* Image de bureau */}
-                  <div className="border border-primary rounded-lg p-4 bg-dark">
-                    <h3 className="font-bold text-light mb-2">Image pour l&apos;ordinateur</h3>
-                    <p className="text-gray-300 mb-4">Cette image sera affichée dans la version ordinateur avec un effet de dégradé de gauche à droite.</p>
+                  <div className="border border-primary rounded-lg p-4 bg-background">
+                    <h3 className="font-bold text-foreground mb-2">Image pour l&apos;ordinateur</h3>
+                    <p className="mb-4 text-muted-foreground">Cette image sera affichée dans la version ordinateur avec un effet de dégradé de gauche à droite.</p>
                     
                     <div className="mb-4">
-                      <label className="block text-light text-sm font-bold mb-2">Sélectionner une image</label>
+                      <label className="block text-foreground text-sm font-bold mb-2">Sélectionner une image</label>
                       <Input
                         ref={heroDesktopInputRef}
                         type="file"
                         accept="image/*"
-                        className="block w-full text-sm text-light file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-primary file:text-secondary hover:file:bg-yellow-400"
+                        className="block w-full text-sm text-foreground file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-primary file:text-secondary hover:file:bg-yellow-400"
                         onChange={(e) => handleFileChange(e, setHeroDesktopFile, setHeroDesktopPreview)}
                       />
                     </div>
                     
                     {heroDesktopPreview && (
                       <div className="mt-4 w-full">
-                        <p className="text-sm font-medium text-light mb-2">Prévisualisation:</p>
+                        <p className="text-sm font-medium text-foreground mb-2">Prévisualisation:</p>
                         <div className="flex justify-center md:justify-start">
-                          <div className="relative h-44 w-full max-w-[360px] overflow-hidden rounded-lg border border-gray-700 bg-black/35">
+                          <div className="relative h-44 w-full max-w-[360px] overflow-hidden rounded-lg border border-border bg-card">
                             <Image 
                               src={heroDesktopPreview} 
                               alt="Prévisualisation de l'image pour l'ordinateur" 
@@ -990,26 +990,26 @@ export default function AdminPage() {
                   </div>
                   
                   {/* Image mobile */}
-                  <div className="border border-primary rounded-lg p-4 bg-dark">
-                    <h3 className="font-bold text-light mb-2">Image pour le mobile</h3>
-                    <p className="text-gray-300 mb-4">Cette image sera affichée dans la version mobile avec un effet de dégradé de haut en bas.</p>
+                  <div className="border border-primary rounded-lg p-4 bg-background">
+                    <h3 className="font-bold text-foreground mb-2">Image pour le mobile</h3>
+                    <p className="mb-4 text-muted-foreground">Cette image sera affichée dans la version mobile avec un effet de dégradé de haut en bas.</p>
                     
                     <div className="mb-4">
-                      <label className="block text-light text-sm font-bold mb-2">Sélectionner une image</label>
+                      <label className="block text-foreground text-sm font-bold mb-2">Sélectionner une image</label>
                       <Input
                         ref={heroMobileInputRef}
                         type="file"
                         accept="image/*"
-                        className="block w-full text-sm text-light file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-primary file:text-secondary hover:file:bg-yellow-400"
+                        className="block w-full text-sm text-foreground file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-primary file:text-secondary hover:file:bg-yellow-400"
                         onChange={(e) => handleFileChange(e, setHeroMobileFile, setHeroMobilePreview)}
                       />
                     </div>
                     
                     {heroMobilePreview && (
                       <div className="mt-4 w-full">
-                        <p className="text-sm font-medium text-light mb-2">Prévisualisation:</p>
+                        <p className="text-sm font-medium text-foreground mb-2">Prévisualisation:</p>
                         <div className="flex justify-center md:justify-start">
-                          <div className="relative h-60 w-full max-w-[220px] overflow-hidden rounded-lg border border-gray-700 bg-black/35">
+                          <div className="relative h-60 w-full max-w-[220px] overflow-hidden rounded-lg border border-border bg-card">
                             <Image 
                               src={heroMobilePreview} 
                               alt="Prévisualisation de l'image pour le mobile" 
@@ -1034,30 +1034,30 @@ export default function AdminPage() {
               </div>
             </div>
             
-            <div className="bg-secondary shadow-lg rounded-lg overflow-hidden mb-8">
+            <div className="mb-8 overflow-hidden rounded-lg border border-border bg-card shadow-[var(--admin-shadow-soft)]">
               <div className="p-6">
                 <h2 className="text-xl font-bold text-primary mb-4">Image de fond pour la section Services</h2>
                 
-                <div className="border border-primary rounded-lg p-4 bg-dark mb-6">
-                  <h3 className="font-bold text-light mb-2">Image de fond avec effet parallax (Desktop)</h3>
-                  <p className="text-gray-300 mb-4">Cette image sera affichée comme fond de la section des services avec un effet parallax lors du défilement sur les écrans d&apos;ordinateur.</p>
+                <div className="border border-primary rounded-lg p-4 bg-background mb-6">
+                  <h3 className="font-bold text-foreground mb-2">Image de fond avec effet parallax (Desktop)</h3>
+                  <p className="mb-4 text-muted-foreground">Cette image sera affichée comme fond de la section des services avec un effet parallax lors du défilement sur les écrans d&apos;ordinateur.</p>
                   
                   <div className="mb-4">
-                    <label className="block text-light text-sm font-bold mb-2">Sélectionner une image</label>
+                    <label className="block text-foreground text-sm font-bold mb-2">Sélectionner une image</label>
                     <Input
                       ref={servicesBackgroundInputRef}
                       type="file"
                       accept="image/*"
-                      className="block w-full text-sm text-light file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-primary file:text-secondary hover:file:bg-yellow-400"
+                      className="block w-full text-sm text-foreground file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-primary file:text-secondary hover:file:bg-yellow-400"
                       onChange={(e) => handleFileChange(e, setServicesBackgroundFile, setServicesBackgroundPreview)}
                     />
                   </div>
                   
                   {servicesBackgroundPreview && (
                     <div className="mt-4 w-full">
-                      <p className="text-sm font-medium text-light mb-2">Prévisualisation:</p>
+                      <p className="text-sm font-medium text-foreground mb-2">Prévisualisation:</p>
                       <div className="flex justify-center md:justify-start">
-                        <div className="relative h-44 w-full max-w-[360px] overflow-hidden rounded-lg border border-gray-700 bg-black/35">
+                        <div className="relative h-44 w-full max-w-[360px] overflow-hidden rounded-lg border border-border bg-card">
                           <Image 
                             src={servicesBackgroundPreview} 
                             alt="Prévisualisation de l'image de fond des services" 
@@ -1079,26 +1079,26 @@ export default function AdminPage() {
                   </Button>
                 </div>
                 
-                <div className="border border-primary rounded-lg p-4 bg-dark">
-                  <h3 className="font-bold text-light mb-2">Image de fond avec effet parallax (Mobile)</h3>
-                  <p className="text-gray-300 mb-4">Cette image sera affichée comme fond de la section des services avec un effet parallax lors du défilement sur les écrans mobiles.</p>
+                <div className="border border-primary rounded-lg p-4 bg-background">
+                  <h3 className="font-bold text-foreground mb-2">Image de fond avec effet parallax (Mobile)</h3>
+                  <p className="mb-4 text-muted-foreground">Cette image sera affichée comme fond de la section des services avec un effet parallax lors du défilement sur les écrans mobiles.</p>
                   
                   <div className="mb-4">
-                    <label className="block text-light text-sm font-bold mb-2">Sélectionner une image</label>
+                    <label className="block text-foreground text-sm font-bold mb-2">Sélectionner une image</label>
                     <Input
                       ref={servicesBackgroundMobileInputRef}
                       type="file"
                       accept="image/*"
-                      className="block w-full text-sm text-light file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-primary file:text-secondary hover:file:bg-yellow-400"
+                      className="block w-full text-sm text-foreground file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-primary file:text-secondary hover:file:bg-yellow-400"
                       onChange={(e) => handleFileChange(e, setServicesBackgroundMobileFile, setServicesBackgroundMobilePreview)}
                     />
                   </div>
                   
                   {servicesBackgroundMobilePreview && (
                     <div className="mt-4 w-full">
-                      <p className="text-sm font-medium text-light mb-2">Prévisualisation:</p>
+                      <p className="text-sm font-medium text-foreground mb-2">Prévisualisation:</p>
                       <div className="flex justify-center md:justify-start">
-                        <div className="relative h-60 w-full max-w-[220px] overflow-hidden rounded-lg border border-gray-700 bg-black/35">
+                        <div className="relative h-60 w-full max-w-[220px] overflow-hidden rounded-lg border border-border bg-card">
                           <Image 
                             src={servicesBackgroundMobilePreview} 
                             alt="Prévisualisation de l'image de fond des services (mobile)" 

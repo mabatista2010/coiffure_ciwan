@@ -465,21 +465,20 @@ export default function LocationManagement() {
   };
 
   return (
-    <div className="admin-scope bg-dark text-light p-6">
+    <div className="admin-scope space-y-6">
       <SectionHeader
         title="Gestion des Centres"
         description="CRUD centres, images et plages horaires multi-slot."
-        actions={
-          !editingLocation ? (
-            <Button
-              onClick={() => setShowAddForm(!showAddForm)}
-              variant={showAddForm ? 'outline' : 'default'}
-            >
-              {showAddForm ? 'Fermer le formulaire' : 'Ajouter un Nouveau Centre'}
-            </Button>
-          ) : null
-        }
       />
+
+      {!editingLocation && (
+        <Button
+          onClick={() => setShowAddForm(!showAddForm)}
+          variant={showAddForm ? 'outline' : 'default'}
+        >
+          {showAddForm ? 'Fermer formulaire' : 'Ajouter nouveau centre'}
+        </Button>
+      )}
       
       {/* Formulario para agregar/editar centro */}
       {(showAddForm || editingLocation) && (
@@ -493,7 +492,7 @@ export default function LocationManagement() {
             <form onSubmit={handleFormSubmit} className="space-y-6">
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                 <div className="space-y-2">
-                  <label className="text-xs font-semibold uppercase tracking-wide text-zinc-400">Nom</label>
+                  <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Nom</label>
                   <Input
                     type="text"
                     value={editingLocation ? editingLocation.name : newLocation.name}
@@ -506,7 +505,7 @@ export default function LocationManagement() {
                 </div>
                 
                 <div className="space-y-2">
-                  <label className="text-xs font-semibold uppercase tracking-wide text-zinc-400">Adresse</label>
+                  <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Adresse</label>
                   <Input
                     type="text"
                     value={editingLocation ? editingLocation.address : newLocation.address}
@@ -519,7 +518,7 @@ export default function LocationManagement() {
                 </div>
                 
                 <div className="space-y-2">
-                  <label className="text-xs font-semibold uppercase tracking-wide text-zinc-400">Téléphone</label>
+                  <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Téléphone</label>
                   <Input
                     type="tel"
                     value={editingLocation ? editingLocation.phone || '' : newLocation.phone || ''}
@@ -531,7 +530,7 @@ export default function LocationManagement() {
                 </div>
                 
                 <div className="space-y-2">
-                  <label className="text-xs font-semibold uppercase tracking-wide text-zinc-400">Email</label>
+                  <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Email</label>
                   <Input
                     type="email"
                     value={editingLocation ? editingLocation.email || '' : newLocation.email || ''}
@@ -543,7 +542,7 @@ export default function LocationManagement() {
                 </div>
                 
                 <div className="space-y-2 md:col-span-2">
-                  <label className="text-xs font-semibold uppercase tracking-wide text-zinc-400">Description</label>
+                  <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Description</label>
                   <Textarea
                     rows={3}
                     className="min-h-[110px]"
@@ -556,7 +555,7 @@ export default function LocationManagement() {
                 </div>
                 
                 <div className="space-y-2 md:col-span-2">
-                  <label className="text-xs font-semibold uppercase tracking-wide text-zinc-400">Image</label>
+                  <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Image</label>
                   <div className="grid gap-3 md:grid-cols-[1fr_auto] md:items-end">
                     <div className="space-y-2">
                       <Input
@@ -566,13 +565,13 @@ export default function LocationManagement() {
                         onChange={handleFileChange}
                         className="h-auto py-2 file:mr-3 file:rounded-lg file:border file:border-primary/45 file:bg-primary/12 file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-primary"
                       />
-                      <p className="text-xs text-zinc-500">
+                      <p className="text-xs text-muted-foreground">
                         Format recommandé: JPEG ou PNG, taille maximale 2MB
                       </p>
                     </div>
                     
                     {locationImagePreview && (
-                      <div className="relative h-24 w-24 overflow-hidden rounded-xl border border-primary/45">
+                      <div className="relative h-24 w-24 overflow-hidden rounded-xl border border-border">
                         <Image
                           src={locationImagePreview}
                           alt="Aperçu du centre"
@@ -589,20 +588,20 @@ export default function LocationManagement() {
               <div className="space-y-4">
                 <h3 className="text-lg font-semibold text-primary">Horaires du Centre</h3>
                 
-                <div className="rounded-xl border border-primary/30 bg-black/30 p-3">
-                  <p className="text-sm text-zinc-300">
+                <div className="rounded-xl border border-border bg-primary/5 p-3">
+                  <p className="text-sm text-foreground">
                     <strong>Information importante:</strong> Configure les horaires d&apos;ouverture pour chaque jour. Vous pouvez ajouter plusieurs plages horaires par jour (par exemple, matin et soir).
                   </p>
                 </div>
                 
                 {weekdays.map((day) => (
-                  <div key={day.id} className="rounded-xl border border-white/10 bg-black/25 p-4">
+                  <div key={day.id} className="rounded-xl border border-border bg-card p-4">
                     <h4 className="mb-2 font-semibold text-primary">{day.name}</h4>
                     
                     {locationHours[day.id]?.map((slot, slotIndex) => (
-                      <div key={slotIndex} className="mb-3 flex flex-col items-start space-y-2 rounded-lg border border-white/10 bg-black/30 p-3 sm:flex-row sm:items-center sm:space-x-4 sm:space-y-0">
+                      <div key={slotIndex} className="mb-3 flex flex-col items-start space-y-2 rounded-lg border border-border bg-background p-3 sm:flex-row sm:items-center sm:space-x-4 sm:space-y-0">
                         <div className="flex w-full items-center sm:w-auto">
-                          <span className="mr-2 w-10 text-zinc-300">De</span>
+                          <span className="mr-2 w-10 text-foreground">De</span>
                           <Input
                             type="time"
                             className="w-full sm:w-auto"
@@ -613,7 +612,7 @@ export default function LocationManagement() {
                         </div>
                         
                         <div className="flex w-full items-center sm:w-auto">
-                          <span className="mr-2 w-10 text-zinc-300">a</span>
+                          <span className="mr-2 w-10 text-foreground">a</span>
                           <Input
                             type="time"
                             className="w-full sm:w-auto"
@@ -682,7 +681,7 @@ export default function LocationManagement() {
             locations.map(location => (
               <div 
                 key={location.id} 
-                className="rounded-lg border border-primary shadow-md hover:shadow-lg transition-all bg-secondary overflow-hidden"
+                className="rounded-lg border border-border shadow-md hover:shadow-lg transition-all bg-secondary overflow-hidden"
               >
                 {/* Imagen en la parte superior ocupando todo el ancho */}
                 <div className="relative w-full h-48 sm:h-64">
@@ -721,13 +720,13 @@ export default function LocationManagement() {
                     {location.description && (
                       <p className="text-sm text-light mt-2">
                         <span className="font-medium">Description:</span> 
-                        <span className="block mt-1 text-gray-300">{location.description.substring(0, 100)}{location.description.length > 100 ? '...' : ''}</span>
+                        <span className="block mt-1 text-muted-foreground">{location.description.substring(0, 100)}{location.description.length > 100 ? '...' : ''}</span>
                       </p>
                     )}
                   </div>
                 </div>
                 
-                <div className="flex gap-2 border-t border-white/10 p-4">
+                <div className="flex gap-2 border-t border-border p-4">
                   <Button
                     type="button"
                     variant="outline"

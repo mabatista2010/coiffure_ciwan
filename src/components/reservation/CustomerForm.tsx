@@ -134,7 +134,7 @@ export default function CustomerForm({
             <div className="mb-4 pb-4 border-b">
               <h4 className="font-semibold text-gray-800">Service</h4>
               <p className="text-gray-700">{selectedService.nombre}</p>
-              <p className="text-secondary font-semibold">{selectedService.precio}€</p>
+              <p className="text-secondary font-semibold">{selectedService.precio} CHF</p>
             </div>
             <div className="mb-4 pb-4 border-b">
               <h4 className="font-semibold text-gray-800">Centre</h4>

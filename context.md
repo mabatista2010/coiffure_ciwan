@@ -134,6 +134,7 @@ Steel & Blade est l’application web de **Coiffure Ciwan**, un salon masculin m
   - Liste produits actifs / crée produit + sync Stripe.
 - `GET/PUT/DELETE /api/boutique/productos/[id]`
   - CRUD produit + sync Stripe (création de prix si prix change).
+  - Les nouveaux prix Stripe sont créés en devise `chf`.
 - `POST /api/boutique/checkout`
   - **API legacy**: crée `pedido` en `pendiente` sans Stripe (utilisée pour démo / fallback).
 
@@ -163,6 +164,7 @@ Steel & Blade est l’application web de **Coiffure Ciwan**, un salon masculin m
 - **Filtrage par catégorie** + section produits vedettes (`destacado`).
 - **Panier global** via React Context + `localStorage`.
 - **Checkout Stripe** + page succès basée sur `session_id`.
+- Affichage des prix unifié en **CHF** (frontend + admin + stats).
 - Page `/boutique/checkout/demo` (mode démo explicite).
 
 ## Panel Admin (Sécurité & UX)
@@ -173,6 +175,7 @@ Steel & Blade est l’application web de **Coiffure Ciwan**, un salon masculin m
   - Les employés ne voient que `/admin` et `/admin/reservations`.
 - **AdminNav** unifiée :
   - Sidebar pliante, fermée par défaut, auto‑close clic externe, hamburger mobile.
+  - Interaction adaptative: hover-to-open sur desktop (pointeur fin) et toggle au tap sur tablette/iPad (logo), avec fermeture en tapant à l’extérieur.
   - Navigation role‑based (clients, stats, user‑management, boutique).
   - Rendu unique via `AdminLayout` (pas de rendu direct dans les pages) pour éviter les doublons desktop.
   - `/admin` lit `?section=` de manière réactive (`services|gallery|stylists|locations|hero`) pour piloter la section active.
@@ -186,6 +189,8 @@ Steel & Blade est l’application web de **Coiffure Ciwan**, un salon masculin m
 - **Réservations**
   - Calendrier, filtres (date, centre, styliste), statuts.
   - Création manuelle via `/admin/reservations/nueva`.
+  - Dans `/admin/reservations/nueva`, le choix d'un créneau horaire n'ouvre plus automatiquement le modal client: il alimente une card de résumé (service/date/heure) avec action explicite **"Données du client"**.
+  - Les modals de `/admin/reservations/nueva` utilisent `Dialog` + `ScrollArea` (shadcn) avec hauteur contrainte mobile, et les créneaux horaires sont groupés par périodes (`Matin`, `Après-midi`, `Soir`) pour éviter les listes infinies.
 - **CRM**
   - Carte client + historique des réservations + favoris (centre/styliste/service).
   - `total_spent` basé sur bookings `completed`.
@@ -309,6 +314,7 @@ Publics:
 - Filtrage par styliste, centre, date.
 - Cartes de réservation avec bordure jaune distinctive.
 - Sélecteur d’état adapté mobile.
+- Retour depuis le détail vers le calendrier: le jour consulté n’est plus conservé comme sélection visuelle (plus de bordure bleue persistante).
 
 ### CRM & Stats
 - CRM en cartes, meilleure lisibilité.

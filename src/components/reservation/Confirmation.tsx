@@ -104,7 +104,7 @@ export default function Confirmation({
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div>
             <p className="text-gray-700 mb-1"><strong>Service:</strong> {selectedService.nombre}</p>
-            <p className="text-gray-700 mb-1"><strong>Prix:</strong> {selectedService.precio}€</p>
+            <p className="text-gray-700 mb-1"><strong>Prix:</strong> {selectedService.precio} CHF</p>
             <p className="text-gray-700 mb-1"><strong>Durée:</strong> {selectedService.duration || 30} min</p>
             <p className="text-gray-700 mb-1"><strong>Centre:</strong> {selectedLocation.name}</p>
             <p className="text-gray-700 mb-1"><strong>Adresse:</strong> {selectedLocation.address}</p>

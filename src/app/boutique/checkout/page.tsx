@@ -250,7 +250,7 @@ function CheckoutContent() {
                     </div>
                     <div className="text-right">
                       <p className="text-2xl font-bold text-primary">
-                        {(item.producto.precio * item.cantidad).toFixed(2)}€
+                        {(item.producto.precio * item.cantidad).toFixed(2)} CHF
                       </p>
                     </div>
                   </motion.div>
@@ -261,7 +261,7 @@ function CheckoutContent() {
                 <div className="flex justify-between items-center py-4">
                   <span className="text-light font-bold text-lg">Total:</span>
                   <span className="text-3xl font-bold text-primary">
-                    {total.toFixed(2)}€
+                    {total.toFixed(2)} CHF
                   </span>
                 </div>
               </div>
@@ -311,7 +311,7 @@ function CheckoutContent() {
                 <div className="space-y-3 text-text-medium">
                   <div className="flex items-center gap-2">
                     <div className="w-2 h-2 bg-primary rounded-full"></div>
-                    <span>Livraison gratuite pour les commandes supérieures à 50€</span>
+                    <span>Livraison gratuite pour les commandes supérieures à 50 CHF</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <div className="w-2 h-2 bg-primary rounded-full"></div>
