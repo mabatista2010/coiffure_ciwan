@@ -323,6 +323,12 @@ Publics:
 - CRM en cartes, meilleure lisibilité.
 - Affichage d’images dans stats (stylists + centres).
 - Filtrage avancé par période (semaine/mois/année/custom).
+- Les tendances de statistiques stylists/centres affichent maintenant une série quotidienne (barres par jour du range) au lieu d’un agrégat mensuel.
+- Les graphiques de tendance journalière utilisent une échelle fixe 0-15 et des barres empilées par statut (en attente jaune, confirmée bleu, terminée vert; annulée conservée dans le total).
+- Les graphiques de tendance journalière incluent désormais l’état annulé en rouge dans les barres, et un popover flottant (hover/touch) affiche les volumes par statut du jour sélectionné.
+- Sur Safari iPad/tablette, les barres de tendance sont rendues en segments positionnés en absolu (hauteurs en px) pour éviter les disparitions visuelles; le popover est désormais « pinable » au tap/click, rendu en `position: fixed` (au viewport) pour éviter le clipping lors du changement de jour, et se ferme au toucher/clic global hors barres journalières.
+- Les requêtes stats utilisent des bornes `YYYY-MM-DD` sur `booking_date` pour éviter les trous de données liés au format datetime/timezone.
+- Les raccourcis de période ont été ajustés pour inclure `Semaine prochaine` et `Mois prochain` (mois naturel du jour 1 au dernier jour).
 - Filtres mobile optimisés (menus déroulants).
 - Fermeture automatique des menus de filtre après sélection.
 - Inputs date custom avec icônes calendrier.

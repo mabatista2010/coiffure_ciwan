@@ -1,6 +1,13 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type FocusEvent,
+  type MouseEvent,
+} from "react";
 import Image from "next/image";
 import {
   FaCalendarAlt,
@@ -34,19 +41,24 @@ type DateRangeType =
   | "mes"
   | "año"
   | "personalizado"
-  | "semana_anterior"
-  | "mes_anterior"
+  | "semana_proxima"
+  | "mes_proximo"
   | "año_anterior";
 
 const DATE_RANGE_OPTIONS: { value: DateRangeType; label: string }[] = [
   { value: "semana", label: "Semaine actuelle" },
-  { value: "semana_anterior", label: "Semaine precedente" },
+  { value: "semana_proxima", label: "Semaine prochaine" },
   { value: "mes", label: "Mois actuel" },
-  { value: "mes_anterior", label: "Mois precedent" },
+  { value: "mes_proximo", label: "Mois prochain" },
   { value: "año", label: "Annee actuelle" },
   { value: "año_anterior", label: "Annee precedente" },
   { value: "personalizado", label: "Personnalise" },
 ];
+
+const TREND_Y_MAX = 15;
+const TREND_TICKS = [0, 5, 10, 15];
+const TREND_CHART_HEIGHT_PX = 224;
+const TREND_MIN_SEGMENT_PX = 5;
 
 const getImageUrl = (path: string | null): string => {
   if (!path) {
@@ -70,42 +82,41 @@ const getImageUrl = (path: string | null): string => {
   return path.startsWith("/") ? path : `/${path}`;
 };
 
-const formatMonthYear = (monthYearStr: string): string => {
-  const [month, year] = monthYearStr.split("/");
-  const monthNames = [
-    "Jan",
-    "Fev",
-    "Mar",
-    "Avr",
-    "Mai",
-    "Jun",
-    "Jul",
-    "Aou",
-    "Sep",
-    "Oct",
-    "Nov",
-    "Dec",
-  ];
-  return `${monthNames[parseInt(month, 10) - 1]} ${year}`;
+const toDateKey = (date: Date): string => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
 };
 
-const getMonthName = (monthYearStr: string): string => {
-  const month = monthYearStr.split("/")[0];
-  const monthNames = [
-    "Jan",
-    "Fev",
-    "Mar",
-    "Avr",
-    "Mai",
-    "Jun",
-    "Jul",
-    "Aou",
-    "Sep",
-    "Oct",
-    "Nov",
-    "Dec",
-  ];
-  return monthNames[parseInt(month, 10) - 1];
+const formatDayLabel = (dateKey: string, compactMonth: boolean): string => {
+  const parsedDate = new Date(`${dateKey}T00:00:00`);
+  if (Number.isNaN(parsedDate.getTime())) {
+    return dateKey;
+  }
+
+  if (compactMonth) {
+    return String(parsedDate.getDate());
+  }
+
+  return new Intl.DateTimeFormat("fr-FR", {
+    day: "2-digit",
+    month: "2-digit",
+  }).format(parsedDate);
+};
+
+const formatTrendSheetDate = (dateKey: string): string => {
+  const parsedDate = new Date(`${dateKey}T00:00:00`);
+  if (Number.isNaN(parsedDate.getTime())) {
+    return dateKey;
+  }
+
+  return new Intl.DateTimeFormat("fr-FR", {
+    weekday: "long",
+    day: "2-digit",
+    month: "long",
+    year: "numeric",
+  }).format(parsedDate);
 };
 
 interface Stylist {
@@ -133,8 +144,18 @@ interface StylistStats {
   totalRevenue: number;
   topServices: ServiceCount[];
   bookingsByLocation: LocationCount[];
-  bookingsByMonth: { month: string; count: number }[];
+  bookingsByDay: {
+    date: string;
+    label: string;
+    total: number;
+    pending: number;
+    confirmed: number;
+    completed: number;
+    cancelled: number;
+  }[];
 }
+
+type TrendDayStats = StylistStats["bookingsByDay"][number];
 
 interface DateRange {
   startDate: Date;
@@ -163,7 +184,7 @@ function buildDateRange(
 
       return { startDate, endDate, label: "Semaine actuelle" };
     }
-    case "semana_anterior": {
+    case "semana_proxima": {
       const currentDay = today.getDay();
       const diffToMonday = today.getDate() - currentDay + (currentDay === 0 ? -6 : 1);
       const monday = new Date(today);
@@ -171,13 +192,13 @@ function buildDateRange(
       monday.setHours(0, 0, 0, 0);
 
       const startDate = new Date(monday);
-      startDate.setDate(monday.getDate() - 7);
+      startDate.setDate(monday.getDate() + 7);
 
       const endDate = new Date(startDate);
       endDate.setDate(startDate.getDate() + 6);
       endDate.setHours(23, 59, 59, 999);
 
-      return { startDate, endDate, label: "Semaine precedente" };
+      return { startDate, endDate, label: "Semaine prochaine" };
     }
     case "mes": {
       const startDate = new Date(today.getFullYear(), today.getMonth(), 1);
@@ -185,11 +206,11 @@ function buildDateRange(
       endDate.setHours(23, 59, 59, 999);
       return { startDate, endDate, label: "Mois actuel" };
     }
-    case "mes_anterior": {
-      const startDate = new Date(today.getFullYear(), today.getMonth() - 1, 1);
-      const endDate = new Date(today.getFullYear(), today.getMonth(), 0);
+    case "mes_proximo": {
+      const startDate = new Date(today.getFullYear(), today.getMonth() + 1, 1);
+      const endDate = new Date(today.getFullYear(), today.getMonth() + 2, 0);
       endDate.setHours(23, 59, 59, 999);
-      return { startDate, endDate, label: "Mois precedent" };
+      return { startDate, endDate, label: "Mois prochain" };
     }
     case "año": {
       const startDate = new Date(today.getFullYear(), 0, 1);
@@ -234,8 +255,16 @@ export default function StylistStatsPage() {
   const [selectedStylist, setSelectedStylist] = useState<string | null>(null);
   const [selectedStylistData, setSelectedStylistData] = useState<Stylist | null>(null);
   const [stats, setStats] = useState<StylistStats | null>(null);
+  const [trendPopover, setTrendPopover] = useState<{
+    day: TrendDayStats;
+    x: number;
+    y: number;
+    pinned: boolean;
+  } | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+  const trendChartRef = useRef<HTMLDivElement | null>(null);
+  const trendPopoverHostRef = useRef<HTMLDivElement | null>(null);
 
   const [dateRangeType, setDateRangeType] = useState<DateRangeType>("mes");
   const [customStartDate, setCustomStartDate] = useState<string>("");
@@ -287,6 +316,77 @@ export default function StylistStatsPage() {
   }, [dateRangeType, customStartDate, customEndDate]);
 
   useEffect(() => {
+    setTrendPopover(null);
+  }, [selectedStylist, dateRange]);
+
+  useEffect(() => {
+    if (!trendPopover?.pinned) {
+      return;
+    }
+
+    const handleGlobalPointerDown = (event: PointerEvent) => {
+      const target = event.target;
+      if (!(target instanceof Element)) {
+        setTrendPopover(null);
+        return;
+      }
+
+      const touchedDayButton = target.closest('[data-trend-day-button="true"]');
+      if (touchedDayButton) {
+        return;
+      }
+
+      setTrendPopover(null);
+    };
+
+    document.addEventListener("pointerdown", handleGlobalPointerDown);
+    return () => {
+      document.removeEventListener("pointerdown", handleGlobalPointerDown);
+    };
+  }, [trendPopover?.pinned]);
+
+  const openTrendPopover = (
+    event:
+      | MouseEvent<HTMLButtonElement>
+      | FocusEvent<HTMLButtonElement>,
+    day: TrendDayStats,
+    pinned = false
+  ) => {
+    const targetRect = event.currentTarget.getBoundingClientRect();
+    const popoverWidth = 256;
+    const popoverHeight = 176;
+    const padding = 12;
+    const gap = 12;
+
+    const visualViewport = window.visualViewport;
+    const viewportWidth = visualViewport?.width ?? window.innerWidth;
+    const viewportHeight = visualViewport?.height ?? window.innerHeight;
+    const viewportOffsetLeft = visualViewport?.offsetLeft ?? 0;
+    const viewportOffsetTop = visualViewport?.offsetTop ?? 0;
+    const preferredRightX = targetRect.right + gap;
+    const preferredLeftX = targetRect.left - popoverWidth - gap;
+    const rawX =
+      preferredRightX + popoverWidth <= viewportOffsetLeft + viewportWidth - padding
+        ? preferredRightX
+        : preferredLeftX;
+    const minX = viewportOffsetLeft + padding;
+    const maxX = Math.max(minX, viewportOffsetLeft + viewportWidth - popoverWidth - padding);
+
+    const preferredAboveY = targetRect.top - popoverHeight - gap;
+    const preferredBelowY = targetRect.bottom + gap;
+    const rawY = preferredAboveY >= viewportOffsetTop + padding ? preferredAboveY : preferredBelowY;
+    const minY = viewportOffsetTop + padding;
+    const maxY = Math.max(minY, viewportOffsetTop + viewportHeight - popoverHeight - padding);
+
+    setTrendPopover({
+      day,
+      x: Math.min(Math.max(rawX, minX), maxX),
+      y: Math.min(Math.max(rawY, minY), maxY),
+      pinned,
+    });
+  };
+
+  useEffect(() => {
     if (!selectedStylist) {
       return;
     }
@@ -295,8 +395,8 @@ export default function StylistStatsPage() {
       setLoading(true);
 
       try {
-        const startDateStr = dateRange.startDate.toISOString();
-        const endDateStr = dateRange.endDate.toISOString();
+        const startDateStr = toDateKey(dateRange.startDate);
+        const endDateStr = toDateKey(dateRange.endDate);
 
         const { data: bookingsData, error: bookingsError } = await supabase
           .from("bookings")
@@ -393,34 +493,66 @@ export default function StylistStatsPage() {
           .map(([location_name, count]) => ({ location_name, count }))
           .sort((a, b) => b.count - a.count);
 
-        const monthsMap: Record<string, number> = {};
-        const startMonth = new Date(dateRange.startDate);
-        const endMonth = new Date(dateRange.endDate);
+        const dailyMap: Record<
+          string,
+          {
+            date: string;
+            label: string;
+            total: number;
+            pending: number;
+            confirmed: number;
+            completed: number;
+            cancelled: number;
+          }
+        > = {};
+        const currentDate = new Date(dateRange.startDate);
+        currentDate.setHours(0, 0, 0, 0);
+        const endDate = new Date(dateRange.endDate);
+        endDate.setHours(0, 0, 0, 0);
+        const isSingleMonthRange =
+          dateRange.startDate.getFullYear() === dateRange.endDate.getFullYear() &&
+          dateRange.startDate.getMonth() === dateRange.endDate.getMonth();
 
-        const currentMonth = new Date(startMonth);
-        while (currentMonth <= endMonth) {
-          const monthYear = `${currentMonth.getMonth() + 1}/${currentMonth.getFullYear()}`;
-          monthsMap[monthYear] = 0;
-          currentMonth.setMonth(currentMonth.getMonth() + 1);
+        while (currentDate <= endDate) {
+          const dateKey = toDateKey(currentDate);
+          dailyMap[dateKey] = {
+            date: dateKey,
+            label: formatDayLabel(dateKey, isSingleMonthRange),
+            total: 0,
+            pending: 0,
+            confirmed: 0,
+            completed: 0,
+            cancelled: 0,
+          };
+          currentDate.setDate(currentDate.getDate() + 1);
         }
 
-        bookingsWithService?.forEach((booking) => {
-          if (booking.booking_date) {
-            const date = new Date(booking.booking_date);
-            const monthYear = `${date.getMonth() + 1}/${date.getFullYear()}`;
-            if (monthsMap[monthYear] !== undefined) {
-              monthsMap[monthYear] = (monthsMap[monthYear] || 0) + 1;
-            }
+        bookingsData?.forEach((booking) => {
+          if (!booking.booking_date) {
+            return;
+          }
+
+          const bookingDateKey = booking.booking_date.slice(0, 10);
+          if (!dailyMap[bookingDateKey]) {
+            return;
+          }
+
+          dailyMap[bookingDateKey].total += 1;
+
+          if (booking.status === "pending") {
+            dailyMap[bookingDateKey].pending += 1;
+          } else if (booking.status === "confirmed") {
+            dailyMap[bookingDateKey].confirmed += 1;
+          } else if (booking.status === "completed") {
+            dailyMap[bookingDateKey].completed += 1;
+          } else if (booking.status === "cancelled") {
+            dailyMap[bookingDateKey].cancelled += 1;
           }
         });
 
-        const bookingsByMonth = Object.entries(monthsMap)
-          .map(([month, count]) => ({ month, count }))
-          .sort((a, b) => {
-            const [aMonth, aYear] = a.month.split("/").map(Number);
-            const [bMonth, bYear] = b.month.split("/").map(Number);
-            return aYear * 12 + aMonth - (bYear * 12 + bMonth);
-          });
+        const bookingsByDay = Object.entries(dailyMap)
+          .sort(([aDate], [bDate]) => aDate.localeCompare(bDate))
+          .map(([, dayData]) => dayData);
 
         setStats({
           totalBookings,
@@ -431,7 +563,7 @@ export default function StylistStatsPage() {
           totalRevenue,
           topServices,
           bookingsByLocation,
-          bookingsByMonth,
+          bookingsByDay,
         });
       } catch (err) {
         console.error("Error al cargar estadisticas:", err);
@@ -735,36 +867,249 @@ export default function StylistStatsPage() {
                   Tendance des reservations
                 </h3>
                 <p className="text-sm text-muted-foreground">
-                  {stats.bookingsByMonth.length > 0
-                    ? `${formatMonthYear(stats.bookingsByMonth[0].month)} - ${formatMonthYear(
-                        stats.bookingsByMonth[stats.bookingsByMonth.length - 1].month
-                      )}`
-                    : "Aucune donnee"}
+                  {selectedDateRangeLabel}
                 </p>
               </AdminCardHeader>
-              <AdminCardContent>
-                {stats.bookingsByMonth.length > 0 ? (
-                  <div className="flex h-64 items-end gap-2 overflow-x-auto pb-3">
-                    {stats.bookingsByMonth.map((item, index) => {
-                      const maxCount = Math.max(...stats.bookingsByMonth.map((month) => month.count));
-                      const height = maxCount > 0 ? (item.count / maxCount) * 100 : 0;
-                      const isCompact = stats.bookingsByMonth.length > 6;
+              <AdminCardContent className="space-y-4">
+                <div className="flex flex-wrap gap-4 text-xs text-muted-foreground">
+                  <span className="inline-flex items-center gap-1.5">
+                    <span className="h-2.5 w-2.5 rounded-sm bg-amber-400" />
+                    En attente
+                  </span>
+                  <span className="inline-flex items-center gap-1.5">
+                    <span className="h-2.5 w-2.5 rounded-sm bg-blue-500" />
+                    Confirmée
+                  </span>
+                  <span className="inline-flex items-center gap-1.5">
+                    <span className="h-2.5 w-2.5 rounded-sm bg-emerald-500" />
+                    Terminée
+                  </span>
+                  <span className="inline-flex items-center gap-1.5">
+                    <span className="h-2.5 w-2.5 rounded-sm bg-red-500" />
+                    Annulée
+                  </span>
+                </div>
 
-                      return (
-                        <div key={index} className="flex min-w-[44px] flex-1 flex-col items-center gap-2">
-                          <div
-                            className="w-full rounded-t bg-primary transition-all"
-                            style={{ height: `${height}%` }}
-                          />
-                          <span className="text-[10px] text-muted-foreground sm:text-xs">
-                            {isCompact ? getMonthName(item.month) : formatMonthYear(item.month)}
-                          </span>
-                          <span className="text-xs font-semibold text-primary">
-                            {item.count}
-                          </span>
+                {stats.bookingsByDay.length > 0 ? (
+                  <div className="relative overflow-visible pb-3" ref={trendPopoverHostRef}>
+                    <div className="overflow-x-auto pb-5" onScroll={() => setTrendPopover(null)}>
+                      <div className="min-w-max">
+                        <div className="relative pl-8" ref={trendChartRef}>
+                          <div className="relative h-56">
+                            {TREND_TICKS.map((tick) => (
+                              <div
+                                key={tick}
+                                className="absolute inset-x-0 border-t border-border/45"
+                                style={{ bottom: `${(tick / TREND_Y_MAX) * 100}%` }}
+                              >
+                                <span
+                                  className={`absolute -left-7 text-[10px] text-muted-foreground ${tick === TREND_Y_MAX ? "translate-y-0" : "-translate-y-1/2"}`}
+                                >
+                                  {tick}
+                                </span>
+                              </div>
+                            ))}
+
+                            <div className="absolute inset-0 flex items-end gap-2.5">
+                              {stats.bookingsByDay.map((item) => {
+                                const trackedTotal =
+                                  item.pending +
+                                  item.confirmed +
+                                  item.completed +
+                                  item.cancelled;
+                                const scale =
+                                  trackedTotal > TREND_Y_MAX
+                                    ? TREND_Y_MAX / trackedTotal
+                                    : 1;
+
+                                const pendingHeight =
+                                  item.pending > 0
+                                    ? Math.max(
+                                      (item.pending * scale * TREND_CHART_HEIGHT_PX) /
+                                        TREND_Y_MAX,
+                                      TREND_MIN_SEGMENT_PX
+                                    )
+                                    : 0;
+                                const confirmedHeight =
+                                  item.confirmed > 0
+                                    ? Math.max(
+                                      (item.confirmed * scale * TREND_CHART_HEIGHT_PX) /
+                                        TREND_Y_MAX,
+                                      TREND_MIN_SEGMENT_PX
+                                    )
+                                    : 0;
+                                const completedHeight =
+                                  item.completed > 0
+                                    ? Math.max(
+                                      (item.completed * scale * TREND_CHART_HEIGHT_PX) /
+                                        TREND_Y_MAX,
+                                      TREND_MIN_SEGMENT_PX
+                                    )
+                                    : 0;
+                                const cancelledHeight =
+                                  item.cancelled > 0
+                                    ? Math.max(
+                                      (item.cancelled * scale * TREND_CHART_HEIGHT_PX) /
+                                        TREND_Y_MAX,
+                                      TREND_MIN_SEGMENT_PX
+                                    )
+                                    : 0;
+                                const confirmedBottom = pendingHeight;
+                                const completedBottom = pendingHeight + confirmedHeight;
+                                const cancelledBottom =
+                                  pendingHeight + confirmedHeight + completedHeight;
+                                const isActive = trendPopover?.day.date === item.date;
+
+                                return (
+                                  <div key={item.date} className="flex h-full w-7 items-end">
+                                    <button
+                                      type="button"
+                                      data-trend-day-button="true"
+                                      className={`relative block h-full w-full overflow-hidden rounded-t-sm border transition ${isActive ? "border-primary/70 shadow-[0_0_0_1px_rgba(212,160,23,0.35)]" : "border-transparent"} bg-muted/20`}
+                                      onMouseEnter={(event) => openTrendPopover(event, item)}
+                                      onMouseLeave={() =>
+                                        setTrendPopover((prev) =>
+                                          prev && prev.day.date === item.date && !prev.pinned
+                                            ? null
+                                            : prev
+                                        )
+                                      }
+                                      onFocus={(event) => openTrendPopover(event, item)}
+                                      onBlur={() =>
+                                        setTrendPopover((prev) =>
+                                          prev && prev.day.date === item.date && !prev.pinned
+                                            ? null
+                                            : prev
+                                        )
+                                      }
+                                      onClick={(event) => {
+                                        if (
+                                          trendPopover?.day.date === item.date &&
+                                          trendPopover.pinned
+                                        ) {
+                                          setTrendPopover(null);
+                                          return;
+                                        }
+                                        openTrendPopover(event, item, true);
+                                      }}
+                                      title={`${item.date} | Total: ${item.total} | En attente: ${item.pending} | Confirmée: ${item.confirmed} | Terminée: ${item.completed} | Annulée: ${item.cancelled}`}
+                                      aria-label={`Détails du ${item.date}`}
+                                    >
+                                      {pendingHeight > 0 ? (
+                                        <div
+                                          className="absolute inset-x-0 bottom-0 bg-amber-400"
+                                          style={{ height: `${pendingHeight}px` }}
+                                        />
+                                      ) : null}
+                                      {confirmedHeight > 0 ? (
+                                        <div
+                                          className="absolute inset-x-0 bg-blue-500"
+                                          style={{
+                                            bottom: `${confirmedBottom}px`,
+                                            height: `${confirmedHeight}px`,
+                                          }}
+                                        />
+                                      ) : null}
+                                      {completedHeight > 0 ? (
+                                        <div
+                                          className="absolute inset-x-0 bg-emerald-500"
+                                          style={{
+                                            bottom: `${completedBottom}px`,
+                                            height: `${completedHeight}px`,
+                                          }}
+                                        />
+                                      ) : null}
+                                      {cancelledHeight > 0 ? (
+                                        <div
+                                          className="absolute inset-x-0 bg-red-500"
+                                          style={{
+                                            bottom: `${cancelledBottom}px`,
+                                            height: `${cancelledHeight}px`,
+                                          }}
+                                        />
+                                      ) : null}
+                                    </button>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+
+                          <div className="mt-2 flex gap-2.5">
+                            {stats.bookingsByDay.map((item) => (
+                              <div key={`${item.date}-label`} className="w-7 text-center">
+                                <span className="block text-[10px] text-muted-foreground">
+                                  {item.label}
+                                </span>
+                                <span className="block text-[10px] font-semibold text-primary">
+                                  {item.total}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
                         </div>
-                      );
-                    })}
+                      </div>
+                    </div>
+
+                    {trendPopover ? (
+                      <div
+                        className="pointer-events-none fixed z-[120] w-64 rounded-xl border border-slate-200 bg-white/98 p-3 text-xs text-slate-800 shadow-[0_18px_42px_-24px_rgba(15,23,42,0.45)] backdrop-blur-sm"
+                        style={{
+                          left: `${trendPopover.x}px`,
+                          top: `${trendPopover.y}px`,
+                        }}
+                      >
+                        <div className="space-y-2">
+                          <p className="text-sm font-semibold text-slate-900 capitalize">
+                            {formatTrendSheetDate(trendPopover.day.date)}
+                          </p>
+                          <div className="space-y-1">
+                            <p className="flex items-center justify-between gap-3 text-slate-600">
+                              <span className="font-medium">Total</span>
+                              <span className="font-semibold text-primary">
+                                {trendPopover.day.total}
+                              </span>
+                            </p>
+                            <p className="flex items-center justify-between gap-3 text-slate-600">
+                              <span className="inline-flex items-center gap-1.5">
+                                <span className="h-2.5 w-2.5 rounded-sm bg-amber-400" />
+                                En attente
+                              </span>
+                              <span className="font-semibold text-slate-800">
+                                {trendPopover.day.pending}
+                              </span>
+                            </p>
+                            <p className="flex items-center justify-between gap-3 text-slate-600">
+                              <span className="inline-flex items-center gap-1.5">
+                                <span className="h-2.5 w-2.5 rounded-sm bg-blue-500" />
+                                Confirmée
+                              </span>
+                              <span className="font-semibold text-slate-800">
+                                {trendPopover.day.confirmed}
+                              </span>
+                            </p>
+                            <p className="flex items-center justify-between gap-3 text-slate-600">
+                              <span className="inline-flex items-center gap-1.5">
+                                <span className="h-2.5 w-2.5 rounded-sm bg-emerald-500" />
+                                Terminée
+                              </span>
+                              <span className="font-semibold text-slate-800">
+                                {trendPopover.day.completed}
+                              </span>
+                            </p>
+                            <p className="flex items-center justify-between gap-3 text-slate-600">
+                              <span className="inline-flex items-center gap-1.5">
+                                <span className="h-2.5 w-2.5 rounded-sm bg-red-500" />
+                                Annulée
+                              </span>
+                              <span className="font-semibold text-slate-800">
+                                {trendPopover.day.cancelled}
+                              </span>
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    ) : null}
                   </div>
                 ) : (
                   <div className="flex h-28 items-center justify-center text-sm text-muted-foreground">
