@@ -222,7 +222,9 @@ Steel & Blade est l’application web de **Coiffure Ciwan**, un salon masculin m
 - **AdminNav** unifiée :
   - Sidebar pliante, fermée par défaut, auto‑close clic externe, hamburger mobile.
   - Interaction adaptative: hover-to-open sur desktop (pointeur fin) et toggle au tap sur tablette/iPad (logo), avec fermeture en tapant à l’extérieur.
-  - Navigation role‑based (clients, stats, user‑management, boutique).
+  - Navigation role‑based organisée par catégories (`Opérations`, `Analyses`, `Catalogue`, `Système`) avec sections pliables.
+  - Les catégories sont ouvertes par défaut et mémorisées par rôle en `localStorage` (plié/déplié persistant).
+  - Les employés voient uniquement les catégories/entrées autorisées (principalement `Reservations`, `Clients`, `Page d'accueil`).
   - Rendu unique via `AdminLayout` (pas de rendu direct dans les pages) pour éviter les doublons desktop.
   - `/admin` lit `?section=` de manière réactive (`services|gallery|stylists|locations|hero`) pour piloter la section active.
 - Composant UI réutilisable `AdminSidePanel` ajouté (`src/components/admin/ui/AdminSidePanel.tsx`) pour unifier les panneaux latéraux admin (header, scroll, footer, fermeture, animations).

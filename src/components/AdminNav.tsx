@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname } from 'next/navigation';
@@ -21,7 +21,7 @@ import {
   FaUsers,
 } from 'react-icons/fa';
 import * as DialogPrimitive from '@radix-ui/react-dialog';
-import { Pin, PinOff, X } from 'lucide-react';
+import { ChevronDown, ChevronRight, Pin, PinOff, X } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { getUserRole } from '@/lib/userRoles';
 import { Button, buttonVariants } from '@/components/ui/button';
@@ -44,95 +44,157 @@ type NavRole = 'admin' | 'employee' | 'all';
 type ConfigSection = 'services' | 'gallery' | 'stylists' | 'locations' | 'hero' | null;
 type ConfigSectionKey = Exclude<ConfigSection, null>;
 
-type NavItem = {
+type RouteMenuItem = {
+  id: string;
+  type: 'route';
   href: string;
   label: string;
   icon: IconType;
   role: NavRole;
 };
 
-type ConfigItem = {
-  id: ConfigSectionKey;
+type ConfigMenuItem = {
+  id: string;
+  type: 'config';
+  section: ConfigSectionKey;
   label: string;
   icon: IconType;
   role: NavRole;
 };
 
-const navItems: NavItem[] = [
-  {
-    href: '/admin/home',
-    label: 'Accueil',
-    icon: FaHome,
-    role: 'all',
-  },
-  {
-    href: '/admin/reservations',
-    label: 'Reservations',
-    icon: FaCalendarAlt,
-    role: 'all',
-  },
-  {
-    href: '/admin/crm',
-    label: 'Clients',
-    icon: FaUsers,
-    role: 'all',
-  },
-  {
-    href: '/admin/stylist-stats',
-    label: 'Stylists Stats',
-    icon: FaChartBar,
-    role: 'admin',
-  },
-  {
-    href: '/admin/location-stats',
-    label: 'Centres Stats',
-    icon: FaChartBar,
-    role: 'admin',
-  },
-  {
-    href: '/admin/user-management',
-    label: 'Utilisateurs',
-    icon: FaUserCog,
-    role: 'admin',
-  },
-  {
-    href: '/admin/boutique',
-    label: 'Boutique',
-    icon: FaShoppingBag,
-    role: 'admin',
-  },
-];
+type SidebarMenuItem = RouteMenuItem | ConfigMenuItem;
 
-const configItems: ConfigItem[] = [
+type SidebarGroup = {
+  id: string;
+  label: string;
+  role: NavRole;
+  items: SidebarMenuItem[];
+};
+
+const SIDEBAR_GROUPS: SidebarGroup[] = [
   {
-    id: 'services',
-    label: 'Services',
-    icon: FaTools,
-    role: 'admin',
+    id: 'operations',
+    label: 'Opérations',
+    role: 'all',
+    items: [
+      {
+        id: 'home',
+        type: 'route',
+        href: '/admin/home',
+        label: "Page d'accueil",
+        icon: FaHome,
+        role: 'all',
+      },
+      {
+        id: 'reservations',
+        type: 'route',
+        href: '/admin/reservations',
+        label: 'Réservations',
+        icon: FaCalendarAlt,
+        role: 'all',
+      },
+      {
+        id: 'clients',
+        type: 'route',
+        href: '/admin/crm',
+        label: 'Clients',
+        icon: FaUsers,
+        role: 'all',
+      },
+    ],
   },
   {
-    id: 'gallery',
-    label: 'Galerie',
-    icon: FaImages,
+    id: 'analytics',
+    label: 'Analyses',
     role: 'admin',
+    items: [
+      {
+        id: 'stylist-stats',
+        type: 'route',
+        href: '/admin/stylist-stats',
+        label: 'Stats stylistes',
+        icon: FaChartBar,
+        role: 'admin',
+      },
+      {
+        id: 'location-stats',
+        type: 'route',
+        href: '/admin/location-stats',
+        label: 'Stats centres',
+        icon: FaChartBar,
+        role: 'admin',
+      },
+    ],
   },
   {
-    id: 'stylists',
-    label: 'Stylistes',
-    icon: FaUserTie,
+    id: 'catalogue',
+    label: 'Catalogue',
     role: 'admin',
+    items: [
+      {
+        id: 'services',
+        type: 'config',
+        section: 'services',
+        label: 'Services',
+        icon: FaTools,
+        role: 'admin',
+      },
+      {
+        id: 'gallery',
+        type: 'config',
+        section: 'gallery',
+        label: 'Galerie',
+        icon: FaImages,
+        role: 'admin',
+      },
+      {
+        id: 'stylists',
+        type: 'config',
+        section: 'stylists',
+        label: 'Stylistes',
+        icon: FaUserTie,
+        role: 'admin',
+      },
+      {
+        id: 'locations',
+        type: 'config',
+        section: 'locations',
+        label: 'Centres',
+        icon: FaBuilding,
+        role: 'admin',
+      },
+      {
+        id: 'hero',
+        type: 'config',
+        section: 'hero',
+        label: "Page d'accueil site",
+        icon: FaCogs,
+        role: 'admin',
+      },
+      {
+        id: 'boutique',
+        type: 'route',
+        href: '/admin/boutique',
+        label: 'Boutique',
+        icon: FaShoppingBag,
+        role: 'admin',
+      },
+    ],
   },
   {
-    id: 'locations',
-    label: 'Centres',
-    icon: FaBuilding,
-    role: 'admin',
-  },
-  {
-    id: 'hero',
-    label: "Page d'accueil",
-    icon: FaCogs,
-    role: 'admin',
+    id: 'systeme',
+    label: 'Système',
+    role: 'all',
+    items: [
+      {
+        id: 'users',
+        type: 'route',
+        href: '/admin/user-management',
+        label: 'Utilisateurs',
+        icon: FaUserCog,
+        role: 'admin',
+      },
+    ],
   },
 ];
 
@@ -150,11 +212,44 @@ export default function AdminNav({
   const [sidebarPinned, setSidebarPinned] = useState(false);
   const [desktopHoverEnabled, setDesktopHoverEnabled] = useState(false);
   const [desktopTapEnabled, setDesktopTapEnabled] = useState(false);
+  const [groupOpenState, setGroupOpenState] = useState<Record<string, boolean>>({});
   const closeSidebarTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pathname = usePathname();
   const isDesktopExpanded = sidebarPinned || sidebarOpen;
 
   const isConfigPage = pathname === '/admin' && setActiveSection !== undefined;
+
+  const shouldShowByRole = useCallback(
+    (requiredRole: NavRole) => {
+      if (requiredRole === 'all') return true;
+      if (requiredRole === 'admin') return userRole === 'admin';
+      if (requiredRole === 'employee') return userRole === 'employee' || userRole === 'admin';
+      return false;
+    },
+    [userRole]
+  );
+
+  const visibleGroups = useMemo(() => {
+    return SIDEBAR_GROUPS
+      .filter((group) => shouldShowByRole(group.role))
+      .map((group) => ({
+        ...group,
+        items: group.items.filter((item) => shouldShowByRole(item.role)),
+      }))
+      .filter((group) => group.items.length > 0);
+  }, [shouldShowByRole]);
+
+  const visibleGroupIds = useMemo(() => visibleGroups.map((group) => group.id), [visibleGroups]);
+
+  const allVisibleItems = useMemo(
+    () => visibleGroups.flatMap((group) => group.items),
+    [visibleGroups]
+  );
+
+  const groupStorageKey = useMemo(() => {
+    if (!userRole) return null;
+    return `admin-nav:groups:v1:${userRole}`;
+  }, [userRole]);
 
   useEffect(() => {
     const checkUserRole = async () => {
@@ -240,17 +335,54 @@ export default function AdminNav({
     };
   }, []);
 
+  useEffect(() => {
+    if (!groupStorageKey) {
+      setGroupOpenState({});
+      return;
+    }
+
+    const defaults = visibleGroupIds.reduce<Record<string, boolean>>((acc, groupId) => {
+      acc[groupId] = true;
+      return acc;
+    }, {});
+
+    try {
+      const rawValue = window.localStorage.getItem(groupStorageKey);
+      if (!rawValue) {
+        setGroupOpenState(defaults);
+        return;
+      }
+
+      const parsed = JSON.parse(rawValue) as Record<string, unknown>;
+      const merged = { ...defaults };
+
+      visibleGroupIds.forEach((groupId) => {
+        if (typeof parsed?.[groupId] === 'boolean') {
+          merged[groupId] = parsed[groupId] as boolean;
+        }
+      });
+
+      setGroupOpenState(merged);
+    } catch (storageError) {
+      console.warn('admin_nav_group_state_parse_error', storageError);
+      setGroupOpenState(defaults);
+    }
+  }, [groupStorageKey, visibleGroupIds]);
+
+  useEffect(() => {
+    if (!groupStorageKey || visibleGroupIds.length === 0) return;
+
+    const normalizedState = visibleGroupIds.reduce<Record<string, boolean>>((acc, groupId) => {
+      acc[groupId] = groupOpenState[groupId] !== false;
+      return acc;
+    }, {});
+
+    window.localStorage.setItem(groupStorageKey, JSON.stringify(normalizedState));
+  }, [groupOpenState, groupStorageKey, visibleGroupIds]);
+
   const handleSignOut = async () => {
     await supabase.auth.signOut();
     window.location.href = '/admin';
-  };
-
-  // Función para determinar si mostrar un elemento de navegación basado en el rol
-  const shouldShowNavItem = (requiredRole: NavRole) => {
-    if (requiredRole === 'all') return true;
-    if (requiredRole === 'admin') return userRole === 'admin';
-    if (requiredRole === 'employee') return userRole === 'employee' || userRole === 'admin';
-    return false;
   };
 
   // Función para manejar clic en una sección de configuración
@@ -326,6 +458,36 @@ export default function AdminNav({
         ? 'border-primary/70 bg-[var(--admin-sidebar-active)] text-white hover:bg-[var(--admin-sidebar-active)]'
         : 'border-[var(--admin-sidebar-border)] bg-[var(--admin-sidebar-surface)] text-[var(--admin-sidebar-text)] hover:bg-[var(--admin-sidebar-hover)] hover:text-white'
     );
+
+  const isGroupOpen = useCallback(
+    (groupId: string) => groupOpenState[groupId] !== false,
+    [groupOpenState]
+  );
+
+  const toggleGroup = useCallback((groupId: string) => {
+    setGroupOpenState((current) => ({
+      ...current,
+      [groupId]: !(current[groupId] !== false),
+    }));
+  }, []);
+
+  const isRouteActive = useCallback(
+    (href: string) => {
+      if (href === '/admin/home') return pathname === '/admin/home';
+      return pathname === href || pathname.startsWith(`${href}/`);
+    },
+    [pathname]
+  );
+
+  const isItemActive = useCallback(
+    (item: SidebarMenuItem) => {
+      if (item.type === 'route') {
+        return isRouteActive(item.href);
+      }
+      return Boolean(isConfigPage && activeSection === item.section);
+    },
+    [activeSection, isConfigPage, isRouteActive]
+  );
 
   // Si está cargando, mostrar un indicador
   if (isLoading) {
@@ -488,59 +650,96 @@ export default function AdminNav({
             <Separator className="bg-[var(--admin-sidebar-border)]" />
 
             <CardContent className="flex-1 overflow-x-hidden overflow-y-auto p-0 py-4">
-              <div className="mb-6">
-                {navItems.map((item) => {
-                  if (!shouldShowNavItem(item.role)) return null;
-
-                  const isActive = pathname === item.href;
-                  const Icon = item.icon;
+              {isDesktopExpanded ? (
+                <div className="space-y-4 px-2">
+                  {visibleGroups.map((group) => {
+                    const groupExpanded = isGroupOpen(group.id);
 
                     return (
-                      <Button key={`sidebar-nav-${item.href}`} asChild variant="ghost" className={getDesktopItemClass(isActive)}>
-                        <Link href={item.href}>
-                          <Icon className={cn('h-5 w-5 shrink-0', isActive ? 'text-white' : 'text-[var(--admin-sidebar-text)]')} />
-                          {isDesktopExpanded && <span>{item.label}</span>}
-                        </Link>
-                      </Button>
-                  );
-                })}
-              </div>
+                      <div key={`desktop-group-${group.id}`} className="space-y-1">
+                        <button
+                          type="button"
+                          onClick={() => toggleGroup(group.id)}
+                          className="flex w-full items-center justify-between rounded-md px-2 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--admin-sidebar-muted)] hover:text-white"
+                        >
+                          <span>{group.label}</span>
+                          {groupExpanded ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
+                        </button>
 
-              {shouldShowNavItem('admin') && <Separator className="mx-4 my-6 w-auto bg-[var(--admin-sidebar-border)]" />}
+                        {groupExpanded ? (
+                          <div>
+                            {group.items.map((item) => {
+                              const isActive = isItemActive(item);
+                              const Icon = item.icon;
 
-              {shouldShowNavItem('admin') && (
-                <div className="mb-6">
-                  {configItems.map((item) => {
-                    if (!shouldShowNavItem(item.role)) return null;
+                              if (item.type === 'config' && isConfigPage) {
+                                return (
+                                  <Button
+                                    key={`sidebar-item-${group.id}-${item.id}`}
+                                    type="button"
+                                    variant="ghost"
+                                    className={getDesktopItemClass(isActive)}
+                                    onClick={() => handleConfigClick(item.section)}
+                                  >
+                                    <Icon className={cn('h-5 w-5 shrink-0', isActive ? 'text-white' : 'text-[var(--admin-sidebar-text)]')} />
+                                    <span>{item.label}</span>
+                                  </Button>
+                                );
+                              }
 
-                    const isActive = activeSection === item.id;
+                              const href = item.type === 'route' ? item.href : `/admin?section=${item.section}`;
+
+                              return (
+                                <Button
+                                  key={`sidebar-item-${group.id}-${item.id}`}
+                                  asChild
+                                  variant="ghost"
+                                  className={getDesktopItemClass(isActive)}
+                                >
+                                  <Link href={href}>
+                                    <Icon className={cn('h-5 w-5 shrink-0', isActive ? 'text-white' : 'text-[var(--admin-sidebar-text)]')} />
+                                    <span>{item.label}</span>
+                                  </Link>
+                                </Button>
+                              );
+                            })}
+                          </div>
+                        ) : null}
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div>
+                  {allVisibleItems.map((item) => {
+                    const isActive = isItemActive(item);
                     const Icon = item.icon;
 
-                    if (isConfigPage) {
+                    if (item.type === 'config' && isConfigPage) {
                       return (
                         <Button
-                          key={`sidebar-config-${item.id}`}
+                          key={`sidebar-collapsed-${item.id}`}
                           type="button"
                           variant="ghost"
                           className={getDesktopItemClass(isActive)}
-                          onClick={() => handleConfigClick(item.id)}
+                          onClick={() => handleConfigClick(item.section)}
                         >
                           <Icon className={cn('h-5 w-5 shrink-0', isActive ? 'text-white' : 'text-[var(--admin-sidebar-text)]')} />
-                          {isDesktopExpanded && <span>{item.label}</span>}
                         </Button>
                       );
                     }
 
+                    const href = item.type === 'route' ? item.href : `/admin?section=${item.section}`;
+
                     return (
                       <Button
-                        key={`sidebar-config-${item.id}`}
+                        key={`sidebar-collapsed-${item.id}`}
                         asChild
                         variant="ghost"
-                        className={getDesktopItemClass(false)}
+                        className={getDesktopItemClass(isActive)}
                       >
-                        <Link href={`/admin?section=${item.id}`}>
-                          <Icon className="h-5 w-5 shrink-0 text-[var(--admin-sidebar-text)]" />
-                          {isDesktopExpanded && <span>{item.label}</span>}
+                        <Link href={href}>
+                          <Icon className={cn('h-5 w-5 shrink-0', isActive ? 'text-white' : 'text-[var(--admin-sidebar-text)]')} />
                         </Link>
                       </Button>
                     );
@@ -601,67 +800,68 @@ export default function AdminNav({
               <Separator className="bg-[var(--admin-sidebar-border)]" />
 
               <CardContent className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto px-4 pb-4 pt-4">
-                <div className="grid grid-cols-2 gap-3 pb-3">
-                  {navItems.map((item) => {
-                    if (!shouldShowNavItem(item.role)) return null;
-
-                    const isActive = pathname === item.href;
-                    const Icon = item.icon;
+                <div className="space-y-4 pb-3">
+                  {visibleGroups.map((group) => {
+                    const groupExpanded = isGroupOpen(group.id);
 
                     return (
-                      <Button
-                        key={`mobile-nav-${item.href}`}
-                        asChild
-                        variant="secondary"
-                        className={getMobileItemClass(isActive)}
-                      >
-                        <Link href={item.href} onClick={() => setIsOpen(false)}>
-                          <Icon className="h-6 w-6" />
-                          <span className="text-sm font-semibold">{item.label}</span>
-                        </Link>
-                      </Button>
+                      <section key={`mobile-group-${group.id}`} className="space-y-2">
+                        <button
+                          type="button"
+                          onClick={() => toggleGroup(group.id)}
+                          className="flex w-full items-center justify-between rounded-xl border border-[var(--admin-sidebar-border)] bg-[var(--admin-sidebar-surface)] px-3 py-2 text-left text-[var(--admin-sidebar-text)] hover:bg-[var(--admin-sidebar-hover)]"
+                        >
+                          <span className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--admin-sidebar-text)]">
+                            {group.label}
+                          </span>
+                          {groupExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                        </button>
+
+                        {groupExpanded ? (
+                          <div className="grid grid-cols-2 gap-3">
+                            {group.items.map((item) => {
+                              const isActive = isItemActive(item);
+                              const Icon = item.icon;
+
+                              if (item.type === 'config' && isConfigPage) {
+                                return (
+                                  <Button
+                                    key={`mobile-item-${group.id}-${item.id}`}
+                                    type="button"
+                                    variant="secondary"
+                                    className={getMobileItemClass(isActive)}
+                                    onClick={() => {
+                                      handleConfigClick(item.section);
+                                      setIsOpen(false);
+                                    }}
+                                  >
+                                    <Icon className="h-6 w-6" />
+                                    <span className="text-sm font-semibold">{item.label}</span>
+                                  </Button>
+                                );
+                              }
+
+                              const href = item.type === 'route' ? item.href : `/admin?section=${item.section}`;
+
+                              return (
+                                <Button
+                                  key={`mobile-item-${group.id}-${item.id}`}
+                                  asChild
+                                  variant="secondary"
+                                  className={getMobileItemClass(isActive)}
+                                >
+                                  <Link href={href} onClick={() => setIsOpen(false)}>
+                                    <Icon className="h-6 w-6" />
+                                    <span className="text-sm font-semibold">{item.label}</span>
+                                  </Link>
+                                </Button>
+                              );
+                            })}
+                          </div>
+                        ) : null}
+                      </section>
                     );
                   })}
-
-                  {shouldShowNavItem('admin') &&
-                    configItems.map((item) => {
-                      if (!shouldShowNavItem(item.role)) return null;
-
-                      const isActive = isConfigPage && activeSection === item.id;
-                      const Icon = item.icon;
-
-                      if (isConfigPage) {
-                        return (
-                          <Button
-                            key={`mobile-config-${item.id}`}
-                            type="button"
-                            variant="secondary"
-                            className={getMobileItemClass(isActive)}
-                            onClick={() => {
-                              handleConfigClick(item.id);
-                              setIsOpen(false);
-                            }}
-                          >
-                            <Icon className="h-6 w-6" />
-                            <span className="text-sm font-semibold">{item.label}</span>
-                          </Button>
-                        );
-                      }
-
-                      return (
-                        <Button
-                          key={`mobile-config-${item.id}`}
-                          asChild
-                          variant="secondary"
-                          className={getMobileItemClass(false)}
-                        >
-                          <Link href={`/admin?section=${item.id}`} onClick={() => setIsOpen(false)}>
-                            <Icon className="h-6 w-6" />
-                            <span className="text-sm font-semibold">{item.label}</span>
-                          </Link>
-                        </Button>
-                      );
-                    })}
                 </div>
               </CardContent>
 
