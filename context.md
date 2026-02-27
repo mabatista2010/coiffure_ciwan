@@ -76,7 +76,8 @@ Steel & Blade est l’application web de **Coiffure Ciwan**, un salon masculin m
 - `/ui-test` : laboratoire interne pour tester rapidement les composants shadcn/ui
 
 ### Admin
-- `/admin` : configuration (services, galerie, stylists, centres, hero)
+- `/admin/home` : tableau de bord neutre (accueil admin/employé)
+- `/admin` : configuration (services, galerie, stylists, centres, hero) via `?section=...` ; sans `section`, redirection vers `/admin/home`
 - `/admin/reservations` : gestion réservations
 - `/admin/reservations/nueva` : création manuelle de réservation
 - `/admin/crm` : CRM clients
@@ -100,6 +101,37 @@ Steel & Blade est l’application web de **Coiffure Ciwan**, un salon masculin m
   - Codes d’erreur normalisés : `invalid_payload` (400), `slot_conflict` (409), règles métier (422), `internal_error` (500).
   - Idempotence supportée via header `Idempotency-Key` (replay de réponse pour la même clé+payload, blocage si clé réutilisée avec payload différent).
   - Logging structuré de création (`request_id`, `source`, `idempotency_key`, `error_code`, `latency_ms`).
+
+### CRM Admin
+- `GET /api/admin/crm/customers/[id]/profile`
+  - Endpoint interne protégé (`Authorization: Bearer <access_token>`) via `requireStaffAuth` (`admin|employee`).
+  - Retourne la fiche étendue du client.
+  - Supporte lazy-create du profil quand absent (avec `customerName/customerEmail/customerPhone` passés en query), avec récupération sur conflit `unique` pour éviter les erreurs de concurrence.
+- `PUT /api/admin/crm/customers/[id]/profile`
+  - Endpoint interne protégé (`admin|employee`).
+  - Crée/met à jour la fiche client (données étendues CRM) avec validations serveur.
+- `GET /api/admin/crm/customers/[id]/notes`
+  - Endpoint interne protégé (`admin|employee`).
+  - Liste les notes CRM du client par date décroissante.
+  - Lazy-create profil idempotent côté serveur (récupération du profil existant si conflit d’insertion).
+- `POST /api/admin/crm/customers/[id]/notes`
+  - Endpoint interne protégé (`admin|employee`).
+  - Crée une note CRM (`general|follow_up|incident|preference`) avec `created_by`.
+- `GET /api/admin/crm/customers/search`
+  - Endpoint interne protégé (`admin|employee`) pour autocomplétion et annuaire client.
+  - Recherche multi-critères (`nom`, `email`, `téléphone`) avec ranking de pertinence.
+  - Réponse enrichie par client (`customer_key`, contact, `last_visit_date`, `total_visits`, `total_spent`, `source`) avec `limit` borné côté serveur.
+
+### Réservations Admin
+- `GET /api/admin/bookings/pending`
+  - Endpoint interne protégé (`admin|employee`).
+  - Retourne les réservations `pending` à venir (`booking_date >= aujourd’hui`) avec scope rôle:
+    - `admin`: global.
+    - `employee`: limité au styliste associé via `stylist_users`.
+- `POST /api/admin/bookings/pending`
+  - Endpoint interne protégé (`admin|employee`).
+  - Valide des réservations en attente (`pending -> confirmed`) en mode individuel/sélection (`bookingIds[]`) ou en masse (`approveAll`).
+  - Réponse détaillée (`updated_count`, `updated_ids`, `eligible_count`, `skipped_count`) pour gérer les cas de concurrence.
 
 ### ChatGPT Apps SDK (MCP)
   - `GET|POST|DELETE /mcp`
@@ -181,18 +213,31 @@ Steel & Blade est l’application web de **Coiffure Ciwan**, un salon masculin m
 - Auth Supabase par email/password (`AdminLayout`).
 - Écran de connexion admin harmonisé en français (titre, labels, CTA et messages d’accès refusé).
 - Layout admin avec 3 états (chargement / non‑auth / auth) + formulaire login unifié.
+- Après connexion, `admin` et `employee` sont redirigés par défaut vers `/admin/home`.
 - Vérification de session Supabase sur toutes les routes `/admin/*`.
 - Les pages admin boutique/webhook envoient le `access_token` Supabase en `Authorization: Bearer` vers les endpoints internes protégés.
 - **Rôles** : `admin` vs `employee`.
-  - Les employés ne voient que `/admin` et `/admin/reservations`.
+  - Les employés peuvent accéder uniquement à `/admin/home`, `/admin/reservations` et `/admin/crm`.
+  - `/admin` (configuration métier) est réservé à `admin`; un employé est redirigé vers `/admin/home`.
 - **AdminNav** unifiée :
   - Sidebar pliante, fermée par défaut, auto‑close clic externe, hamburger mobile.
   - Interaction adaptative: hover-to-open sur desktop (pointeur fin) et toggle au tap sur tablette/iPad (logo), avec fermeture en tapant à l’extérieur.
   - Navigation role‑based (clients, stats, user‑management, boutique).
   - Rendu unique via `AdminLayout` (pas de rendu direct dans les pages) pour éviter les doublons desktop.
   - `/admin` lit `?section=` de manière réactive (`services|gallery|stylists|locations|hero`) pour piloter la section active.
+- Composant UI réutilisable `AdminSidePanel` ajouté (`src/components/admin/ui/AdminSidePanel.tsx`) pour unifier les panneaux latéraux admin (header, scroll, footer, fermeture, animations).
 
 ### Sections Admin
+- **Accueil dashboard** (`/admin/home`)
+  - Page d’entrée par défaut après login (admin + employee).
+  - Affiche des données opérationnelles réelles (KPIs du jour, agenda, alertes, actions rapides).
+  - Rafraîchissement manuel via bouton `Actualiser` basé sur `bookings` (aujourd’hui + 7 jours).
+  - Contenu filtré par rôle (actions admin supplémentaires: configuration/stats/utilisateurs/boutique).
+  - Salutation personnalisée: priorité au nom du styliste associé (`stylist_users`), avec fallback sur le profil auth/email.
+  - Les alertes de réservations en attente ouvrent un panneau latéral (slide-in) de triage rapide.
+  - L’alerte “réservations en attente” utilise le total à venir (`booking_date >= today`) selon le scope du rôle: employé (styliste associé), admin (global).
+  - Le panneau latéral permet: approbation individuelle, sélection multiple et approbation de masse, avec synchronisation immédiate des KPIs.
+  - Le bloc **Actions rapides** est personnalisable via un modal `Dialog` (shadcn/ui) avec persistance `localStorage` par `user_id + role`; affichage limité à **5 raccourcis max** sur le dashboard.
 - **Configuration** (`/admin`)
   - Services, galerie, stylists, centres, hero/images.
   - Uploads Supabase Storage avec preview.
@@ -200,6 +245,8 @@ Steel & Blade est l’application web de **Coiffure Ciwan**, un salon masculin m
   - Centres : CRUD complet (nom, adresse, tel, email, description, image) + horaires multiples par jour.
 - **Réservations**
   - Calendrier, filtres (date, centre, styliste), statuts.
+  - Filtre global de statut (`all|pending|confirmed|completed|cancelled`) appliqué aux vues `Mois`, `Semaine` et `Jour`.
+  - Préfiltrage via URL (`?status=...&view=...`) supporté et synchronisé avec l’état de la page.
   - Calendrier admin avec vues `Mois / Semaine / Jour` et navigation temporelle adaptative selon la vue active.
   - Vue `Semaine` enrichie en agenda colonnes (7 jours) avec détails des rendez-vous par jour, scroll horizontal (tablet/mobile) et accès rapide `Voir le jour`.
   - Création manuelle via `/admin/reservations/nueva`.
@@ -208,6 +255,8 @@ Steel & Blade est l’application web de **Coiffure Ciwan**, un salon masculin m
   - Lors d'un changement de filtre dans `/admin/reservations/nueva`, seuls les filtres devenus incompatibles sont nettoyés automatiquement; les autres sélections valides sont conservées.
   - Dans `/admin/reservations/nueva`, le choix d'un créneau horaire n'ouvre plus automatiquement le modal client: il alimente une card de résumé (service/date/heure) avec action explicite **"Données du client"**.
   - Le flux de création manuelle utilise désormais 2 modals consécutifs: d'abord **Données du client**, puis un modal final **Confirmer la réservation** avec récapitulatif visuel (centre + styliste + détails) et confirmation explicite.
+  - Dans le modal **Données du client**, un champ de recherche inline permet d’autocompléter un client existant (nom/email/téléphone) avec suggestions en temps réel.
+  - Un bouton **Annuaire** ouvre un panneau latéral de recherche avancée des clients (composant réutilisable `AdminSidePanel`) pour sélectionner un client et préremplir le formulaire.
   - Le champ de commentaires optionnels est synchronisé entre le modal client et le modal final de confirmation.
   - Après création réussie, le modal de succès ne se ferme plus automatiquement: il propose **Nouvelle réservation** (reset complet des filtres/formulaire sur place) et **Retour au calendrier**.
   - Le calendrier de `/admin/reservations/nueva` n'affiche plus les jours passés, bloque leur sélection côté UI et désactive la navigation vers des mois antérieurs au mois courant.
@@ -215,7 +264,13 @@ Steel & Blade est l’application web de **Coiffure Ciwan**, un salon masculin m
   - Si une date choisie n'a aucun créneau disponible, les filtres sélectionnés (styliste/centre/service) ne se réinitialisent plus automatiquement.
   - Les modals de `/admin/reservations/nueva` utilisent `Dialog` + `ScrollArea` (shadcn) avec hauteur contrainte mobile, et les créneaux horaires sont groupés par périodes (`Matin`, `Après-midi`, `Soir`) pour éviter les listes infinies.
 - **CRM**
-  - Carte client + historique des réservations + favoris (centre/styliste/service).
+  - Vue CRM en grille complète (desktop/tablette/mobile) : la liste clients reste toujours visible.
+  - Le détail client s’ouvre dans un panneau latéral coulissant (pattern partagé avec `/admin/home`) au clic sur une carte client.
+  - Fiche client étendue éditable (profil CRM) + timeline de notes internes.
+  - Actions rapides: ajout de note interne depuis le détail.
+  - Protection UX contre perte de changements non enregistrés: confirmation via modal custom (pas de `window.confirm`) lors du changement de client et à la fermeture du panneau latéral, plus blocage `beforeunload`.
+  - APIs internes protégées pour profil/notes (`/api/admin/crm/customers/[id]/...`).
+  - Les appels client vers les APIs CRM protégées réessaient automatiquement une fois après `refreshSession()` en cas de `401` pour réduire les erreurs auth intermittentes.
   - `total_spent` basé sur bookings `completed`.
   - Recherche + tri intégrés.
 - **Stats**
@@ -242,6 +297,10 @@ Steel & Blade est l’application web de **Coiffure Ciwan**, un salon masculin m
   - Contraintes de robustesse actives: `bookings_start_before_end` (`start_time < end_time`) + `bookings_no_overlap` (exclusion `gist` par `stylist_id + slot_range` pour statuts `pending|confirmed`).
   - Index agenda ajoutés: `idx_bookings_stylist_date_status_start`, `idx_bookings_location_date_status_start`, `idx_bookings_service_date`, `idx_working_hours_stylist_location_day`, `idx_time_off_stylist_location_start_end`.
 - **booking_requests**: table d’idempotence pour création réservation (`source`, `idempotency_key`, `request_hash`, `status`, `booking_id`, `http_status`, `response_body`, `error_code`, `request_id`, `latency_ms`, timestamps), index unique `(source, idempotency_key)`.
+- **customer_profiles**: profil CRM étendu (`customer_name/email/phone`, `birth_date`, `marital_status`, `has_children`, `hobbies`, `occupation`, `preferred_contact_channel`, `marketing_consent`, `internal_notes_summary`, audit `created_by/updated_by`, timestamps).
+  - Index: `customer_profiles_email_unique` (partiel), `customer_profiles_phone_unique` (partiel normalisé), `idx_customer_profiles_name`.
+- **customer_notes**: notes CRM horodatées liées au profil client (`customer_profile_id`, `note`, `note_type`, `created_by`, `created_at`).
+  - Index: `idx_customer_notes_profile_created_at`.
 - **imagenes_galeria**: `id` (int8), `descripcion`, `imagen_url`, `fecha`, `created_at`.
 - **configuracion**: `id` (int8), `clave` (unique), `valor`, `descripcion?`, `created_at`, `updated_at`.
 - **user_roles**: `id` (uuid → auth.users), `role` (default `employee`), `created_at`, `updated_at`.
@@ -278,13 +337,17 @@ Publics:
 - Une **réservation** associe client + service + styliste + centre + date/heure.
 
 ### RLS / Sécurité
-- RLS activée sur : `bookings`, `configuracion`, `imagenes_galeria`, `locations`, `servicios`, `stylists`, `stylist_services`, `working_hours`, `time_off`, `location_hours`, `user_roles`, `stylist_users`, `productos`, `categorias_productos`, `pedidos`, `items_pedido`, `carrito_sesiones`, `items_carrito`.
+- RLS activée sur : `bookings`, `booking_requests`, `customer_profiles`, `customer_notes`, `configuracion`, `imagenes_galeria`, `locations`, `servicios`, `stylists`, `stylist_services`, `working_hours`, `time_off`, `location_hours`, `user_roles`, `stylist_users`, `productos`, `categorias_productos`, `pedidos`, `items_pedido`, `carrito_sesiones`, `items_carrito`.
 - `bookings` (phase sécurité):
   - suppression des policies publiques (`INSERT public` / `SELECT public`).
   - policies actives: `bookings_staff_select` + `bookings_staff_update` pour `authenticated` avec rôle `admin|employee`.
 - `booking_requests`:
   - RLS activée.
   - policy `booking_requests_staff_select` pour `authenticated` avec rôle `admin|employee`.
+- `customer_profiles` / `customer_notes`:
+  - RLS activée.
+  - lecture/écriture réservées aux rôles internes `admin|employee`.
+  - `customer_notes` exige `created_by = auth.uid()` à l’insertion.
 - Hardening post-robustez (2026-02-27):
   - suppression des policies permissives `FOR ALL ... USING true` sur tables admin core.
   - policies par opération (`SELECT` public seulement où nécessaire; `INSERT/UPDATE/DELETE` réservés à `admin`).
@@ -422,9 +485,11 @@ Publics:
 - Roadmap implémentation réservations V2 par phases: `Docs/plan-implementacion-reservas-v2.md`.
   - Le plan V2 est maintenant decision-complete (modele horaires centre+styliste, reservation atomique via RPC SQL, fenetre 90j/2h, statut `needs_replan` bloquant, timezone `Europe/Madrid`, slots configurables).
 - Plan de hardening securite post-robustez (RLS/grants/PII/boutique) : `Docs/plan-hardening-seguridad-post-robustez.md`.
+- Plan d’implémentation CRM fiche client (maître-détail + profil étendu + notes) : `Docs/plan-crm-ficha-cliente.md`.
 - Migración aplicada de hardening B/C/D: `migrations/20260227_security_postrobustez_phase_bcd.sql`.
 - Migración aplicada de cierre boutique: `migrations/20260227_security_boutique_final_hardening_phase1.sql`.
 - Migración aplicada de extensión: `migrations/20260227_move_btree_gist_to_extensions.sql`.
+- Migraciones aplicadas CRM fase 1: `migrations/20260227_crm_customer_profiles_phase1.sql`, `migrations/20260227_crm_customer_profiles_grants_fix_phase1.sql`.
 - Script de verificación continua: `scripts/security/postrobustez_security_checks.sql`.
 - Checklist + rollback: `Docs/security-release-checklist.md`, `Docs/security-rollback-runbook.md`.
 - Paquete operativo para plantilla single-tenant (resumen + playbook agente): `docs/plantilla-operativa/contexto-resumen.md`, `docs/plantilla-operativa/implementacion-agente.md`.

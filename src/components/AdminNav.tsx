@@ -11,6 +11,7 @@ import {
   FaCalendarAlt,
   FaChartBar,
   FaCogs,
+  FaHome,
   FaImages,
   FaShoppingBag,
   FaSignOutAlt,
@@ -59,6 +60,12 @@ type ConfigItem = {
 
 const navItems: NavItem[] = [
   {
+    href: '/admin/home',
+    label: 'Accueil',
+    icon: FaHome,
+    role: 'all',
+  },
+  {
     href: '/admin/reservations',
     label: 'Reservations',
     icon: FaCalendarAlt,
@@ -68,7 +75,7 @@ const navItems: NavItem[] = [
     href: '/admin/crm',
     label: 'Clients',
     icon: FaUsers,
-    role: 'admin',
+    role: 'all',
   },
   {
     href: '/admin/stylist-stats',

@@ -31,6 +31,11 @@
 - Use the `@/` path alias for `src` imports (see `tsconfig.json`).
 - Lint with `npm run lint` before opening a PR.
 
+## Admin Mobile Layout Rule
+- In admin screens, horizontal scroll on mobile is not acceptable.
+- Apply this base defensive pattern by default in responsive admin layouts: parent `overflow-x-hidden`, grid/columns/items with `min-w-0`, cards with `overflow-hidden`.
+- `Button` includes `whitespace-nowrap` by default; for mobile full-width actions use `whitespace-normal` (and `min-w-0` when needed) to avoid width overflow.
+
 ## Testing Guidelines
 - No automated test runner is configured yet.
 - Validate changes with manual smoke tests: run `npm run dev`, navigate critical flows (booking, boutique checkout, admin screens).

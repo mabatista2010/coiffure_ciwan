@@ -34,7 +34,7 @@ function SectionHeader({
         ) : null}
       </div>
 
-      {actions ? <div className="flex items-center gap-2">{actions}</div> : null}
+      {actions ? <div className="w-full min-w-0 overflow-x-hidden md:w-auto">{actions}</div> : null}
     </div>
   );
 }

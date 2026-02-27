@@ -98,6 +98,7 @@ export type AvailabilitySlot = {
 
 // Tipo para el CRM de clientes
 export type ClientCRM = {
+  customer_key: string;
   email: string;
   name: string;
   phone: string;
@@ -112,4 +113,32 @@ export type ClientCRM = {
   visits_by_stylist: Record<string, number>;
   visits_by_service: Record<string, number>;
   bookings: Booking[];
-}; 
+};
+
+export type CustomerProfile = {
+  id: string;
+  customer_name: string;
+  customer_email: string;
+  customer_phone: string;
+  birth_date: string | null;
+  marital_status: string | null;
+  has_children: boolean | null;
+  hobbies: string | null;
+  occupation: string | null;
+  preferred_contact_channel: string | null;
+  marketing_consent: boolean;
+  internal_notes_summary: string | null;
+  created_at: string;
+  updated_at: string;
+  created_by: string | null;
+  updated_by: string | null;
+};
+
+export type CustomerNote = {
+  id: string;
+  customer_profile_id: string;
+  note: string;
+  note_type: 'general' | 'follow_up' | 'incident' | 'preference';
+  created_at: string;
+  created_by: string;
+};

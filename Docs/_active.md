@@ -2,6 +2,6 @@
 
 No active implementation.
 
-- last_closed_slug: admin-shadcn-refactor
-- last_closed_path: Docs/admin-shadcn-refactor
-- cleared_at: 2026-02-26 23:43 Europe/Zurich
+- last_closed_slug: crm-ficha-cliente
+- last_closed_path: Docs/crm-ficha-cliente
+- cleared_at: 2026-02-27 19:33 Europe/Zurich

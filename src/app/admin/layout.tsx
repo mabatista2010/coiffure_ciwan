@@ -10,6 +10,12 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 
 const ADMIN_THEME_CLASSES = ['admin-theme', 'admin-theme-blue'];
+const EMPLOYEE_ALLOWED_PREFIXES = ['/admin/home', '/admin/reservations', '/admin/crm'];
+
+function isEmployeePathAllowed(pathname: string | null): boolean {
+  if (!pathname) return false;
+  return EMPLOYEE_ALLOWED_PREFIXES.some((path) => pathname.startsWith(path));
+}
 
 export default function AdminLayout({
   children,
@@ -52,13 +58,11 @@ export default function AdminLayout({
         
         // Verificar permisos de acceso basados en el rol y la ruta
         if (role === 'employee') {
-          // Los empleados solo pueden acceder a reservas
-          const allowedPaths = ['/admin/reservations', '/admin'];
-          const isAllowed = allowedPaths.some(path => pathname?.startsWith(path));
-          
+          const isAllowed = isEmployeePathAllowed(pathname);
+
           if (!isAllowed) {
-            // Redirigir a la página de reservas si intentan acceder a otra ruta
-            router.push('/admin/reservations');
+            // Redirigir al dashboard si intentan acceder a una ruta no permitida
+            router.push('/admin/home');
           }
         }
       } else {
@@ -90,7 +94,9 @@ export default function AdminLayout({
       
       // Redirigir según el rol
       if (role === 'employee') {
-        router.push('/admin/reservations');
+        router.push('/admin/home');
+      } else if (role === 'admin') {
+        router.push('/admin/home');
       }
     } catch (error: Error | unknown) {
       setErrorMessage(error instanceof Error ? error.message : String(error));
@@ -173,8 +179,7 @@ export default function AdminLayout({
 
   // Verificación adicional para rutas prohibidas para empleados
   if (userRole === 'employee') {
-    const allowedPaths = ['/admin/reservations', '/admin'];
-    const isAllowed = allowedPaths.some(path => pathname?.startsWith(path));
+    const isAllowed = isEmployeePathAllowed(pathname);
     
     if (!isAllowed) {
       return (
@@ -188,10 +193,10 @@ export default function AdminLayout({
                     Vous n&apos;avez pas les autorisations pour accéder à cette section.
                   </p>
                   <Button
-                    onClick={() => router.push('/admin/reservations')}
+                    onClick={() => router.push('/admin/home')}
                     className="mt-4"
                   >
-                    Aller aux réservations
+                    Aller au tableau de bord
                   </Button>
                 </AdminCardContent>
               </AdminCard>

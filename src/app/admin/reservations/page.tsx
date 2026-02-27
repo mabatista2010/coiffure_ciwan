@@ -5,7 +5,7 @@ import { supabase } from '@/lib/supabase';
 import type { Booking, Location, Service, Stylist } from '@/lib/supabase';
 import { FaCalendarAlt, FaCalendarDay } from 'react-icons/fa';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { AdminCard, AdminCardContent, AdminDateInput, ReservationStatusSelect, SectionHeader } from '@/components/admin/ui';
 import { Button } from '@/components/ui/button';
 import {
@@ -24,6 +24,7 @@ type BookingWithDetails = Booking & {
 
 type CalendarViewMode = "month" | "week" | "day";
 type CalendarDayStatus = "empty" | "available" | "partial" | "full";
+type BookingStatusFilter = Booking['status'] | 'all';
 
 type CalendarDayStyle = {
   backgroundColor: string;
@@ -66,6 +67,15 @@ type ErrorType = {
 };
 
 const WEEK_DAY_LABELS = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
+const BOOKING_STATUS_FILTER_VALUES: BookingStatusFilter[] = ['all', 'pending', 'confirmed', 'completed', 'cancelled'];
+
+const BOOKING_STATUS_LABELS: Record<BookingStatusFilter, string> = {
+  all: 'Tous les statuts',
+  pending: 'En attente',
+  confirmed: 'Confirmée',
+  completed: 'Terminée',
+  cancelled: 'Annulée',
+};
 
 const WEEK_CARD_STATUS_META: Record<string, { label: string; chipClass: string; dotClass: string }> = {
   pending: {
@@ -117,10 +127,23 @@ const addDays = (date: Date, days: number): Date => {
   return result;
 };
 
+const isValidStatusFilter = (value: string | null): value is BookingStatusFilter =>
+  Boolean(value && BOOKING_STATUS_FILTER_VALUES.includes(value as BookingStatusFilter));
+
+const isValidCalendarViewMode = (value: string | null): value is CalendarViewMode =>
+  value === 'month' || value === 'week' || value === 'day';
+
 export default function AdminBookingsPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const today = new Date();
   const todayKey = formatDateKey(today);
+  const initialStatusFilter = isValidStatusFilter(searchParams.get('status'))
+    ? (searchParams.get('status') as BookingStatusFilter)
+    : 'all';
+  const initialViewMode = isValidCalendarViewMode(searchParams.get('view'))
+    ? (searchParams.get('view') as CalendarViewMode)
+    : 'month';
   const [bookings, setBookings] = useState<BookingWithDetails[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
@@ -129,7 +152,8 @@ export default function AdminBookingsPage() {
   const [selectedLocation, setSelectedLocation] = useState<string>('all');
   const [stylists, setStylists] = useState<Stylist[]>([]);
   const [selectedStylist, setSelectedStylist] = useState<string>('all');
-  const [calendarViewMode, setCalendarViewMode] = useState<CalendarViewMode>("month");
+  const [selectedStatus, setSelectedStatus] = useState<BookingStatusFilter>(initialStatusFilter);
+  const [calendarViewMode, setCalendarViewMode] = useState<CalendarViewMode>(initialViewMode);
   const [currentMonth, setCurrentMonth] = useState<Date>(() => {
     const today = new Date();
     return new Date(today.getFullYear(), today.getMonth(), 1);
@@ -147,6 +171,38 @@ export default function AdminBookingsPage() {
   const [loadingWeekBookings, setLoadingWeekBookings] = useState<boolean>(false);
   const [weekBookingsByDate, setWeekBookingsByDate] = useState<Record<string, BookingWithDetails[]>>({});
   const [showFiltersMobile, setShowFiltersMobile] = useState<boolean>(false);
+
+  useEffect(() => {
+    const params = new URLSearchParams(searchParams.toString());
+    const nextStatus = selectedStatus === 'all' ? null : selectedStatus;
+    const nextView = calendarViewMode === 'month' ? null : calendarViewMode;
+    let shouldUpdate = false;
+
+    if (nextStatus) {
+      if (params.get('status') !== nextStatus) {
+        params.set('status', nextStatus);
+        shouldUpdate = true;
+      }
+    } else if (params.has('status')) {
+      params.delete('status');
+      shouldUpdate = true;
+    }
+
+    if (nextView) {
+      if (params.get('view') !== nextView) {
+        params.set('view', nextView);
+        shouldUpdate = true;
+      }
+    } else if (params.has('view')) {
+      params.delete('view');
+      shouldUpdate = true;
+    }
+
+    if (shouldUpdate) {
+      const queryString = params.toString();
+      router.replace(queryString ? `/admin/reservations?${queryString}` : '/admin/reservations', { scroll: false });
+    }
+  }, [calendarViewMode, router, searchParams, selectedStatus]);
 
   // Función auxiliar para obtener el nombre del día a partir del número - envuelta en useCallback
   const getDayName = useCallback((dayOfWeek: number): string => {
@@ -200,6 +256,10 @@ export default function AdminBookingsPage() {
       if (selectedStylist !== 'all') {
         query = query.eq('stylist_id', selectedStylist);
       }
+
+      if (selectedStatus !== 'all') {
+        query = query.eq('status', selectedStatus);
+      }
       
       // Ordenar por hora de inicio
       query = query.order('start_time');
@@ -216,7 +276,7 @@ export default function AdminBookingsPage() {
     } finally {
       setLoading(false);
     }
-  }, [selectedDate, selectedLocation, selectedStylist]);
+  }, [selectedDate, selectedLocation, selectedStatus, selectedStylist]);
 
   const getVisibleDateRange = useCallback(() => {
     if (calendarViewMode === "month") {
@@ -357,6 +417,10 @@ export default function AdminBookingsPage() {
         query = query.eq('stylist_id', selectedStylist);
       }
 
+      if (selectedStatus !== 'all') {
+        query = query.eq('status', selectedStatus);
+      }
+
       const { data: bookingsRange, error } = await query;
 
       if (error) throw error;
@@ -424,7 +488,7 @@ export default function AdminBookingsPage() {
       const err = error as ErrorType;
       console.error('Error al cargar los días con reservas:', err.message);
     }
-  }, [getVisibleDateRange, selectedLocation, selectedStylist, showCalendarView, getDayName]);
+  }, [getVisibleDateRange, selectedLocation, selectedStatus, selectedStylist, showCalendarView, getDayName]);
 
   const fetchWeekBookings = useCallback(async () => {
     if (!showCalendarView || calendarViewMode !== "week") {
@@ -457,6 +521,10 @@ export default function AdminBookingsPage() {
         query = query.eq('stylist_id', selectedStylist);
       }
 
+      if (selectedStatus !== 'all') {
+        query = query.eq('status', selectedStatus);
+      }
+
       const { data, error } = await query;
       if (error) throw error;
 
@@ -477,7 +545,7 @@ export default function AdminBookingsPage() {
     } finally {
       setLoadingWeekBookings(false);
     }
-  }, [calendarViewMode, getVisibleDateRange, selectedLocation, selectedStylist, showCalendarView]);
+  }, [calendarViewMode, getVisibleDateRange, selectedLocation, selectedStatus, selectedStylist, showCalendarView]);
 
   useEffect(() => {
     // Cargar centros al inicio
@@ -723,6 +791,10 @@ export default function AdminBookingsPage() {
         if (selectedStylist !== 'all') {
           query = query.eq('stylist_id', selectedStylist);
         }
+
+        if (selectedStatus !== 'all') {
+          query = query.eq('status', selectedStatus);
+        }
         
         // Ordenar por hora de inicio
         query = query.order('start_time');
@@ -916,6 +988,27 @@ export default function AdminBookingsPage() {
                     </div>
 
                     <div>
+                      <label className="mb-1 block text-sm font-medium text-muted-foreground">
+                        Statut
+                      </label>
+                      <Select
+                        value={selectedStatus}
+                        onValueChange={(value) => setSelectedStatus(value as BookingStatusFilter)}
+                      >
+                        <SelectTrigger className="w-full rounded-md">
+                          <SelectValue placeholder="Tous les statuts" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {BOOKING_STATUS_FILTER_VALUES.map((statusValue) => (
+                            <SelectItem key={statusValue} value={statusValue}>
+                              {BOOKING_STATUS_LABELS[statusValue]}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div>
                       <label htmlFor="date-select" className="mb-1 block text-sm font-medium text-muted-foreground">
                         Date
                       </label>
@@ -927,13 +1020,14 @@ export default function AdminBookingsPage() {
                       />
                     </div>
 
-                    {(selectedLocation !== 'all' || selectedStylist !== 'all') && (
+                    {(selectedLocation !== 'all' || selectedStylist !== 'all' || selectedStatus !== 'all') && (
                       <Button
                         variant="destructive"
                         className="w-full"
                         onClick={() => {
                           setSelectedLocation('all');
                           setSelectedStylist('all');
+                          setSelectedStatus('all');
                         }}
                       >
                         Effacer les filtres
@@ -1359,7 +1453,9 @@ export default function AdminBookingsPage() {
                           </div>
                         ) : bookings.length === 0 ? (
                           <div className="rounded-lg bg-muted/45 p-6 text-center text-muted-foreground">
-                            Aucune réservation pour cette date
+                            {selectedStatus === 'all'
+                              ? 'Aucune réservation pour cette date'
+                              : `Aucune réservation (${BOOKING_STATUS_LABELS[selectedStatus].toLowerCase()}) pour cette date`}
                           </div>
                         ) : (
                           <div className="space-y-3">

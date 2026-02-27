@@ -1,8 +1,18 @@
 'use client';
 
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef, type KeyboardEvent } from 'react';
 import { supabase, Location, Stylist, AvailabilitySlot, Service } from '@/lib/supabase';
-import { FaUser, FaMapMarkerAlt, FaCalendarDay, FaArrowLeft, FaCheck, FaSyncAlt } from 'react-icons/fa';
+import {
+  FaUser,
+  FaMapMarkerAlt,
+  FaCalendarDay,
+  FaArrowLeft,
+  FaCheck,
+  FaSyncAlt,
+  FaSearch,
+  FaAddressBook,
+  FaTimes,
+} from 'react-icons/fa';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { AdminCard, AdminCardContent, SectionHeader } from '@/components/admin/ui';
@@ -27,6 +37,8 @@ import {
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Textarea } from '@/components/ui/textarea';
 import { getImageUrl } from '@/lib/getImageUrl';
+import { CustomerSearchPanel } from '@/components/admin/crm/CustomerSearchPanel';
+import { type AdminCustomerSearchResult, searchAdminCustomers } from '@/lib/adminCustomerSearch';
 
 type TimeSlotPeriod = 'morning' | 'afternoon' | 'evening';
 type ReservationCombination = {
@@ -88,6 +100,16 @@ export default function NuevaReservacion() {
   const [customerName, setCustomerName] = useState<string>('');
   const [customerEmail, setCustomerEmail] = useState<string>('');
   const [customerPhone, setCustomerPhone] = useState<string>('');
+  const [customerLookupQuery, setCustomerLookupQuery] = useState<string>('');
+  const [customerLookupResults, setCustomerLookupResults] = useState<AdminCustomerSearchResult[]>([]);
+  const [customerLookupLoading, setCustomerLookupLoading] = useState<boolean>(false);
+  const [customerLookupError, setCustomerLookupError] = useState<string | null>(null);
+  const [showCustomerLookupDropdown, setShowCustomerLookupDropdown] = useState<boolean>(false);
+  const [highlightedLookupIndex, setHighlightedLookupIndex] = useState<number>(-1);
+  const [selectedExistingCustomer, setSelectedExistingCustomer] = useState<AdminCustomerSearchResult | null>(null);
+  const [showCustomerDirectoryPanel, setShowCustomerDirectoryPanel] = useState<boolean>(false);
+  const customerLookupAbortRef = useRef<AbortController | null>(null);
+  const skipLookupFetchRef = useRef<boolean>(false);
   const [notes, setNotes] = useState<string>('');
   const [showCustomerModal, setShowCustomerModal] = useState<boolean>(false);
   const [showConfirmModal, setShowConfirmModal] = useState<boolean>(false);
@@ -429,6 +451,71 @@ export default function NuevaReservacion() {
     }
   }, [selectedTime, availableSlots]);
 
+  useEffect(() => {
+    if (!showCustomerModal) {
+      customerLookupAbortRef.current?.abort();
+      customerLookupAbortRef.current = null;
+      setShowCustomerLookupDropdown(false);
+      setHighlightedLookupIndex(-1);
+      return;
+    }
+
+    if (skipLookupFetchRef.current) {
+      skipLookupFetchRef.current = false;
+      return;
+    }
+
+    const safeQuery = customerLookupQuery.trim();
+    if (safeQuery.length < 2) {
+      customerLookupAbortRef.current?.abort();
+      customerLookupAbortRef.current = null;
+      setCustomerLookupResults([]);
+      setCustomerLookupLoading(false);
+      setCustomerLookupError(null);
+      setHighlightedLookupIndex(-1);
+      return;
+    }
+
+    const timeoutId = window.setTimeout(async () => {
+      customerLookupAbortRef.current?.abort();
+      const controller = new AbortController();
+      customerLookupAbortRef.current = controller;
+
+      setCustomerLookupLoading(true);
+      setCustomerLookupError(null);
+
+      try {
+        const payload = await searchAdminCustomers(safeQuery, {
+          limit: 8,
+          signal: controller.signal,
+        });
+
+        if (controller.signal.aborted) return;
+        setCustomerLookupResults(payload.customers);
+        setShowCustomerLookupDropdown(true);
+        setHighlightedLookupIndex(payload.customers.length > 0 ? 0 : -1);
+      } catch (searchError) {
+        if (controller.signal.aborted) return;
+        console.error('reservation_customer_lookup_error', searchError);
+        setCustomerLookupError(
+          searchError instanceof Error
+            ? searchError.message
+            : 'Erreur lors de la recherche des clients'
+        );
+        setCustomerLookupResults([]);
+        setHighlightedLookupIndex(-1);
+      } finally {
+        if (!controller.signal.aborted) {
+          setCustomerLookupLoading(false);
+        }
+      }
+    }, 260);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
+  }, [customerLookupQuery, showCustomerModal]);
+
   // Cargar detalles cuando se selecciona estilista y centro
   useEffect(() => {
     const fetchDetails = async () => {
@@ -491,9 +578,19 @@ export default function NuevaReservacion() {
   };
 
   const resetCustomerForm = () => {
+    customerLookupAbortRef.current?.abort();
+    customerLookupAbortRef.current = null;
     setCustomerName('');
     setCustomerEmail('');
     setCustomerPhone('');
+    setCustomerLookupQuery('');
+    setCustomerLookupResults([]);
+    setCustomerLookupLoading(false);
+    setCustomerLookupError(null);
+    setShowCustomerLookupDropdown(false);
+    setHighlightedLookupIndex(-1);
+    setSelectedExistingCustomer(null);
+    setShowCustomerDirectoryPanel(false);
     setNotes('');
   };
 
@@ -605,6 +702,78 @@ export default function NuevaReservacion() {
     setShowCustomerModal(false);
   };
 
+  const applySelectedExistingCustomer = (customer: AdminCustomerSearchResult) => {
+    skipLookupFetchRef.current = true;
+    setSelectedExistingCustomer(customer);
+    setCustomerLookupQuery(
+      customer.customer_name || customer.customer_email || customer.customer_phone || ''
+    );
+    setCustomerName(customer.customer_name || '');
+    setCustomerEmail(customer.customer_email || '');
+    setCustomerPhone(customer.customer_phone || '');
+    setCustomerLookupError(null);
+    setCustomerLookupResults([]);
+    setShowCustomerLookupDropdown(false);
+    setHighlightedLookupIndex(-1);
+  };
+
+  const clearSelectedExistingCustomer = () => {
+    setSelectedExistingCustomer(null);
+    setCustomerLookupQuery('');
+    setCustomerLookupResults([]);
+    setShowCustomerLookupDropdown(false);
+    setHighlightedLookupIndex(-1);
+  };
+
+  const openCustomerDirectoryFromCustomerModal = () => {
+    setShowCustomerModal(false);
+    setShowCustomerDirectoryPanel(true);
+    setShowCustomerLookupDropdown(false);
+  };
+
+  const closeCustomerDirectoryPanel = (open: boolean) => {
+    setShowCustomerDirectoryPanel(open);
+    if (!open) {
+      setShowCustomerModal(true);
+    }
+  };
+
+  const handleLookupInputKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
+    if (!showCustomerLookupDropdown || customerLookupResults.length === 0) {
+      return;
+    }
+
+    if (event.key === 'ArrowDown') {
+      event.preventDefault();
+      setHighlightedLookupIndex((previous) =>
+        previous < customerLookupResults.length - 1 ? previous + 1 : 0
+      );
+      return;
+    }
+
+    if (event.key === 'ArrowUp') {
+      event.preventDefault();
+      setHighlightedLookupIndex((previous) =>
+        previous > 0 ? previous - 1 : customerLookupResults.length - 1
+      );
+      return;
+    }
+
+    if (event.key === 'Enter') {
+      if (highlightedLookupIndex >= 0 && customerLookupResults[highlightedLookupIndex]) {
+        event.preventDefault();
+        applySelectedExistingCustomer(customerLookupResults[highlightedLookupIndex]);
+      }
+      return;
+    }
+
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      setShowCustomerLookupDropdown(false);
+      setHighlightedLookupIndex(-1);
+    }
+  };
+
   const openCustomerDataModal = () => {
     if (!selectedDate || !selectedTime) {
       alert('Veuillez sélectionner une date et un horaire avant de continuer');
@@ -617,6 +786,7 @@ export default function NuevaReservacion() {
     }
 
     setShowCustomerModal(true);
+    setShowCustomerDirectoryPanel(false);
     setShowConfirmModal(false);
   };
 
@@ -1454,6 +1624,105 @@ export default function NuevaReservacion() {
               <ScrollArea className="h-[52dvh] px-6 py-4">
                 <div className="space-y-4 pr-3">
                   <div>
+                    <div className="mb-1 flex items-center justify-between gap-2">
+                      <label className="block text-sm font-semibold text-foreground">
+                        Recherche client existant
+                      </label>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="h-8 gap-1 px-2 text-xs"
+                        onClick={openCustomerDirectoryFromCustomerModal}
+                      >
+                        <FaAddressBook className="h-3 w-3" />
+                        Annuaire
+                      </Button>
+                    </div>
+                    <div className="relative">
+                      <FaSearch className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                      <Input
+                        type="text"
+                        value={customerLookupQuery}
+                        onChange={(e) => {
+                          setCustomerLookupQuery(e.target.value);
+                          setHighlightedLookupIndex(-1);
+                        }}
+                        onFocus={() => {
+                          if (customerLookupQuery.trim().length >= 2) {
+                            setShowCustomerLookupDropdown(true);
+                          }
+                        }}
+                        onBlur={() => {
+                          window.setTimeout(() => {
+                            setShowCustomerLookupDropdown(false);
+                          }, 120);
+                        }}
+                        onKeyDown={handleLookupInputKeyDown}
+                        className="w-full pl-10"
+                        placeholder="Nom, email ou téléphone"
+                      />
+                      {showCustomerLookupDropdown && customerLookupQuery.trim().length >= 2 ? (
+                        <div className="absolute z-30 mt-1 w-full rounded-xl border border-border bg-card p-1 shadow-[var(--admin-shadow-card)]">
+                          {customerLookupLoading ? (
+                            <div className="px-3 py-2 text-xs text-muted-foreground">
+                              Recherche en cours...
+                            </div>
+                          ) : customerLookupError ? (
+                            <div className="px-3 py-2 text-xs text-destructive">{customerLookupError}</div>
+                          ) : customerLookupResults.length === 0 ? (
+                            <div className="px-3 py-2 text-xs text-muted-foreground">
+                              Aucun client trouvé
+                            </div>
+                          ) : (
+                            <div className="max-h-56 overflow-y-auto">
+                              {customerLookupResults.map((customer, index) => (
+                                <button
+                                  key={customer.customer_key}
+                                  type="button"
+                                  onMouseDown={(event) => event.preventDefault()}
+                                  onClick={() => applySelectedExistingCustomer(customer)}
+                                  className={`w-full rounded-lg px-3 py-2 text-left text-xs transition-colors ${
+                                    index === highlightedLookupIndex
+                                      ? 'bg-primary/10 text-foreground'
+                                      : 'hover:bg-muted/70'
+                                  }`}
+                                >
+                                  <p className="truncate text-sm font-medium text-foreground">
+                                    {customer.customer_name || 'Client sans nom'}
+                                  </p>
+                                  <p className="truncate text-muted-foreground">
+                                    {customer.customer_email || 'Email non renseigné'}
+                                  </p>
+                                  <p className="truncate text-muted-foreground">
+                                    {customer.customer_phone || 'Téléphone non renseigné'}
+                                  </p>
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      ) : null}
+                    </div>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Tapez 2 caractères minimum pour autocompléter rapidement.
+                    </p>
+                    {selectedExistingCustomer ? (
+                      <div className="mt-2 inline-flex items-center gap-2 rounded-full border border-emerald-500/35 bg-emerald-500/10 px-3 py-1 text-xs text-emerald-700">
+                        Client existant sélectionné
+                        <button
+                          type="button"
+                          className="inline-flex h-4 w-4 items-center justify-center rounded-full bg-emerald-700/10 text-emerald-700 hover:bg-emerald-700/20"
+                          onClick={clearSelectedExistingCustomer}
+                          aria-label="Effacer le client sélectionné"
+                        >
+                          <FaTimes className="h-2.5 w-2.5" />
+                        </button>
+                      </div>
+                    ) : null}
+                  </div>
+
+                  <div>
                     <label className="mb-1 block text-sm font-semibold text-foreground">
                       Nom complet*
                     </label>
@@ -1527,6 +1796,17 @@ export default function NuevaReservacion() {
           </div>
         </DialogContent>
       </Dialog>
+
+      <CustomerSearchPanel
+        open={showCustomerDirectoryPanel}
+        onOpenChange={closeCustomerDirectoryPanel}
+        initialQuery={customerLookupQuery}
+        onSelect={(customer) => {
+          applySelectedExistingCustomer(customer);
+          setShowCustomerDirectoryPanel(false);
+          setShowCustomerModal(true);
+        }}
+      />
 
       {/* Modal final de confirmation */}
       <Dialog

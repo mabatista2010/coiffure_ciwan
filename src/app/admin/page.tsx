@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import { supabase, Service, GalleryImage } from '@/lib/supabase';
 import { v4 as uuidv4 } from 'uuid';
 import Image from 'next/image';
-import { useSearchParams } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import StylistManagement from './stylist-management';
 import LocationManagement from './location-management';
 import { AdminCard, AdminCardContent, AdminCardHeader, SectionHeader } from '@/components/admin/ui';
@@ -25,7 +25,12 @@ interface Location {
 }
 
 export default function AdminPage() {
+  const router = useRouter();
   const searchParams = useSearchParams();
+  const sectionParam = searchParams.get('section');
+  const hasValidSection = Boolean(
+    sectionParam && ['services', 'gallery', 'stylists', 'locations', 'hero'].includes(sectionParam)
+  );
 
   // Estado para servicios
   const [services, setServices] = useState<Service[]>([]);
@@ -85,20 +90,24 @@ export default function AdminPage() {
   const [isUploading, setIsUploading] = useState(false);
 
   useEffect(() => {
-    // Cargar los datos iniciales
-    loadData();
-  }, []);
+    if (!sectionParam) {
+      router.replace('/admin/home');
+      return;
+    }
 
-  useEffect(() => {
-    const sectionParam = searchParams.get('section');
-
-    if (sectionParam && ['services', 'gallery', 'stylists', 'locations', 'hero'].includes(sectionParam)) {
+    if (hasValidSection) {
       setActiveSection(sectionParam);
       return;
     }
 
-    setActiveSection('services');
-  }, [searchParams]);
+    router.replace('/admin?section=services');
+  }, [hasValidSection, router, sectionParam]);
+
+  useEffect(() => {
+    if (!hasValidSection) return;
+    // Cargar los datos iniciales solo cuando la sección de configuración es válida.
+    loadData();
+  }, [hasValidSection]);
 
   const loadData = async () => {
     try {
