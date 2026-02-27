@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import Stripe from 'stripe';
+import { requireStaffAuth } from '@/lib/apiAuth';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -33,6 +34,14 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
+    const auth = await requireStaffAuth(request, {
+      allowedRoles: ['admin'],
+      feature: 'boutique_product_create',
+    });
+    if ('response' in auth) {
+      return auth.response;
+    }
+
     const body = await request.json();
     const { nombre, descripcion, precio, precio_original, stock, categoria, imagen_url } = body;
 

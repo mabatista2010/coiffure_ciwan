@@ -80,6 +80,8 @@ export default function ReservationPage() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Idempotency-Key': crypto.randomUUID(),
+          'X-Booking-Source': 'web',
         },
         body: JSON.stringify({
           customerName: data.name,

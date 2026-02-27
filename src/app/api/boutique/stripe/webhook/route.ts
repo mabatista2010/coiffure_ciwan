@@ -20,6 +20,10 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
 
 const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET;
 
+function isUniqueViolation(error: { code?: string } | null): boolean {
+  return error?.code === '23505';
+}
+
 export async function POST(request: Request) {
   const body = await request.text();
   const headersList = await headers();
@@ -71,6 +75,22 @@ async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session) 
   console.log('Checkout session completed:', session.id);
 
   try {
+    const { data: existingPedido, error: existingPedidoError } = await supabase
+      .from('pedidos')
+      .select('id')
+      .eq('stripe_session_id', session.id)
+      .maybeSingle();
+
+    if (existingPedidoError) {
+      console.error('Error buscando pedido existente por session_id:', existingPedidoError);
+      return;
+    }
+
+    if (existingPedido) {
+      console.log('Pedido ya procesado para session_id:', session.id);
+      return;
+    }
+
     // Extraer datos del pedido desde los metadatos
     const metadata = session.metadata;
     if (!metadata) {
@@ -83,12 +103,26 @@ async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session) 
     const customerPhone = metadata.customer_phone || null;
     const customerAddress = metadata.customer_address || null;
     const total = parseFloat(metadata.total || '0');
-    const itemsData = JSON.parse(metadata.items || '[]');
+    let itemsData: PedidoItem[] = [];
+
+    try {
+      const parsedItems = JSON.parse(metadata.items || '[]');
+      if (!Array.isArray(parsedItems)) {
+        console.error('Items inválidos en metadata para session:', session.id);
+        return;
+      }
+      itemsData = parsedItems as PedidoItem[];
+    } catch {
+      console.error('No se pudo parsear metadata.items para session:', session.id);
+      return;
+    }
 
     if (!customerName || !customerEmail || !total || itemsData.length === 0) {
       console.error('Datos incompletos en metadata:', metadata);
       return;
     }
+
+    const paymentIntentId = typeof session.payment_intent === 'string' ? session.payment_intent : null;
 
     // Crear el pedido en la base de datos
     const { data: pedido, error: pedidoError } = await supabase
@@ -101,7 +135,7 @@ async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session) 
           cliente_direccion: customerAddress,
           total,
           estado: 'pagado', // Ya está pagado porque el webhook se ejecuta después del pago exitoso
-          stripe_payment_intent_id: session.payment_intent as string,
+          stripe_payment_intent_id: paymentIntentId,
           stripe_session_id: session.id,
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString()
@@ -111,6 +145,10 @@ async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session) 
       .single();
 
     if (pedidoError) {
+      if (isUniqueViolation(pedidoError)) {
+        console.log('Pedido ya insertado por otra operación concurrente:', session.id);
+        return;
+      }
       console.error('Error creating pedido:', pedidoError);
       return;
     }

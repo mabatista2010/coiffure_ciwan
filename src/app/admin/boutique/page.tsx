@@ -16,6 +16,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
+import { fetchWithAdminAuth } from '@/lib/fetchWithAdminAuth';
 
 interface Producto {
   id: number;
@@ -93,7 +94,7 @@ export default function BoutiqueAdminPage() {
 
   const fetchProductos = async () => {
     try {
-      const response = await fetch('/api/boutique/productos');
+      const response = await fetchWithAdminAuth('/api/boutique/productos');
       if (response.ok) {
         const data = await response.json();
         setProductos(data);
@@ -108,7 +109,7 @@ export default function BoutiqueAdminPage() {
   const fetchPedidos = async () => {
     try {
       setLoading(true);
-      const response = await fetch('/api/boutique/pedidos');
+      const response = await fetchWithAdminAuth('/api/boutique/pedidos');
       if (response.ok) {
         const data = await response.json();
         setPedidos(data);
@@ -130,7 +131,7 @@ export default function BoutiqueAdminPage() {
       
       const method = editingProduct ? 'PUT' : 'POST';
       
-      const response = await fetch(url, {
+      const response = await fetchWithAdminAuth(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -175,7 +176,7 @@ export default function BoutiqueAdminPage() {
     if (!confirm(`Êtes-vous sûr de vouloir ${accion} le produit "${producto.nombre}" ?`)) return;
     
     try {
-      const response = await fetch(`/api/boutique/productos/${producto.id}`, {
+      const response = await fetchWithAdminAuth(`/api/boutique/productos/${producto.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -210,7 +211,7 @@ export default function BoutiqueAdminPage() {
     
     try {
       console.log('Tentative de suppression du produit avec ID:', id);
-      const response = await fetch(`/api/boutique/productos/${id}`, {
+      const response = await fetchWithAdminAuth(`/api/boutique/productos/${id}`, {
         method: 'DELETE'
       });
       
@@ -233,7 +234,7 @@ export default function BoutiqueAdminPage() {
 
   const handleUpdatePedidoStatus = async (pedidoId: number, newStatus: string) => {
     try {
-      const response = await fetch(`/api/boutique/pedidos/${pedidoId}`, {
+      const response = await fetchWithAdminAuth(`/api/boutique/pedidos/${pedidoId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ estado: newStatus })

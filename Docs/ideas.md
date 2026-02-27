@@ -1,0 +1,7 @@
+## Ideas de implementaciones para peluqueriaprueba##
+
+1. Creacion de un sistema completo de notificaciones usando realtime de supabase, cuando un cliente hace una reserva, se nos muestra immediatamente via un popup inferior y se activa la campana de notificaciones quen os lleva a una pantalla dedciada de notificacioens. desde aqui podemos confirmar/anular/modificar las reservas.
+Debemos tener la opcion de hacer cosas en masas, aceptar todas las reservas, pudiendo seleccionar varias o con la opcion de seleccoinar todas (hay que pensar cual es la forma mas logica). por ejemplo seleccoinar todas las pendientes y confirmar todas o algo asi. tenemos que crear un modal de detalle de reserva con shadcn/ui reutilizable donde tendremos todos los detalles de la reserva, y un boton de confirmar/anular y tambien poder modificarla desde ahi, pudiendo cambiar todo pero que esto se valide en BD con las reservas reales para que no se pisen.
+
+2. Crar ficha completa de cliente, con muchos campos, como cumpleanos, hobbies, estado civil, si tiene hijos, todas estas cosas se guardaran en base de datos pero solo se rellenaran de forma interana por los duenos de la app. la idea es tener un crm completo con mucha informacion de nuestros clientes para poder ir anotnado. tambien una seccion de comentarios, donde podremos ir guardando comentarios sobre el cliente y donde tendremos fecha y hora de cuando hicimos esa nota.
+   Plan detallado: `Docs/plan-crm-ficha-cliente.md`.

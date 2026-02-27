@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { supabase, Location, Stylist, AvailabilitySlot, Service } from '@/lib/supabase';
-import { FaUser, FaMapMarkerAlt, FaCalendarDay, FaArrowLeft, FaCheck, FaFilter, FaSyncAlt } from 'react-icons/fa';
+import { FaUser, FaMapMarkerAlt, FaCalendarDay, FaArrowLeft, FaCheck, FaSyncAlt } from 'react-icons/fa';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { AdminCard, AdminCardContent, SectionHeader } from '@/components/admin/ui';
@@ -53,6 +53,11 @@ function getTimeSlotPeriod(time: string): TimeSlotPeriod {
   return 'evening';
 }
 
+function getTodayStart(): Date {
+  const now = new Date();
+  return new Date(now.getFullYear(), now.getMonth(), now.getDate());
+}
+
 export default function NuevaReservacion() {
   const router = useRouter();
   
@@ -85,6 +90,7 @@ export default function NuevaReservacion() {
   const [customerPhone, setCustomerPhone] = useState<string>('');
   const [notes, setNotes] = useState<string>('');
   const [showCustomerModal, setShowCustomerModal] = useState<boolean>(false);
+  const [showConfirmModal, setShowConfirmModal] = useState<boolean>(false);
   const [selectedTime, setSelectedTime] = useState<string>('');
   const [bookingInProgress, setBookingInProgress] = useState<boolean>(false);
   const [bookingSuccess, setBookingSuccess] = useState<boolean>(false);
@@ -312,48 +318,46 @@ export default function NuevaReservacion() {
     [availabilityByDate]
   );
 
-  const isDateAvailabilityReady = useMemo(() => {
-    if (!selectedDate) return true;
-    const dateCache = availabilityByDate[selectedDate] || {};
-    return primaryFilteredCombinations.every(
-      combination => Boolean(dateCache[buildCombinationKey(combination)])
-    );
-  }, [selectedDate, availabilityByDate, primaryFilteredCombinations]);
-
-  const dateFilteredCombinations = useMemo(() => {
-    if (!selectedDate || !isDateAvailabilityReady) {
-      return primaryFilteredCombinations;
-    }
-
-    const dateCache = availabilityByDate[selectedDate] || {};
-    return primaryFilteredCombinations.filter(combination => {
-      const slots = dateCache[buildCombinationKey(combination)] || [];
-      return slots.some(slot => slot.available);
+  // Filtros facetados "self-excluding":
+  // cada selector se calcula aplicando todos los demás filtros, excepto el propio.
+  const stylistOptionCombinations = useMemo(() => {
+    return allCombinations.filter(combination => {
+      if (selectedLocation && combination.locationId !== selectedLocation) return false;
+      if (selectedService && combination.serviceId !== selectedService) return false;
+      return true;
     });
-  }, [
-    selectedDate,
-    isDateAvailabilityReady,
-    primaryFilteredCombinations,
-    availabilityByDate,
-  ]);
+  }, [allCombinations, selectedLocation, selectedService]);
 
-  const combinationsForOptions = useMemo(() => {
-    if (!selectedDate || !selectedTime || !isDateAvailabilityReady) {
-      return dateFilteredCombinations;
-    }
-
-    const dateCache = availabilityByDate[selectedDate] || {};
-    return dateFilteredCombinations.filter(combination => {
-      const slots = dateCache[buildCombinationKey(combination)] || [];
-      return slots.some(slot => slot.available && slot.time === selectedTime);
+  const locationOptionCombinations = useMemo(() => {
+    return allCombinations.filter(combination => {
+      if (selectedStylist && combination.stylistId !== selectedStylist) return false;
+      if (selectedService && combination.serviceId !== selectedService) return false;
+      return true;
     });
-  }, [
-    selectedDate,
-    selectedTime,
-    isDateAvailabilityReady,
-    dateFilteredCombinations,
-    availabilityByDate,
-  ]);
+  }, [allCombinations, selectedStylist, selectedService]);
+
+  const serviceOptionCombinations = useMemo(() => {
+    return allCombinations.filter(combination => {
+      if (selectedStylist && combination.stylistId !== selectedStylist) return false;
+      if (selectedLocation && combination.locationId !== selectedLocation) return false;
+      return true;
+    });
+  }, [allCombinations, selectedStylist, selectedLocation]);
+
+  const filteredStylists = useMemo(() => {
+    const stylistIds = new Set(stylistOptionCombinations.map(combination => combination.stylistId));
+    return allStylists.filter(stylist => stylistIds.has(stylist.id));
+  }, [allStylists, stylistOptionCombinations]);
+
+  const filteredLocations = useMemo(() => {
+    const locationIds = new Set(locationOptionCombinations.map(combination => combination.locationId));
+    return allLocations.filter(location => locationIds.has(location.id));
+  }, [allLocations, locationOptionCombinations]);
+
+  const filteredServices = useMemo(() => {
+    const serviceIds = new Set(serviceOptionCombinations.map(combination => combination.serviceId));
+    return allServices.filter(service => serviceIds.has(service.id.toString()));
+  }, [allServices, serviceOptionCombinations]);
 
   useEffect(() => {
     if (!selectedDate) {
@@ -395,36 +399,26 @@ export default function NuevaReservacion() {
   ]);
 
   useEffect(() => {
-    const stylistIds = new Set(combinationsForOptions.map(combination => combination.stylistId));
-    const locationIds = new Set(combinationsForOptions.map(combination => combination.locationId));
-    const serviceIds = new Set(combinationsForOptions.map(combination => combination.serviceId));
+    setStylists(filteredStylists);
+    setLocations(filteredLocations);
+    setServices(filteredServices);
 
-    setStylists(allStylists.filter(stylist => stylistIds.has(stylist.id)));
-    setLocations(allLocations.filter(location => locationIds.has(location.id)));
-    setServices(allServices.filter(service => serviceIds.has(service.id.toString())));
-
-    if (!isDateAvailabilityReady) {
-      return;
-    }
-
-    if (selectedStylist && !stylistIds.has(selectedStylist)) {
+    if (selectedStylist && !filteredStylists.some(stylist => stylist.id === selectedStylist)) {
       setSelectedStylist('');
     }
-    if (selectedLocation && !locationIds.has(selectedLocation)) {
+    if (selectedLocation && !filteredLocations.some(location => location.id === selectedLocation)) {
       setSelectedLocation('');
     }
-    if (selectedService && !serviceIds.has(selectedService)) {
+    if (selectedService && !filteredServices.some(service => service.id.toString() === selectedService)) {
       setSelectedService('');
     }
   }, [
-    combinationsForOptions,
-    allStylists,
-    allLocations,
-    allServices,
+    filteredStylists,
+    filteredLocations,
+    filteredServices,
     selectedStylist,
     selectedLocation,
     selectedService,
-    isDateAvailabilityReady,
   ]);
 
   useEffect(() => {
@@ -496,6 +490,22 @@ export default function NuevaReservacion() {
     setServices(allServices);
   };
 
+  const resetCustomerForm = () => {
+    setCustomerName('');
+    setCustomerEmail('');
+    setCustomerPhone('');
+    setNotes('');
+  };
+
+  const startNewReservation = () => {
+    resetAllFilters();
+    resetCustomerForm();
+    setBookingError(null);
+    setBookingSuccess(false);
+    setBookingInProgress(false);
+    setCurrentMonth(new Date());
+  };
+
   // Obtener días du mois actuel
   const getDaysInMonth = (year: number, month: number) => {
     return new Date(year, month + 1, 0).getDate();
@@ -535,6 +545,14 @@ export default function NuevaReservacion() {
 
   // Changer au mois précédent
   const prevMonth = () => {
+    const todayStart = getTodayStart();
+    const currentMonthStart = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1);
+    const todayMonthStart = new Date(todayStart.getFullYear(), todayStart.getMonth(), 1);
+
+    if (currentMonthStart <= todayMonthStart) {
+      return;
+    }
+
     setCurrentMonth(prev => {
       const newDate = new Date(prev);
       newDate.setMonth(prev.getMonth() - 1);
@@ -557,6 +575,13 @@ export default function NuevaReservacion() {
 
     const year = currentMonth.getFullYear();
     const month = currentMonth.getMonth();
+    const dayDate = new Date(year, month, day);
+    const todayStart = getTodayStart();
+
+    if (dayDate < todayStart) {
+      return;
+    }
+
     const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
     
     if (selectedDate !== dateStr) {
@@ -592,6 +617,22 @@ export default function NuevaReservacion() {
     }
 
     setShowCustomerModal(true);
+    setShowConfirmModal(false);
+  };
+
+  const openBookingConfirmationModal = () => {
+    if (!customerName.trim()) {
+      alert('Veuillez introduire le nom du client');
+      return;
+    }
+
+    if (!customerPhone.trim()) {
+      alert('Veuillez introduire le téléphone du client');
+      return;
+    }
+
+    setShowCustomerModal(false);
+    setShowConfirmModal(true);
   };
 
   // Compléter la réservation avec les données du client
@@ -615,58 +656,49 @@ export default function NuevaReservacion() {
     setBookingError(null);
     
     try {
-      // Calculer l'heure de fin basée sur la durée du service
-      const selectedServiceObj = allServices.find(s => s.id.toString() === selectedService);
-      const serviceDuration = selectedServiceObj?.duration || 30; // Durée par défaut: 30 minutes
-      
-      const [hours, minutes] = selectedTime.split(':').map(num => parseInt(num, 10));
-      const startDate = new Date();
-      startDate.setHours(hours, minutes, 0);
-      
-      const endDate = new Date(startDate);
-      endDate.setMinutes(endDate.getMinutes() + serviceDuration);
-      
-      const endTime = `${String(endDate.getHours()).padStart(2, '0')}:${String(endDate.getMinutes()).padStart(2, '0')}`;
-      
-      // Créer la réservation dans Supabase
-      const { error } = await supabase
-        .from('bookings')
-        .insert([
-          {
-            customer_name: customerName,
-            customer_email: customerEmail,
-            customer_phone: customerPhone,
-            stylist_id: selectedStylist,
-            service_id: parseInt(selectedService),
-            location_id: selectedLocation,
-            booking_date: selectedDate,
-            start_time: selectedTime,
-            end_time: endTime,
-            status: 'confirmed', // Par défaut, les réservations manuelles son créées como confirmées
-            notes: notes,
-          }
-        ])
-        .select();
-      
-      if (error) {
-        throw error;
+      const response = await fetch('/api/reservation/create', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Idempotency-Key': crypto.randomUUID(),
+          'X-Booking-Source': 'admin',
+        },
+        body: JSON.stringify({
+          customerName: customerName.trim(),
+          customerEmail: customerEmail.trim(),
+          customerPhone: customerPhone.trim(),
+          notes: notes.trim(),
+          serviceId: Number(selectedService),
+          locationId: selectedLocation,
+          stylistId: selectedStylist,
+          bookingDate: selectedDate,
+          startTime: selectedTime,
+          status: 'confirmed',
+        }),
+      });
+
+      const payload = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        if (payload?.errorCode === 'slot_conflict') {
+          setSelectedTime('');
+          setShowCustomerModal(false);
+          setShowConfirmModal(false);
+          setShowTimeModal(true);
+          setBookingError('Ce créneau vient d\'être réservé. Veuillez sélectionner un autre horaire.');
+          return;
+        }
+
+        setBookingError(
+          payload?.error || 'Erreur lors de la création de la réservation. Veuillez réessayer plus tard.'
+        );
+        return;
       }
       
+      setShowCustomerModal(false);
+      setShowTimeModal(false);
+      setShowConfirmModal(false);
       setBookingSuccess(true);
-      
-      // Réinitialiser le formulaire
-      setTimeout(() => {
-        setShowCustomerModal(false);
-        setCustomerName('');
-        setCustomerEmail('');
-        setCustomerPhone('');
-        setNotes('');
-        setBookingSuccess(false);
-        
-        // Rediriger vers la page des réservations
-        router.push('/admin/reservations');
-      }, 2000);
-      
     } catch (error) {
       console.error('Erreur lors de la création de la réservation:', error);
       setBookingError('Erreur lors de la création de la réservation. Veuillez réessayer plus tard.');
@@ -693,16 +725,38 @@ export default function NuevaReservacion() {
         const firstDay = `${year}-${String(month + 1).padStart(2, '0')}-01`;
         const lastDay = `${year}-${String(month + 1).padStart(2, '0')}-${String(getDaysInMonth(year, month)).padStart(2, '0')}`;
         
-        // 1. Obtener los días cerrados (sin horarios configurados)
+        // 1. Obtener los días cerrados (sin horario real disponible)
         const closed: string[] = [];
         
-        // Obtener los horarios del centro seleccionado
+        // Horarios del centro (aplican cuando no hay estilista seleccionado)
         const { data: locationHours, error: locationHoursError } = await supabase
           .from('location_hours')
           .select('*')
           .eq('location_id', selectedLocation);
         
         if (locationHoursError) throw locationHoursError;
+
+        // Horarios del estilista en el centro (si hay estilista seleccionado)
+        let stylistWorkingHours: {
+          day_of_week: number;
+          stylist_id: string;
+          location_id: string;
+        }[] = [];
+
+        if (selectedStylist) {
+          const { data: stylistHours, error: stylistHoursError } = await supabase
+            .from('working_hours')
+            .select('day_of_week, stylist_id, location_id')
+            .eq('location_id', selectedLocation)
+            .eq('stylist_id', selectedStylist);
+
+          if (stylistHoursError) throw stylistHoursError;
+          stylistWorkingHours = (stylistHours || []) as {
+            day_of_week: number;
+            stylist_id: string;
+            location_id: string;
+          }[];
+        }
         
         // Verificar cada día del mes si está cerrado
         const daysInMonth = getDaysInMonth(year, month);
@@ -710,8 +764,11 @@ export default function NuevaReservacion() {
           const date = new Date(year, month, day);
           const dayOfWeek = date.getDay(); // 0 es domingo, 6 es sábado
           
-          // Verificar si hay horario para este día de la semana
-          const hasHoursForDay = locationHours.some(hour => hour.day_of_week === dayOfWeek);
+          // Con estilista seleccionado, cerramos por horario real del estilista.
+          // Sin estilista, cerramos por horario del centro.
+          const hasHoursForDay = selectedStylist
+            ? stylistWorkingHours.some(hour => hour.day_of_week === dayOfWeek)
+            : locationHours.some(hour => hour.day_of_week === dayOfWeek);
           
           if (!hasHoursForDay) {
             // Si no hay horario, el centro está cerrado este día
@@ -848,6 +905,10 @@ export default function NuevaReservacion() {
         year: 'numeric',
       })
     : null;
+  const todayStart = getTodayStart();
+  const canGoToPreviousMonth =
+    new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1) >
+    new Date(todayStart.getFullYear(), todayStart.getMonth(), 1);
   const groupedSlots = availableSlots.reduce<Record<TimeSlotPeriod, AvailabilitySlot[]>>(
     (acc, slot) => {
       const period = getTimeSlotPeriod(slot.time);
@@ -987,21 +1048,6 @@ export default function NuevaReservacion() {
               </div>
             </div>
             
-            {(selectedStylist || selectedLocation || selectedService || selectedDate || selectedTime) && (
-              <div className="mt-4 p-3 bg-blue-50 rounded-md border border-blue-200 text-sm text-blue-800">
-                <div className="flex items-start gap-2">
-                  <FaFilter className="text-blue-500 mt-0.5 flex-shrink-0" />
-                  <div>
-                    <strong>Filtres actifs:</strong> Les options sont filtrées en fonction des sélections (styliste, centre, service, date et horaire).
-                    {(stylists.length === 0 || locations.length === 0 || services.length === 0) && (
-                      <p className="mt-1 text-red-600">
-                        Certaines options ne sont pas disponibles avec la configuration actuelle. Vous pouvez réinitialiser les filtres en utilisant le bouton &ldquo;Réinitialiser&rdquo;.
-                      </p>
-                    )}
-                  </div>
-                </div>
-              </div>
-            )}
             </AdminCardContent>
           </AdminCard>
 
@@ -1019,8 +1065,9 @@ export default function NuevaReservacion() {
                     onClick={prevMonth}
                     variant="outline"
                     size="icon"
-                    className="h-10 w-10 rounded-full border-border bg-background text-foreground shadow-sm hover:bg-accent"
+                    className="h-10 w-10 rounded-full border-border bg-background text-foreground shadow-sm hover:bg-accent disabled:cursor-not-allowed disabled:opacity-40"
                     aria-label="Mois précédent"
+                    disabled={!canGoToPreviousMonth}
                   >
                     <ChevronLeft className="h-4 w-4" />
                   </Button>
@@ -1056,17 +1103,23 @@ export default function NuevaReservacion() {
                       return <div key={index} className="h-10 sm:h-12"></div>;
                     }
                     
+                    const dayDate = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), day);
                     const dateStr = `${currentMonth.getFullYear()}-${String(currentMonth.getMonth() + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-                    const isToday = new Date().toDateString() === new Date(dateStr).toDateString();
+                    const isPastDate = dayDate < todayStart;
+                    const isToday = dayDate.toDateString() === todayStart.toDateString();
                     const isSelected = selectedDate === dateStr;
                     const isClosed = closedDays.includes(dateStr);
                     const isFullyBooked = fullyBookedDays.includes(dateStr);
                     const isPartiallyBooked = partiallyBookedDays.includes(dateStr);
+                    const isDisabledDay = isPastDate || isClosed;
                     
                     let buttonClasses = 'text-center h-10 sm:h-12 flex flex-col items-center justify-center rounded-md border border-border/70 bg-card text-foreground shadow-sm text-xs sm:text-sm transition-colors duration-200';
                     let dotColor = 'bg-green-500';
                     
-                    if (isClosed) {
+                    if (isPastDate) {
+                      buttonClasses += ' cursor-not-allowed bg-muted/40 text-muted-foreground border-border/50 opacity-75';
+                      dotColor = 'bg-muted-foreground/60';
+                    } else if (isClosed) {
                       buttonClasses += ' cursor-not-allowed opacity-65';
                       dotColor = 'bg-red-500';
                     } else if (isFullyBooked) {
@@ -1080,17 +1133,17 @@ export default function NuevaReservacion() {
                       dotColor = 'bg-green-500';
                     }
                     
-                    if (isSelected) {
+                    if (!isPastDate && isSelected) {
                       buttonClasses += ' ring-2 ring-primary ring-opacity-100 font-bold';
-                    } else if (isToday) {
+                    } else if (!isPastDate && isToday) {
                       buttonClasses += ' ring-2 ring-primary ring-opacity-70';
                     }
                     
                     return (
                       <Button
                         key={index}
-                        onClick={() => isClosed ? null : selectDate(day)}
-                        disabled={isClosed}
+                        onClick={() => isDisabledDay ? null : selectDate(day)}
+                        disabled={isDisabledDay}
                         className={buttonClasses}
                       >
                         <span>{day}</span>
@@ -1394,7 +1447,7 @@ export default function NuevaReservacion() {
             <form
               onSubmit={(e) => {
                 e.preventDefault();
-                completeBooking();
+                openBookingConfirmationModal();
               }}
               className="flex flex-1 flex-col overflow-hidden"
             >
@@ -1445,6 +1498,7 @@ export default function NuevaReservacion() {
                     <Textarea
                       value={notes}
                       onChange={(e) => setNotes(e.target.value)}
+                      placeholder="Commentaires optionnels pour la réservation"
                       rows={3}
                       className="w-full"
                     ></Textarea>
@@ -1464,16 +1518,9 @@ export default function NuevaReservacion() {
                 <Button
                   type="submit"
                   className="w-full px-4 text-primary-foreground sm:w-auto"
-                  disabled={bookingInProgress}
+                  disabled={!customerName.trim() || !customerPhone.trim()}
                 >
-                  {bookingInProgress ? (
-                    <>
-                      <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full inline-block mr-2 align-middle"></div>
-                      En cours de traitement...
-                    </>
-                  ) : (
-                    'Confirmer la réservation'
-                  )}
+                  Continuer au résumé
                 </Button>
               </div>
             </form>
@@ -1481,8 +1528,170 @@ export default function NuevaReservacion() {
         </DialogContent>
       </Dialog>
 
+      {/* Modal final de confirmation */}
+      <Dialog
+        open={showConfirmModal && Boolean(selectedTime)}
+        onOpenChange={setShowConfirmModal}
+      >
+        <DialogContent className="w-[calc(100vw-2rem)] max-w-2xl p-0 max-h-[85dvh] overflow-hidden">
+          <div className="flex h-full max-h-[85dvh] flex-col">
+            <DialogHeader className="border-b border-border px-6 py-4 pr-12">
+              <DialogTitle className="text-lg sm:text-xl">Confirmer la réservation</DialogTitle>
+              <DialogDescription>
+                Vérifiez le récapitulatif avant d&apos;enregistrer définitivement la réservation.
+              </DialogDescription>
+            </DialogHeader>
+
+            <ScrollArea className="h-[56dvh] px-6 py-4">
+              <div className="space-y-4 pr-3">
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="rounded-xl border border-border bg-background/80 p-3">
+                    <p className="mb-2 text-xs uppercase tracking-wide text-muted-foreground">Styliste</p>
+                    <div className="flex items-center gap-3">
+                      <div className="relative h-14 w-14 overflow-hidden rounded-lg border border-border bg-muted">
+                        {stylistDetail?.profile_img ? (
+                          <Image
+                            src={getImageUrl(stylistDetail.profile_img)}
+                            alt={stylistDetail.name}
+                            fill
+                            className="object-cover"
+                            sizes="56px"
+                          />
+                        ) : (
+                          <div className="flex h-full w-full items-center justify-center text-muted-foreground">
+                            <FaUser />
+                          </div>
+                        )}
+                      </div>
+                      <div className="min-w-0">
+                        <p className="truncate font-semibold text-foreground">{stylistDetail?.name || '-'}</p>
+                        <p className="truncate text-xs text-muted-foreground">
+                          {stylistDetail?.specialties?.length
+                            ? stylistDetail.specialties.join(', ')
+                            : 'Spécialités non renseignées'}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="rounded-xl border border-border bg-background/80 p-3">
+                    <p className="mb-2 text-xs uppercase tracking-wide text-muted-foreground">Centre</p>
+                    <div className="flex items-center gap-3">
+                      <div className="relative h-14 w-14 overflow-hidden rounded-lg border border-border bg-muted">
+                        {locationDetail?.image ? (
+                          <Image
+                            src={getImageUrl(locationDetail.image)}
+                            alt={locationDetail.name}
+                            fill
+                            className="object-cover"
+                            sizes="56px"
+                          />
+                        ) : (
+                          <div className="flex h-full w-full items-center justify-center text-muted-foreground">
+                            <FaMapMarkerAlt />
+                          </div>
+                        )}
+                      </div>
+                      <div className="min-w-0">
+                        <p className="truncate font-semibold text-foreground">{locationDetail?.name || '-'}</p>
+                        <p className="truncate text-xs text-muted-foreground">
+                          {locationDetail?.address || 'Adresse non renseignée'}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="rounded-xl border border-border bg-background/80 p-4">
+                  <p className="mb-3 text-xs uppercase tracking-wide text-muted-foreground">Détails du rendez-vous</p>
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    <div className="flex justify-between gap-3">
+                      <span className="text-muted-foreground">Service</span>
+                      <span className="font-medium text-foreground text-right">{selectedServiceDetail?.nombre || '-'}</span>
+                    </div>
+                    <div className="flex justify-between gap-3">
+                      <span className="text-muted-foreground">Durée</span>
+                      <span className="font-medium text-foreground text-right">
+                        {selectedServiceDetail?.duration ? `${selectedServiceDetail.duration} min` : '-'}
+                      </span>
+                    </div>
+                    <div className="flex justify-between gap-3 sm:col-span-2">
+                      <span className="text-muted-foreground">Date et horaire</span>
+                      <span className="font-medium text-foreground text-right capitalize">
+                        {selectedDateLabel || '-'} · {selectedTime || '-'}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="rounded-xl border border-border bg-background/80 p-4">
+                  <p className="mb-3 text-xs uppercase tracking-wide text-muted-foreground">Client</p>
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    <div className="flex justify-between gap-3">
+                      <span className="text-muted-foreground">Nom</span>
+                      <span className="font-medium text-foreground text-right">{customerName || '-'}</span>
+                    </div>
+                    <div className="flex justify-between gap-3">
+                      <span className="text-muted-foreground">Téléphone</span>
+                      <span className="font-medium text-foreground text-right">{customerPhone || '-'}</span>
+                    </div>
+                    <div className="flex justify-between gap-3 sm:col-span-2">
+                      <span className="text-muted-foreground">Email</span>
+                      <span className="font-medium text-foreground text-right">{customerEmail || 'Non renseigné'}</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="rounded-xl border border-border bg-background/80 p-4">
+                  <label className="mb-2 block text-xs uppercase tracking-wide text-muted-foreground">
+                    Commentaires optionnels
+                  </label>
+                  <Textarea
+                    value={notes}
+                    onChange={(e) => setNotes(e.target.value)}
+                    placeholder="Ajouter un commentaire interne (optionnel)"
+                    rows={3}
+                    className="w-full"
+                  />
+                </div>
+              </div>
+            </ScrollArea>
+
+            <DialogFooter className="flex-col-reverse gap-2 border-t border-border px-6 py-4 sm:flex-row sm:justify-between">
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full sm:w-auto"
+                onClick={() => {
+                  setShowConfirmModal(false);
+                  setShowCustomerModal(true);
+                }}
+                disabled={bookingInProgress}
+              >
+                Modifier les données client
+              </Button>
+              <Button
+                type="button"
+                className="w-full text-primary-foreground sm:w-auto"
+                onClick={completeBooking}
+                disabled={bookingInProgress}
+              >
+                {bookingInProgress ? (
+                  <>
+                    <div className="mr-2 inline-block h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent align-middle"></div>
+                    Confirmation...
+                  </>
+                ) : (
+                  'Confirmer la réservation'
+                )}
+              </Button>
+            </DialogFooter>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       {bookingSuccess && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4">
+        <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/45 p-4">
           <div className="w-full max-w-md rounded-2xl border border-border bg-card p-6 text-center" style={{ boxShadow: "var(--admin-shadow-card-strong)" }}>
             <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-emerald-100 text-emerald-600">
               <FaCheck size={32} />
@@ -1491,21 +1700,30 @@ export default function NuevaReservacion() {
             <p className="mb-6 text-muted-foreground">
               La réservation a été créée avec succès
             </p>
-            <Button
-              onClick={() => {
-                setBookingSuccess(false);
-                router.push('/admin/reservations');
-              }}
-              className="px-6 text-primary-foreground"
-            >
-              Retour au calendrier
-            </Button>
+            <div className="flex flex-col gap-2 sm:flex-row sm:justify-center">
+              <Button
+                onClick={startNewReservation}
+                variant="outline"
+                className="px-6"
+              >
+                Nouvelle réservation
+              </Button>
+              <Button
+                onClick={() => {
+                  setBookingSuccess(false);
+                  router.push('/admin/reservations');
+                }}
+                className="px-6 text-primary-foreground"
+              >
+                Retour au calendrier
+              </Button>
+            </div>
           </div>
         </div>
       )}
 
       {bookingError && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4">
+        <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/45 p-4">
           <div className="w-full max-w-md rounded-2xl border border-border bg-card p-6 text-center" style={{ boxShadow: "var(--admin-shadow-card-strong)" }}>
             <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-red-100 text-red-600">
               <FaUser size={32} />

@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import Stripe from 'stripe';
+import { randomBytes } from 'crypto';
 
 interface CartItem {
   id: number;
@@ -24,6 +25,8 @@ export async function POST(request: Request) {
   try {
     const body = await request.json();
     const { items, customerInfo }: { items: CartItem[], customerInfo: CustomerInfo } = body;
+    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
+    const syncToken = randomBytes(24).toString('hex');
 
     if (!items || !Array.isArray(items) || items.length === 0) {
       return NextResponse.json({ error: 'Carrito vacío' }, { status: 400 });
@@ -59,8 +62,8 @@ export async function POST(request: Request) {
         quantity: item.cantidad,
       })),
       mode: 'payment',
-      success_url: `${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/boutique/checkout/success?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/boutique/checkout`,
+      success_url: `${baseUrl}/boutique/checkout/success?session_id={CHECKOUT_SESSION_ID}&sync_token=${syncToken}`,
+      cancel_url: `${baseUrl}/boutique/checkout`,
       customer_email: customerInfo.email,
       metadata: {
         // Datos del cliente para crear el pedido después del pago
@@ -69,6 +72,7 @@ export async function POST(request: Request) {
         customer_phone: customerInfo.telefono || '',
         customer_address: customerInfo.direccion || '',
         total: total.toString(),
+        sync_token: syncToken,
         // Datos de los items serializados
         items: JSON.stringify(items.map((item: CartItem) => ({
           id: item.id,

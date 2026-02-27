@@ -11,6 +11,7 @@ import {
 } from "@/components/admin/ui";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { fetchWithAdminAuth } from "@/lib/fetchWithAdminAuth";
 
 interface WebhookDiagnostics {
   stripe_configured: boolean;
@@ -52,7 +53,7 @@ export default function WebhookDiagnosticsPage() {
     setError(null);
 
     try {
-      const response = await fetch("/api/boutique/webhook-status");
+      const response = await fetchWithAdminAuth("/api/boutique/webhook-status");
       if (!response.ok) {
         setError("Erreur lors de la récupération des diagnostics.");
         return;

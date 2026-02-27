@@ -5,6 +5,7 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
+const legacyCheckoutEnabled = process.env.ENABLE_LEGACY_BOUTIQUE_CHECKOUT_API === 'true';
 
 interface CartItem {
   id: number;
@@ -13,6 +14,16 @@ interface CartItem {
 }
 
 export async function POST(request: Request) {
+  if (!legacyCheckoutEnabled) {
+    return NextResponse.json(
+      {
+        error: 'Endpoint legacy desactivado',
+        code: 'legacy_checkout_disabled'
+      },
+      { status: 410 }
+    );
+  }
+
   try {
     const body = await request.json();
     const { items, customerInfo } = body;

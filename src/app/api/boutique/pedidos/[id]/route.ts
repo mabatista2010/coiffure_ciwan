@@ -1,16 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+import { requireStaffAuth } from '@/lib/apiAuth';
+import { getSupabaseAdminClient } from '@/lib/supabaseAdmin';
 
 export async function GET(
-  request: Request,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const auth = await requireStaffAuth(request, {
+      allowedRoles: ['admin'],
+      feature: 'boutique_pedido_detail',
+    });
+    if ('response' in auth) {
+      return auth.response;
+    }
+
+    const supabase = getSupabaseAdminClient();
     const { id } = await params;
     const { data: pedido, error } = await supabase
       .from('pedidos')
@@ -46,6 +51,15 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const auth = await requireStaffAuth(request, {
+      allowedRoles: ['admin'],
+      feature: 'boutique_pedido_update',
+    });
+    if ('response' in auth) {
+      return auth.response;
+    }
+
+    const supabase = getSupabaseAdminClient();
     const { id } = await params;
     const body = await request.json();
     const { estado } = body;

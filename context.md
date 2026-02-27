@@ -93,8 +93,13 @@ Steel & Blade est l’application web de **Coiffure Ciwan**, un salon masculin m
 - `GET /api/reservation/availability`
   - Paramètres: `date`, `stylistId`, `locationId`, `serviceId`.
   - Génère des slots toutes **15 min** en tenant compte de `working_hours`, `time_off`, `bookings` (status `pending|confirmed`) et durée du service.
+  - Lit les données via client Supabase `service_role` côté serveur (pas d’exposition directe de `bookings` en public).
 - `POST /api/reservation/create`
-  - Calcule `end_time` via `servicios.duration`, vérifie chevauchement et horaires.
+  - Délègue la création à la RPC SQL `public.create_booking_atomic` (service role server-only).
+  - Validation atomique serveur : combinaison styliste/centre/service, horaires, `time_off`, calcul de `end_time`.
+  - Codes d’erreur normalisés : `invalid_payload` (400), `slot_conflict` (409), règles métier (422), `internal_error` (500).
+  - Idempotence supportée via header `Idempotency-Key` (replay de réponse pour la même clé+payload, blocage si clé réutilisée avec payload différent).
+  - Logging structuré de création (`request_id`, `source`, `idempotency_key`, `error_code`, `latency_ms`).
 
 ### ChatGPT Apps SDK (MCP)
   - `GET|POST|DELETE /mcp`
@@ -114,29 +119,34 @@ Steel & Blade est l’application web de **Coiffure Ciwan**, un salon masculin m
 - `POST /api/boutique/stripe`
   - Crée une session **Stripe Checkout**.
   - Refuse tout item sans `stripe_price_id`.
-  - Ajoute les infos client + items dans `metadata`.
+  - Ajoute les infos client + items dans `metadata` + `sync_token` anti-abus.
   - Pays autorisés : **ES, FR, DE, IT, PT, CH, AT, BE, NL, GB, US, CA**.
-  - `success_url` / `cancel_url` basées sur `NEXT_PUBLIC_BASE_URL`.
+  - `success_url` / `cancel_url` basées sur `NEXT_PUBLIC_BASE_URL`; `success_url` inclut `sync_token`.
 - `POST /api/boutique/stripe/webhook`
   - Traite `checkout.session.completed`, `payment_intent.succeeded`, `payment_intent.payment_failed`.
   - Crée/maj les `pedidos` + `items_pedido`.
 - `GET /api/boutique/webhook-status`
   - Diagnostics Stripe (config + liste webhooks + événements récents).
+  - Endpoint interne: auth requise (`Authorization: Bearer <access_token>`) + rôle `admin` (sinon `401/403`).
 - `POST /api/boutique/pedidos/create-from-session`
-  - Fallback: crée un `pedido` depuis une `sessionId` Stripe payée.
+  - Fallback public contrôlé: crée (ou récupère) un `pedido` depuis une `sessionId` Stripe payée.
+  - Exige `sessionId` + `syncToken` et vérifie `syncToken === session.metadata.sync_token`.
+  - Retourne un résumé sans PII (`id`, `total`, `estado`, `created_at`) pour la page de succès.
 - `GET /api/boutique/pedidos/session/[sessionId]`
-  - Récupère un `pedido` par `stripe_session_id`.
+  - Récupère un `pedido` par `stripe_session_id` (endpoint interne admin, protégé par token + rôle `admin`).
 - `GET /api/boutique/pedidos`
-  - Liste commandes + items produits.
+  - Liste commandes + items produits (endpoint interne admin, protégé par token + rôle `admin`).
 - `PUT /api/boutique/pedidos/[id]`
-  - Met à jour `estado` (valeurs autorisées côté API : `pendiente`, `en_traitement`, `traite`).
+  - Met à jour `estado` (valeurs autorisées côté API : `pendiente`, `en_traitement`, `traite`), endpoint interne `admin`.
 - `GET/POST /api/boutique/productos`
-  - Liste produits actifs / crée produit + sync Stripe.
+  - `GET` public: liste produits actifs.
+  - `POST` interne `admin`: crée produit + sync Stripe (`401/403` si no auth/rol).
 - `GET/PUT/DELETE /api/boutique/productos/[id]`
-  - CRUD produit + sync Stripe (création de prix si prix change).
+  - `GET` lecture produit.
+  - `PUT/DELETE` internes `admin` + sync Stripe (création de prix si prix change) avec contrôle auth/rol.
   - Les nouveaux prix Stripe sont créés en devise `chf`.
 - `POST /api/boutique/checkout`
-  - **API legacy**: crée `pedido` en `pendiente` sans Stripe (utilisée pour démo / fallback).
+  - **API legacy**: désactivée par défaut (`410`) sauf si `ENABLE_LEGACY_BOUTIQUE_CHECKOUT_API=true`.
 
 ## Fonctionnalités (Client)
 ### Landing Page
@@ -172,6 +182,7 @@ Steel & Blade est l’application web de **Coiffure Ciwan**, un salon masculin m
 - Écran de connexion admin harmonisé en français (titre, labels, CTA et messages d’accès refusé).
 - Layout admin avec 3 états (chargement / non‑auth / auth) + formulaire login unifié.
 - Vérification de session Supabase sur toutes les routes `/admin/*`.
+- Les pages admin boutique/webhook envoient le `access_token` Supabase en `Authorization: Bearer` vers les endpoints internes protégés.
 - **Rôles** : `admin` vs `employee`.
   - Les employés ne voient que `/admin` et `/admin/reservations`.
 - **AdminNav** unifiée :
@@ -192,8 +203,16 @@ Steel & Blade est l’application web de **Coiffure Ciwan**, un salon masculin m
   - Calendrier admin avec vues `Mois / Semaine / Jour` et navigation temporelle adaptative selon la vue active.
   - Vue `Semaine` enrichie en agenda colonnes (7 jours) avec détails des rendez-vous par jour, scroll horizontal (tablet/mobile) et accès rapide `Voir le jour`.
   - Création manuelle via `/admin/reservations/nueva`.
-  - Dans `/admin/reservations/nueva`, les filtres sont relationnels et bidirectionnels: styliste, centre, service, date et horaire se recoupent pour n'afficher que des options réellement compatibles (sans ordre imposé de sélection).
+  - La création manuelle dans `/admin/reservations/nueva` passe par `POST /api/reservation/create` (plus d’insertion directe client sur `bookings`).
+  - Dans `/admin/reservations/nueva`, les filtres `styliste/centre/service` sont relationnels et bidirectionnels en mode faceté (self-excluding): chaque liste se calcule avec les autres filtres actifs, en ignorant son propre filtre pour éviter l'effet "bloqué".
+  - Lors d'un changement de filtre dans `/admin/reservations/nueva`, seuls les filtres devenus incompatibles sont nettoyés automatiquement; les autres sélections valides sont conservées.
   - Dans `/admin/reservations/nueva`, le choix d'un créneau horaire n'ouvre plus automatiquement le modal client: il alimente une card de résumé (service/date/heure) avec action explicite **"Données du client"**.
+  - Le flux de création manuelle utilise désormais 2 modals consécutifs: d'abord **Données du client**, puis un modal final **Confirmer la réservation** avec récapitulatif visuel (centre + styliste + détails) et confirmation explicite.
+  - Le champ de commentaires optionnels est synchronisé entre le modal client et le modal final de confirmation.
+  - Après création réussie, le modal de succès ne se ferme plus automatiquement: il propose **Nouvelle réservation** (reset complet des filtres/formulaire sur place) et **Retour au calendrier**.
+  - Le calendrier de `/admin/reservations/nueva` n'affiche plus les jours passés, bloque leur sélection côté UI et désactive la navigation vers des mois antérieurs au mois courant.
+  - Dans `/admin/reservations/nueva`, quand un styliste est sélectionné, les jours fermés du calendrier se basent sur ses `working_hours` réels (pas seulement sur `location_hours` du centre).
+  - Si une date choisie n'a aucun créneau disponible, les filtres sélectionnés (styliste/centre/service) ne se réinitialisent plus automatiquement.
   - Les modals de `/admin/reservations/nueva` utilisent `Dialog` + `ScrollArea` (shadcn) avec hauteur contrainte mobile, et les créneaux horaires sont groupés par périodes (`Matin`, `Après-midi`, `Soir`) pour éviter les listes infinies.
 - **CRM**
   - Carte client + historique des réservations + favoris (centre/styliste/service).
@@ -217,21 +236,25 @@ Steel & Blade est l’application web de **Coiffure Ciwan**, un salon masculin m
 - **stylists**: `id` (uuid), `name`, `bio?`, `specialties?` (text[]), `profile_img?`, `location_ids?` (uuid[]), `active` (default true), `created_at`.
 - **stylist_services**: `id` (uuid), `stylist_id` → `stylists`, `service_id` → `servicios`.
 - **working_hours**: `id` (uuid), `stylist_id`, `location_id`, `day_of_week` (0‑6), `start_time`, `end_time`.
-- **location_hours**: `id` (uuid), `location_id`, `day_of_week`, `slot_number`, `start_time`, `end_time`. *(RLS off)*
+- **location_hours**: `id` (uuid), `location_id`, `day_of_week`, `slot_number`, `start_time`, `end_time`. *(RLS on, lecture publique contrôlée)*
 - **time_off**: `id` (uuid), `stylist_id`, `location_id`, `start_datetime`, `end_datetime`, `reason?`.
-- **bookings**: `id` (uuid), `customer_name/email/phone`, `stylist_id`, `service_id`, `location_id`, `booking_date`, `start_time`, `end_time`, `status` (`pending|confirmed|cancelled|completed`), `notes?`, `created_at`.
+- **bookings**: `id` (uuid), `customer_name/email/phone`, `stylist_id`, `service_id`, `location_id`, `booking_date`, `start_time`, `end_time`, `status` (`pending|confirmed|cancelled|completed`), `notes?`, `created_at`, `slot_range` (generated `tsrange`).
+  - Contraintes de robustesse actives: `bookings_start_before_end` (`start_time < end_time`) + `bookings_no_overlap` (exclusion `gist` par `stylist_id + slot_range` pour statuts `pending|confirmed`).
+  - Index agenda ajoutés: `idx_bookings_stylist_date_status_start`, `idx_bookings_location_date_status_start`, `idx_bookings_service_date`, `idx_working_hours_stylist_location_day`, `idx_time_off_stylist_location_start_end`.
+- **booking_requests**: table d’idempotence pour création réservation (`source`, `idempotency_key`, `request_hash`, `status`, `booking_id`, `http_status`, `response_body`, `error_code`, `request_id`, `latency_ms`, timestamps), index unique `(source, idempotency_key)`.
 - **imagenes_galeria**: `id` (int8), `descripcion`, `imagen_url`, `fecha`, `created_at`.
 - **configuracion**: `id` (int8), `clave` (unique), `valor`, `descripcion?`, `created_at`, `updated_at`.
 - **user_roles**: `id` (uuid → auth.users), `role` (default `employee`), `created_at`, `updated_at`.
 - **stylist_users**: `id` (uuid), `user_id` → auth.users, `stylist_id` → stylists.
 
 ### Tables Boutique
-- **productos** *(RLS off)*: `id` (int), `nombre`, `descripcion?`, `precio`, `precio_original?`, `stock` (default 0), `categoria?`, `imagen_url?`, `stripe_product_id?`, `stripe_price_id?`, `activo` (default true), `destacado` (default false), `orden` (default 0), `created_at`, `updated_at`.
-- **categorias_productos** *(RLS off)*: `id`, `nombre`, `descripcion?`, `imagen_url?`, `orden`, `activa` (default true), `created_at`.
-- **pedidos** *(RLS off)*: `id`, `cliente_*`, `total`, `stripe_payment_intent_id?`, `stripe_session_id?`, `estado` (default `pendiente`), `created_at`, `updated_at`.
-- **items_pedido** *(RLS off)*: `id`, `pedido_id`, `producto_id`, `cantidad`, `precio_unitario`, `subtotal`, `created_at`.
-- **carrito_sesiones** *(RLS off)*: `id`, `session_id` (unique), `cliente_email?`, `created_at`, `updated_at`.
-- **items_carrito** *(RLS off)*: `id`, `carrito_id`, `producto_id`, `cantidad` (default 1), `created_at`, `updated_at`.
+- **productos** *(RLS on)*: `id` (int), `nombre`, `descripcion?`, `precio`, `precio_original?`, `stock` (default 0), `categoria?`, `imagen_url?`, `stripe_product_id?`, `stripe_price_id?`, `activo` (default true), `destacado` (default false), `orden` (default 0), `created_at`, `updated_at`.
+- **categorias_productos** *(RLS on)*: `id`, `nombre`, `descripcion?`, `imagen_url?`, `orden`, `activa` (default true), `created_at`.
+- **pedidos** *(RLS on, deny-by-default explicite)*: `id`, `cliente_*`, `total`, `stripe_payment_intent_id?`, `stripe_session_id?`, `estado` (default `pendiente`), `created_at`, `updated_at`.
+  - Index uniques partiels: `pedidos_stripe_session_id_unique_idx`, `pedidos_stripe_payment_intent_id_unique_idx`.
+- **items_pedido** *(RLS on, deny-by-default)*: `id`, `pedido_id`, `producto_id`, `cantidad`, `precio_unitario`, `subtotal`, `created_at`.
+- **carrito_sesiones** *(RLS on, deny-by-default)*: `id`, `session_id` (unique), `cliente_email?`, `created_at`, `updated_at`.
+- **items_carrito** *(RLS on, deny-by-default)*: `id`, `carrito_id`, `producto_id`, `cantidad` (default 1), `created_at`, `updated_at`.
 
 ### Buckets (Storage)
 Publics:
@@ -255,8 +278,18 @@ Publics:
 - Une **réservation** associe client + service + styliste + centre + date/heure.
 
 ### RLS / Sécurité
-- RLS activée sur : `bookings`, `configuracion`, `imagenes_galeria`, `locations`, `servicios`, `stylists`, `stylist_services`, `working_hours`, `time_off`, `user_roles`, `stylist_users`.
-- RLS désactivée sur : `location_hours`, `productos`, `categorias_productos`, `pedidos`, `items_pedido`, `carrito_sesiones`, `items_carrito`.
+- RLS activée sur : `bookings`, `configuracion`, `imagenes_galeria`, `locations`, `servicios`, `stylists`, `stylist_services`, `working_hours`, `time_off`, `location_hours`, `user_roles`, `stylist_users`, `productos`, `categorias_productos`, `pedidos`, `items_pedido`, `carrito_sesiones`, `items_carrito`.
+- `bookings` (phase sécurité):
+  - suppression des policies publiques (`INSERT public` / `SELECT public`).
+  - policies actives: `bookings_staff_select` + `bookings_staff_update` pour `authenticated` avec rôle `admin|employee`.
+- `booking_requests`:
+  - RLS activée.
+  - policy `booking_requests_staff_select` pour `authenticated` avec rôle `admin|employee`.
+- Hardening post-robustez (2026-02-27):
+  - suppression des policies permissives `FOR ALL ... USING true` sur tables admin core.
+  - policies par opération (`SELECT` public seulement où nécessaire; `INSERT/UPDATE/DELETE` réservés à `admin`).
+  - helper SQL `public.current_user_role()` (`SECURITY DEFINER`, `search_path=public`) utilisé dans les policies.
+  - `public.handle_new_user()` durcie avec `search_path=public` + `EXECUTE` révoqué à `PUBLIC/anon/authenticated`.
 - Politiques attendues (docs) :
   - Clients/anon : lecture services/stylists/centres + création réservations.
   - Admin : accès complet.
@@ -388,7 +421,20 @@ Publics:
 - `BOUTIQUE_README.md`, `STRIPE_INTEGRATION.md`, `STRIPE_CHECKOUT_SETUP.md`, `WEBHOOK_TROUBLESHOOTING.md`.
 - Roadmap implémentation réservations V2 par phases: `Docs/plan-implementacion-reservas-v2.md`.
   - Le plan V2 est maintenant decision-complete (modele horaires centre+styliste, reservation atomique via RPC SQL, fenetre 90j/2h, statut `needs_replan` bloquant, timezone `Europe/Madrid`, slots configurables).
-- Scripts DB: `boutique_tables.sql`, `supabase_reservation_system.sql`, `location_hours_table.sql`, `fix_pending_orders.sql`, `fix_stripe_sync.sql`, `update_stripe_ids.sql`, etc.
+- Plan de hardening securite post-robustez (RLS/grants/PII/boutique) : `Docs/plan-hardening-seguridad-post-robustez.md`.
+- Migración aplicada de hardening B/C/D: `migrations/20260227_security_postrobustez_phase_bcd.sql`.
+- Migración aplicada de cierre boutique: `migrations/20260227_security_boutique_final_hardening_phase1.sql`.
+- Migración aplicada de extensión: `migrations/20260227_move_btree_gist_to_extensions.sql`.
+- Script de verificación continua: `scripts/security/postrobustez_security_checks.sql`.
+- Checklist + rollback: `Docs/security-release-checklist.md`, `Docs/security-rollback-runbook.md`.
+- Paquete operativo para plantilla single-tenant (resumen + playbook agente): `docs/plantilla-operativa/contexto-resumen.md`, `docs/plantilla-operativa/implementacion-agente.md`.
+- Scripts DB legacy: `boutique_tables.sql`, `supabase_reservation_system.sql`, `location_hours_table.sql`, `fix_pending_orders.sql`, `fix_stripe_sync.sql`, `update_stripe_ids.sql`, etc.
+
+## Etat securite (2026-02-27)
+- Advisors security: warnings techniques fermés (`rls_enabled_no_policy`, `extension_in_public`) après migration.
+- Restent uniquement des actions plateforme manuelles:
+  - `auth_leaked_password_protection` (à activer dans Supabase Auth).
+  - `vulnerable_postgres_version` (upgrade Postgres à planifier/appliquer).
 
 ## Fonctionnalités à venir (roadmap)
 - Notifications WhatsApp.

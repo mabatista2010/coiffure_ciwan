@@ -1,228 +1,391 @@
+import { randomUUID, createHash } from 'node:crypto';
 import { NextRequest, NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
+import { getSupabaseAdminClient } from '@/lib/supabaseAdmin';
+
+type BookingStatus = 'pending' | 'confirmed';
+type BookingRequestState = 'processing' | 'succeeded' | 'failed';
+
+type RpcCreateBookingResult = {
+  ok: boolean;
+  error_code: string | null;
+  booking_id: string | null;
+};
+
+type ErrorResponse = {
+  error: string;
+  errorCode: string;
+};
+
+type SuccessResponse = {
+  success: true;
+  bookingId: string;
+  message: string;
+};
+
+type ApiResponse = ErrorResponse | SuccessResponse;
+
+type BookingRequestRecord = {
+  source: string;
+  idempotency_key: string;
+  request_hash: string;
+  status: BookingRequestState;
+  http_status: number | null;
+  response_body: ApiResponse | null;
+  error_code: string | null;
+  booking_id: string | null;
+};
+
+const ERROR_MESSAGES: Record<string, string> = {
+  invalid_payload: 'Champs obligatoires manquants ou invalides',
+  invalid_idempotency_key: 'Clé d\'idempotence invalide',
+  idempotency_key_reused: 'La clé d\'idempotence est déjà utilisée avec une autre requête',
+  idempotency_in_progress: 'Une requête identique est déjà en cours de traitement',
+  invalid_combination: 'La combinaison styliste/centre/service n\'est pas valide',
+  outside_working_hours: 'L\'horaire sélectionné est hors horaires de travail',
+  stylist_time_off: 'Le styliste est indisponible sur ce créneau',
+  slot_conflict: 'L\'horaire sélectionné n\'est plus disponible',
+  internal_error: 'Erreur lors du traitement de la réservation',
+};
+
+const ERROR_HTTP_STATUS: Record<string, number> = {
+  invalid_payload: 400,
+  invalid_idempotency_key: 400,
+  idempotency_key_reused: 409,
+  idempotency_in_progress: 409,
+  slot_conflict: 409,
+  invalid_combination: 422,
+  outside_working_hours: 422,
+  stylist_time_off: 422,
+  internal_error: 500,
+};
+
+const DATE_REGEX = /^\d{4}-\d{2}-\d{2}$/;
+const TIME_REGEX = /^\d{2}:\d{2}(:\d{2})?$/;
+const IDEMPOTENCY_KEY_REGEX = /^[a-zA-Z0-9:_\-.]{1,128}$/;
+const SOURCE_REGEX = /^[a-z0-9_-]{1,32}$/;
+
+function resolveRpcError(errorCode?: string | null) {
+  const normalizedCode = errorCode || 'internal_error';
+
+  return {
+    errorCode: normalizedCode,
+    error: ERROR_MESSAGES[normalizedCode] || ERROR_MESSAGES.internal_error,
+    status: ERROR_HTTP_STATUS[normalizedCode] || 500,
+  };
+}
+
+function buildErrorResponse(errorCode: string): { payload: ErrorResponse; status: number } {
+  const mapped = resolveRpcError(errorCode);
+  return {
+    payload: { error: mapped.error, errorCode: mapped.errorCode },
+    status: mapped.status,
+  };
+}
+
+function normalizeSource(rawSource: string | null): string {
+  const normalized = (rawSource || '').trim().toLowerCase();
+  if (SOURCE_REGEX.test(normalized)) {
+    return normalized;
+  }
+
+  return 'web';
+}
+
+function buildRequestHash(params: {
+  customerName: string;
+  customerEmail: string;
+  customerPhone: string;
+  notes: string;
+  serviceId: number;
+  locationId: string;
+  stylistId: string;
+  bookingDate: string;
+  startTime: string;
+  status: BookingStatus;
+}): string {
+  const normalizedPayload = {
+    customerName: params.customerName,
+    customerEmail: params.customerEmail.toLowerCase(),
+    customerPhone: params.customerPhone,
+    notes: params.notes,
+    serviceId: params.serviceId,
+    locationId: params.locationId,
+    stylistId: params.stylistId,
+    bookingDate: params.bookingDate,
+    startTime: params.startTime,
+    status: params.status,
+  };
+
+  return createHash('sha256').update(JSON.stringify(normalizedPayload)).digest('hex');
+}
+
+function buildResponse(payload: ApiResponse, status: number, requestId: string, replayed = false) {
+  const headers = new Headers({
+    'X-Request-Id': requestId,
+  });
+
+  if (replayed) {
+    headers.set('Idempotency-Replayed', 'true');
+  }
+
+  return NextResponse.json(payload, { status, headers });
+}
+
+function logReservationEvent(params: {
+  requestId: string;
+  source: string;
+  idempotencyKey: string | null;
+  status: number;
+  errorCode: string | null;
+  bookingId: string | null;
+  replayed: boolean;
+  latencyMs: number;
+}) {
+  console.info(
+    JSON.stringify({
+      event: 'booking.create',
+      request_id: params.requestId,
+      source: params.source,
+      idempotency_key: params.idempotencyKey,
+      replayed: params.replayed,
+      http_status: params.status,
+      error_code: params.errorCode,
+      booking_id: params.bookingId,
+      latency_ms: params.latencyMs,
+      at: new Date().toISOString(),
+    })
+  );
+}
 
 export async function POST(request: NextRequest) {
+  const startedAt = Date.now();
+  const requestId = randomUUID();
+
+  const source = normalizeSource(request.headers.get('X-Booking-Source'));
+  let idempotencyKey: string | null = null;
+  let requestHash: string | null = null;
+  let idempotencyLocked = false;
+
+  const supabaseAdmin = getSupabaseAdminClient();
+
+  const finalize = async (
+    payload: ApiResponse,
+    status: number,
+    options: { bookingId?: string | null; errorCode?: string | null; replayed?: boolean } = {}
+  ) => {
+    const bookingId = options.bookingId ?? null;
+    const errorCode = options.errorCode ?? ('errorCode' in payload ? payload.errorCode : null);
+    const replayed = options.replayed ?? false;
+    const latencyMs = Date.now() - startedAt;
+
+    if (idempotencyLocked && idempotencyKey && requestHash && !replayed) {
+      const terminalState: BookingRequestState = bookingId ? 'succeeded' : 'failed';
+
+      const { error: updateError } = await supabaseAdmin
+        .from('booking_requests')
+        .update({
+          status: terminalState,
+          booking_id: bookingId,
+          http_status: status,
+          response_body: payload,
+          error_code: errorCode,
+          latency_ms: latencyMs,
+          completed_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        })
+        .eq('source', source)
+        .eq('idempotency_key', idempotencyKey)
+        .eq('request_hash', requestHash)
+        .eq('status', 'processing');
+
+      if (updateError) {
+        console.error('Erreur mise à jour booking_requests:', updateError);
+      }
+    }
+
+    logReservationEvent({
+      requestId,
+      source,
+      idempotencyKey,
+      status,
+      errorCode,
+      bookingId,
+      replayed,
+      latencyMs,
+    });
+
+    return buildResponse(payload, status, requestId, replayed);
+  };
+
   try {
     const body = await request.json();
-    const {
-      customerName,
-      customerEmail,
-      customerPhone,
-      notes,
-      serviceId,
-      locationId,
-      stylistId,
-      bookingDate,
-      startTime,
-    } = body;
 
-    // Valider les données obligatoires
-    if (!customerName || !customerEmail || !customerPhone || !serviceId || !locationId || !stylistId || !bookingDate || !startTime) {
-      return NextResponse.json(
-        { error: 'Champs obligatoires manquants' },
-        { status: 400 }
-      );
+    const customerName = typeof body.customerName === 'string' ? body.customerName.trim() : '';
+    const customerEmail = typeof body.customerEmail === 'string' ? body.customerEmail.trim() : '';
+    const customerPhone = typeof body.customerPhone === 'string' ? body.customerPhone.trim() : '';
+    const notes = typeof body.notes === 'string' ? body.notes.trim() : '';
+    const locationId = typeof body.locationId === 'string' ? body.locationId : '';
+    const stylistId = typeof body.stylistId === 'string' ? body.stylistId : '';
+    const bookingDate = typeof body.bookingDate === 'string' ? body.bookingDate : '';
+    const startTime = typeof body.startTime === 'string' ? body.startTime : '';
+    const rawStatus = typeof body.status === 'string' ? body.status : undefined;
+    const serviceId = Number(body.serviceId);
+
+    const rawIdempotencyKey = (request.headers.get('Idempotency-Key') || '').trim();
+    if (rawIdempotencyKey) {
+      if (!IDEMPOTENCY_KEY_REGEX.test(rawIdempotencyKey)) {
+        const invalidKey = buildErrorResponse('invalid_idempotency_key');
+        return finalize(invalidKey.payload, invalidKey.status, { errorCode: invalidKey.payload.errorCode });
+      }
+      idempotencyKey = rawIdempotencyKey;
     }
 
-    // Obtenir la durée du service pour calculer l'heure de fin
-    const { data: service, error: serviceError } = await supabase
-      .from('servicios')
-      .select('duration')
-      .eq('id', serviceId)
-      .single();
-
-    if (serviceError) {
-      console.error('Erreur lors de l\'obtention de la durée du service:', serviceError);
-      return NextResponse.json(
-        { error: 'Erreur lors de l\'obtention des détails du service' },
-        { status: 500 }
-      );
+    if (rawStatus && rawStatus !== 'pending' && rawStatus !== 'confirmed') {
+      const mapped = buildErrorResponse('invalid_payload');
+      return finalize(mapped.payload, mapped.status, { errorCode: mapped.payload.errorCode });
     }
 
-    const serviceDuration = service?.duration || 30; // Durée par défaut: 30 minutes
+    const status: BookingStatus = rawStatus === 'confirmed' ? 'confirmed' : 'pending';
 
-    // Calculer l'heure de fin
-    const endTime = calculateEndTime(startTime, serviceDuration);
-
-    // Vérifier si l'horaire est toujours disponible (évite les conflits de concurrence)
-    const isStillAvailable = await checkAvailability(stylistId, locationId, bookingDate, startTime, endTime);
-
-    if (!isStillAvailable) {
-      return NextResponse.json(
-        { error: 'L\'horaire sélectionné n\'est plus disponible' },
-        { status: 409 }
-      );
+    if (
+      !customerName ||
+      !customerPhone ||
+      !locationId ||
+      !stylistId ||
+      !bookingDate ||
+      !startTime ||
+      !Number.isInteger(serviceId) ||
+      serviceId <= 0 ||
+      !DATE_REGEX.test(bookingDate) ||
+      !TIME_REGEX.test(startTime)
+    ) {
+      const mapped = buildErrorResponse('invalid_payload');
+      return finalize(mapped.payload, mapped.status, { errorCode: mapped.payload.errorCode });
     }
 
-    // Créer la réservation
-    const { data: booking, error: bookingError } = await supabase
-      .from('bookings')
-      .insert([
-        {
-          customer_name: customerName,
-          customer_email: customerEmail,
-          customer_phone: customerPhone,
-          notes: notes || '',
-          stylist_id: stylistId,
-          service_id: serviceId,
-          location_id: locationId,
-          booking_date: bookingDate,
-          start_time: startTime,
-          end_time: endTime,
-          status: 'pending', // État initial
-        },
-      ])
-      .select()
-      .single();
+    if (idempotencyKey) {
+      requestHash = buildRequestHash({
+        customerName,
+        customerEmail,
+        customerPhone,
+        notes,
+        serviceId,
+        locationId,
+        stylistId,
+        bookingDate,
+        startTime,
+        status,
+      });
 
-    if (bookingError) {
-      console.error('Erreur lors de la création de la réservation:', bookingError);
-      return NextResponse.json(
-        { error: 'Erreur lors de la création de la réservation' },
-        { status: 500 }
-      );
+      const nowIso = new Date().toISOString();
+      const { error: insertError } = await supabaseAdmin
+        .from('booking_requests')
+        .insert([
+          {
+            source,
+            idempotency_key: idempotencyKey,
+            request_hash: requestHash,
+            status: 'processing',
+            http_status: 202,
+            request_id: requestId,
+            created_at: nowIso,
+            updated_at: nowIso,
+          },
+        ]);
+
+      if (insertError) {
+        if (insertError.code !== '23505') {
+          console.error('Erreur création booking_requests:', insertError);
+          const mapped = buildErrorResponse('internal_error');
+          return finalize(mapped.payload, mapped.status, { errorCode: mapped.payload.errorCode });
+        }
+
+        const { data: existing, error: existingError } = await supabaseAdmin
+          .from('booking_requests')
+          .select('source, idempotency_key, request_hash, status, http_status, response_body, error_code, booking_id')
+          .eq('source', source)
+          .eq('idempotency_key', idempotencyKey)
+          .single<BookingRequestRecord>();
+
+        if (existingError || !existing) {
+          console.error('Erreur lecture booking_requests existant:', existingError);
+          const mapped = buildErrorResponse('internal_error');
+          return finalize(mapped.payload, mapped.status, { errorCode: mapped.payload.errorCode });
+        }
+
+        if (existing.request_hash !== requestHash) {
+          const mapped = buildErrorResponse('idempotency_key_reused');
+          return finalize(mapped.payload, mapped.status, { errorCode: mapped.payload.errorCode });
+        }
+
+        if (existing.status === 'processing') {
+          const mapped = buildErrorResponse('idempotency_in_progress');
+          return finalize(mapped.payload, mapped.status, { errorCode: mapped.payload.errorCode });
+        }
+
+        if (existing.response_body && existing.http_status) {
+          return finalize(existing.response_body, existing.http_status, {
+            bookingId: existing.booking_id,
+            errorCode: existing.error_code,
+            replayed: true,
+          });
+        }
+
+        const mapped = buildErrorResponse('idempotency_in_progress');
+        return finalize(mapped.payload, mapped.status, { errorCode: mapped.payload.errorCode });
+      }
+
+      idempotencyLocked = true;
     }
 
-    // TODO: Ici, on pourrait envoyer un email de confirmation au client
-
-    return NextResponse.json({ 
-      success: true, 
-      bookingId: booking.id,
-      message: 'Réservation créée avec succès'
+    const { data, error } = await supabaseAdmin.rpc('create_booking_atomic', {
+      p_customer_name: customerName,
+      p_customer_email: customerEmail,
+      p_customer_phone: customerPhone,
+      p_notes: notes,
+      p_service_id: serviceId,
+      p_location_id: locationId,
+      p_stylist_id: stylistId,
+      p_booking_date: bookingDate,
+      p_start_time: startTime,
+      p_status: status,
     });
+
+    if (error) {
+      console.error('Erreur RPC create_booking_atomic:', error);
+      const mapped = buildErrorResponse('internal_error');
+      return finalize(mapped.payload, mapped.status, { errorCode: mapped.payload.errorCode });
+    }
+
+    const rpcResult = (Array.isArray(data) ? data[0] : data) as RpcCreateBookingResult | null;
+
+    if (!rpcResult?.ok || !rpcResult?.booking_id) {
+      const mapped = resolveRpcError(rpcResult?.error_code);
+      return finalize(
+        {
+          error: mapped.error,
+          errorCode: mapped.errorCode,
+        },
+        mapped.status,
+        { errorCode: mapped.errorCode }
+      );
+    }
+
+    return finalize(
+      {
+        success: true,
+        bookingId: rpcResult.booking_id,
+        message: 'Réservation créée avec succès',
+      },
+      200,
+      {
+        bookingId: rpcResult.booking_id,
+        errorCode: null,
+      }
+    );
   } catch (error) {
     console.error('Erreur lors du traitement de la réservation:', error);
-    return NextResponse.json(
-      { error: 'Erreur lors du traitement de la réservation' },
-      { status: 500 }
-    );
+    const mapped = buildErrorResponse('internal_error');
+    return finalize(mapped.payload, mapped.status, { errorCode: mapped.payload.errorCode });
   }
 }
-
-// Fonction pour calculer l'heure de fin
-function calculateEndTime(startTime: string, durationMinutes: number): string {
-  const [hours, minutes] = startTime.split(':').map(Number);
-  const startDate = new Date();
-  startDate.setHours(hours, minutes, 0, 0);
-  
-  const endDate = new Date(startDate);
-  endDate.setMinutes(endDate.getMinutes() + durationMinutes);
-  
-  return `${endDate.getHours().toString().padStart(2, '0')}:${endDate.getMinutes().toString().padStart(2, '0')}`;
-}
-
-// Fonction pour vérifier si l'horaire est toujours disponible
-async function checkAvailability(
-  stylistId: string,
-  locationId: string,
-  bookingDate: string,
-  startTime: string,
-  endTime: string
-): Promise<boolean> {
-  // Convertir les heures en minutes pour faciliter les comparaisons
-  const [startHours, startMinutes] = startTime.split(':').map(Number);
-  const [endHours, endMinutes] = endTime.split(':').map(Number);
-  const slotStartMinutes = startHours * 60 + startMinutes;
-  const slotEndMinutes = endHours * 60 + endMinutes;
-
-  // Obtenir le jour de la semaine pour cette date
-  const dayOfWeek = new Date(bookingDate).getDay();
-
-  // Vérifier si l'horaire de réservation est à l'intérieur des plages horaires de travail du styliste
-  const { data: workingHours, error: workingHoursError } = await supabase
-    .from('working_hours')
-    .select('*')
-    .eq('stylist_id', stylistId)
-    .eq('location_id', locationId)
-    .eq('day_of_week', dayOfWeek);
-
-  if (workingHoursError) {
-    console.error('Erreur lors de la vérification des horaires de travail:', workingHoursError);
-    throw new Error('Erreur lors de la vérification des horaires de travail');
-  }
-
-  // Vérifier si l'horaire est dans au moins une plage horaire de travail
-  const isWithinWorkingHours = workingHours?.some(workHour => {
-    const [whStartHours, whStartMins] = workHour.start_time.split(':').map(Number);
-    const [whEndHours, whEndMins] = workHour.end_time.split(':').map(Number);
-    const whStartMinutes = whStartHours * 60 + whStartMins;
-    const whEndMinutes = whEndHours * 60 + whEndMins;
-
-    // Le créneau de réservation doit être entièrement à l'intérieur d'une plage horaire de travail
-    return (slotStartMinutes >= whStartMinutes && slotEndMinutes <= whEndMinutes);
-  });
-
-  if (!isWithinWorkingHours) {
-    console.error('L\'horaire de réservation n\'est pas dans les plages horaires de travail du styliste');
-    return false;
-  }
-
-  // Vérifier s'il y a des réservations existantes qui se chevauchent
-  const { data: existingBookings, error: bookingsError } = await supabase
-    .from('bookings')
-    .select('*')
-    .eq('stylist_id', stylistId)
-    .eq('location_id', locationId)
-    .eq('booking_date', bookingDate)
-    .in('status', ['pending', 'confirmed']);
-
-  if (bookingsError) {
-    console.error('Erreur lors de la vérification de disponibilité:', bookingsError);
-    throw new Error('Erreur lors de la vérification de disponibilité');
-  }
-
-  // Vérifier s'il y a une réservation qui se chevauche
-  const isSlotBooked = existingBookings?.some(booking => {
-    const bookingStartParts = booking.start_time.split(':').map(Number);
-    const bookingEndParts = booking.end_time.split(':').map(Number);
-    const bookingStartTime = bookingStartParts[0] * 60 + bookingStartParts[1];
-    const bookingEndTime = bookingEndParts[0] * 60 + bookingEndParts[1];
-    
-    // Vérifier s'il y a chevauchement
-    return (slotStartMinutes < bookingEndTime && slotEndMinutes > bookingStartTime);
-  });
-
-  // Vérifier s'il y a des temps libres qui se chevauchent
-  const { data: timeOff, error: timeOffError } = await supabase
-    .from('time_off')
-    .select('*')
-    .eq('stylist_id', stylistId)
-    .eq('location_id', locationId)
-    .lte('start_datetime', `${bookingDate}T23:59:59`)
-    .gte('end_datetime', `${bookingDate}T00:00:00`);
-
-  if (timeOffError) {
-    console.error('Erreur lors de la vérification des temps libres:', timeOffError);
-    throw new Error('Erreur lors de la vérification des temps libres');
-  }
-
-  // Vérifier s'il y a un temps libre qui se chevauche
-  const isSlotInTimeOff = timeOff?.some(offTime => {
-    const offStartDateTime = new Date(offTime.start_datetime);
-    const offEndDateTime = new Date(offTime.end_datetime);
-    
-    const offStartDate = offStartDateTime.toISOString().split('T')[0];
-    const offEndDate = offEndDateTime.toISOString().split('T')[0];
-    
-    if (offStartDate <= bookingDate && offEndDate >= bookingDate) {
-      let offStartMinutes = 0; // Début de la journée
-      let offEndMinutes = 24 * 60 - 1; // Fin de la journée
-      
-      if (offStartDate === bookingDate) {
-        offStartMinutes = offStartDateTime.getHours() * 60 + offStartDateTime.getMinutes();
-      }
-      
-      if (offEndDate === bookingDate) {
-        offEndMinutes = offEndDateTime.getHours() * 60 + offEndDateTime.getMinutes();
-      }
-      
-      return (slotStartMinutes < offEndMinutes && slotEndMinutes > offStartMinutes);
-    }
-    
-    return false;
-  });
-
-  // L'horaire est disponible s'il est dans une plage horaire de travail, 
-  // qu'il n'y a pas de réservations ni de temps libres qui se chevauchent
-  return isWithinWorkingHours && !isSlotBooked && !isSlotInTimeOff;
-} 

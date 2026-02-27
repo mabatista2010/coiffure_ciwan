@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { readFileSync } from "node:fs";
 import path from "node:path";
+import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { createClient } from "@supabase/supabase-js";
@@ -581,6 +582,8 @@ const createReservationServer = (baseUrl: string) => {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          "Idempotency-Key": randomUUID(),
+          "X-Booking-Source": "mcp",
         },
         body: JSON.stringify({
           customerName: customer_name,

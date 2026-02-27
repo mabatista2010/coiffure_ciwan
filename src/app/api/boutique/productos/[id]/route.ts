@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import Stripe from 'stripe';
+import { requireStaffAuth } from '@/lib/apiAuth';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -39,6 +40,14 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const auth = await requireStaffAuth(request, {
+      allowedRoles: ['admin'],
+      feature: 'boutique_product_update',
+    });
+    if ('response' in auth) {
+      return auth.response;
+    }
+
     const { id } = await params;
     const body = await request.json();
     const { nombre, descripcion, precio, precio_original, stock, categoria, imagen_url, activo, destacado, orden } = body;
@@ -140,6 +149,14 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const auth = await requireStaffAuth(request, {
+      allowedRoles: ['admin'],
+      feature: 'boutique_product_delete',
+    });
+    if ('response' in auth) {
+      return auth.response;
+    }
+
     const { id } = await params;
     // Obtener el producto para verificar si tiene ID de Stripe
     const { data: producto, error: fetchError } = await supabase

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
+import { getSupabaseAdminClient } from '@/lib/supabaseAdmin';
 
 // Interfaces para reemplazar los tipos any
 interface Booking {
@@ -35,11 +35,13 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    const supabaseAdmin = getSupabaseAdminClient();
+
     // Convertir la date en jour de la semaine (0-6, où 0 est dimanche)
     const dayOfWeek = new Date(date).getDay();
 
     // 1. Obtenir l'horaire de travail du styliste pour ce jour dans ce centre
-    const { data: workingHours, error: workingHoursError } = await supabase
+    const { data: workingHours, error: workingHoursError } = await supabaseAdmin
       .from('working_hours')
       .select('*')
       .eq('stylist_id', stylistId)
@@ -60,7 +62,7 @@ export async function GET(request: NextRequest) {
     }
 
     // 2. Obtenir la durée du service
-    const { data: service, error: serviceError } = await supabase
+    const { data: service, error: serviceError } = await supabaseAdmin
       .from('servicios')
       .select('duration')
       .eq('id', serviceId)
@@ -77,7 +79,7 @@ export async function GET(request: NextRequest) {
     const serviceDuration = service?.duration || 30; // Durée par défaut: 30 minutes
 
     // 3. Obtenir les réservations existantes pour ce styliste, cette date et ce centre
-    const { data: existingBookings, error: bookingsError } = await supabase
+    const { data: existingBookings, error: bookingsError } = await supabaseAdmin
       .from('bookings')
       .select('*')
       .eq('stylist_id', stylistId)
@@ -94,7 +96,7 @@ export async function GET(request: NextRequest) {
     }
 
     // 4. Obtenir les temps libres programmés pour ce styliste, cette date et ce centre
-    const { data: timeOff, error: timeOffError } = await supabase
+    const { data: timeOff, error: timeOffError } = await supabaseAdmin
       .from('time_off')
       .select('*')
       .eq('stylist_id', stylistId)

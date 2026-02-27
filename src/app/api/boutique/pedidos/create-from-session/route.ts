@@ -1,11 +1,19 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import Stripe from 'stripe';
+import { timingSafeEqual } from 'crypto';
 
 interface PedidoItem {
   id: number;
   precio: number;
   cantidad: number;
+}
+
+interface PedidoSummary {
+  id: number;
+  total: number | string;
+  estado: string;
+  created_at: string;
 }
 
 const supabase = createClient(
@@ -17,31 +25,39 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: '2025-06-30.basil',
 });
 
+function isUniqueViolation(error: { code?: string } | null): boolean {
+  return error?.code === '23505';
+}
+
+function isValidSyncToken(token: string): boolean {
+  return /^[a-f0-9]{32,128}$/i.test(token);
+}
+
+function syncTokenMatches(providedToken: string, expectedToken: string): boolean {
+  const providedBuffer = Buffer.from(providedToken);
+  const expectedBuffer = Buffer.from(expectedToken);
+
+  if (providedBuffer.length !== expectedBuffer.length) {
+    return false;
+  }
+
+  return timingSafeEqual(providedBuffer, expectedBuffer);
+}
+
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { sessionId } = body;
+    const sessionId = typeof body?.sessionId === 'string' ? body.sessionId.trim() : '';
+    const syncToken = typeof body?.syncToken === 'string' ? body.syncToken.trim() : '';
 
     if (!sessionId) {
       return NextResponse.json({ error: 'Session ID requerido' }, { status: 400 });
     }
 
-    // Verificar si el pedido ya existe
-    const { data: existingPedido } = await supabase
-      .from('pedidos')
-      .select('id')
-      .eq('stripe_session_id', sessionId)
-      .single();
-
-    if (existingPedido) {
-      return NextResponse.json({ 
-        success: true, 
-        pedidoId: existingPedido.id,
-        message: 'Pedido ya existe' 
-      });
+    if (!syncToken || !isValidSyncToken(syncToken)) {
+      return NextResponse.json({ error: 'Token de sincronización inválido' }, { status: 401 });
     }
 
-    // Obtener la sesión de Stripe
     const session = await stripe.checkout.sessions.retrieve(sessionId);
     
     if (!session) {
@@ -63,12 +79,56 @@ export async function POST(request: Request) {
       }, { status: 400 });
     }
 
+    const expectedSyncToken = (metadata.sync_token || '').trim();
+    if (!expectedSyncToken || !syncTokenMatches(syncToken, expectedSyncToken)) {
+      return NextResponse.json({
+        error: 'Token de sincronización no válido'
+      }, { status: 403 });
+    }
+
+    // Verificar si el pedido ya existe (solo después de validar sync_token)
+    const { data: existingPedido, error: existingPedidoError } = await supabase
+      .from('pedidos')
+      .select('id,total,estado,created_at')
+      .eq('stripe_session_id', session.id)
+      .maybeSingle();
+
+    if (existingPedidoError) {
+      console.error('Error fetching existing pedido:', existingPedidoError);
+      return NextResponse.json({
+        error: 'Error al verificar pedido existente'
+      }, { status: 500 });
+    }
+
+    if (existingPedido) {
+      return NextResponse.json({
+        success: true,
+        pedidoId: existingPedido.id,
+        pedido: existingPedido as PedidoSummary,
+        message: 'Pedido ya existe'
+      });
+    }
+
     const customerName = metadata.customer_name;
     const customerEmail = metadata.customer_email;
     const customerPhone = metadata.customer_phone || null;
     const customerAddress = metadata.customer_address || null;
     const total = parseFloat(metadata.total || '0');
-    const itemsData = JSON.parse(metadata.items || '[]');
+    let itemsData: PedidoItem[] = [];
+
+    try {
+      const parsedItems = JSON.parse(metadata.items || '[]');
+      if (!Array.isArray(parsedItems)) {
+        return NextResponse.json({
+          error: 'Items inválidos en la sesión'
+        }, { status: 400 });
+      }
+      itemsData = parsedItems as PedidoItem[];
+    } catch {
+      return NextResponse.json({
+        error: 'Items inválidos en la sesión'
+      }, { status: 400 });
+    }
 
     if (!customerName || !customerEmail || !total || itemsData.length === 0) {
       return NextResponse.json({ 
@@ -87,16 +147,33 @@ export async function POST(request: Request) {
           cliente_direccion: customerAddress,
           total,
           estado: 'pagado',
-          stripe_payment_intent_id: session.payment_intent as string,
+          stripe_payment_intent_id: typeof session.payment_intent === 'string' ? session.payment_intent : null,
           stripe_session_id: session.id,
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString()
         }
       ])
-      .select()
+      .select('id,total,estado,created_at')
       .single();
 
     if (pedidoError) {
+      if (isUniqueViolation(pedidoError)) {
+        const { data: concurrentPedido, error: concurrentPedidoError } = await supabase
+          .from('pedidos')
+          .select('id,total,estado,created_at')
+          .eq('stripe_session_id', session.id)
+          .maybeSingle();
+
+        if (!concurrentPedidoError && concurrentPedido) {
+          return NextResponse.json({
+            success: true,
+            pedidoId: concurrentPedido.id,
+            pedido: concurrentPedido as PedidoSummary,
+            message: 'Pedido ya existe'
+          });
+        }
+      }
+
       console.error('Error creating pedido:', pedidoError);
       return NextResponse.json({ 
         error: 'Error al crear el pedido en la base de datos' 
@@ -128,6 +205,7 @@ export async function POST(request: Request) {
     return NextResponse.json({
       success: true,
       pedidoId: pedido.id,
+      pedido: pedido as PedidoSummary,
       message: 'Pedido creado exitosamente'
     });
 

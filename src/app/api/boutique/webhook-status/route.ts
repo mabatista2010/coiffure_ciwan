@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import Stripe from 'stripe';
+import { requireStaffAuth } from '@/lib/apiAuth';
 
 interface WebhookInfo {
   id: string;
@@ -19,8 +20,16 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: '2025-06-30.basil',
 });
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
+    const auth = await requireStaffAuth(request, {
+      allowedRoles: ['admin'],
+      feature: 'boutique_webhook_diagnostics',
+    });
+    if ('response' in auth) {
+      return auth.response;
+    }
+
     const diagnostics: {
       stripe_configured: boolean;
       webhook_secret_configured: boolean;

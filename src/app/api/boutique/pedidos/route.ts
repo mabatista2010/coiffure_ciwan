@@ -1,13 +1,19 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { requireStaffAuth } from '@/lib/apiAuth';
+import { getSupabaseAdminClient } from '@/lib/supabaseAdmin';
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
-
-export async function GET() {
+export async function GET(request: Request) {
   try {
+    const auth = await requireStaffAuth(request, {
+      allowedRoles: ['admin'],
+      feature: 'boutique_pedidos_list',
+    });
+    if ('response' in auth) {
+      return auth.response;
+    }
+
+    const supabase = getSupabaseAdminClient();
+
     // Obtener todos los pedidos
     const { data: pedidos, error: pedidosError } = await supabase
       .from('pedidos')

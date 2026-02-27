@@ -1,16 +1,21 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+import { requireStaffAuth } from '@/lib/apiAuth';
+import { getSupabaseAdminClient } from '@/lib/supabaseAdmin';
 
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ sessionId: string }> }
 ) {
   try {
+    const auth = await requireStaffAuth(request, {
+      allowedRoles: ['admin'],
+      feature: 'boutique_pedido_by_session',
+    });
+    if ('response' in auth) {
+      return auth.response;
+    }
+
+    const supabase = getSupabaseAdminClient();
     const { sessionId } = await params;
     
     const { data: pedido, error } = await supabase

@@ -8,9 +8,7 @@ import Link from 'next/link';
 
 interface Pedido {
   id: number;
-  cliente_nombre: string;
-  cliente_email: string;
-  total: number;
+  total: number | string;
   estado: string;
   created_at: string;
 }
@@ -22,6 +20,7 @@ function CheckoutSuccessContent() {
   const [error, setError] = useState<string | null>(null);
 
   const sessionId = searchParams.get('session_id');
+  const syncToken = searchParams.get('sync_token');
 
   useEffect(() => {
     if (!sessionId) {
@@ -30,58 +29,42 @@ function CheckoutSuccessContent() {
       return;
     }
 
-    // Buscar el pedido por session_id
-    const fetchPedidoBySession = async () => {
+    if (!syncToken) {
+      setError('Jeton de synchronisation manquant');
+      setLoading(false);
+      return;
+    }
+
+    // Sincronizar pedido desde sesión Stripe (crea en fallback si no existe)
+    const syncPedidoFromSession = async () => {
       try {
-        const response = await fetch(`/api/boutique/pedidos/session/${sessionId}`);
-        if (response.ok) {
-          const data = await response.json();
-          setPedido(data);
-        } else if (response.status === 404) {
-          // Si no encuentra el pedido, intentar crearlo manualmente como fallback
-          console.log('Pedido no encontrado, intentando crear desde fallback...');
-          await createPedidoFromFallback();
+        console.log('Sincronizando pedido desde fallback para session:', sessionId);
+        const response = await fetch('/api/boutique/pedidos/create-from-session', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ sessionId, syncToken }),
+        });
+
+        const data = await response.json();
+
+        if (response.ok && data.success && data.pedido) {
+          setPedido(data.pedido);
         } else {
-          setError('Erreur lors de la récupération de la commande');
+          console.error('Error syncing pedido from session:', data.error);
+          setError(data.error || 'Erreur lors de la synchronisation de la commande');
         }
       } catch (error) {
-        console.error('Error fetching pedido:', error);
+        console.error('Error syncing pedido:', error);
         setError('Erreur de connexion');
       } finally {
         setLoading(false);
       }
     };
 
-    // Función para crear el pedido manualmente como fallback
-    const createPedidoFromFallback = async () => {
-      try {
-        console.log('Creando pedido desde fallback para session:', sessionId);
-        const response = await fetch('/api/boutique/pedidos/create-from-session', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ sessionId }),
-        });
-
-        const data = await response.json();
-
-        if (response.ok && data.success) {
-          console.log('Pedido creado exitosamente desde fallback:', data.pedidoId);
-          // Recargar la página para mostrar el pedido
-          window.location.reload();
-        } else {
-          console.error('Error creating pedido from fallback:', data.error);
-          setError('Erreur lors de la création de la commande. Veuillez contacter le support.');
-        }
-      } catch (error) {
-        console.error('Error in fallback creation:', error);
-        setError('Erreur de connexion lors de la création de la commande.');
-      }
-    };
-
-    fetchPedidoBySession();
-  }, [sessionId]);
+    syncPedidoFromSession();
+  }, [sessionId, syncToken]);
 
   if (loading) {
     return (
@@ -175,23 +158,13 @@ function CheckoutSuccessContent() {
                 </div>
                 
                 <div className="flex justify-between">
-                  <span className="text-text-medium">Client:</span>
-                  <span className="text-light">{pedido.cliente_nombre}</span>
-                </div>
-                
-                <div className="flex justify-between">
-                  <span className="text-text-medium">Email:</span>
-                  <span className="text-light">{pedido.cliente_email}</span>
-                </div>
-                
-                <div className="flex justify-between">
                   <span className="text-text-medium">Statut:</span>
                   <span className="text-green-400 font-medium capitalize">{pedido.estado}</span>
                 </div>
                 
                 <div className="flex justify-between">
                   <span className="text-text-medium">Total:</span>
-                  <span className="text-primary font-bold text-xl">{pedido.total.toFixed(2)} CHF</span>
+                  <span className="text-primary font-bold text-xl">{Number(pedido.total).toFixed(2)} CHF</span>
                 </div>
                 
                 <div className="flex justify-between">

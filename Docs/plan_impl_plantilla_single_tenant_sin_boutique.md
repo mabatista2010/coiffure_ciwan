@@ -1,0 +1,677 @@
+# Plan Maestro: Crear Plantilla Reutilizable (Single-Tenant por Cliente, sin Boutique/Stripe)
+
+## 1) Objetivo
+
+Crear un **nuevo repositorio plantilla** en `/Users/miguelangelbatistaruiz/Documents` que replique el estado funcional actual de la app para:
+
+- Landing + reservas + panel admin + roles + MCP.
+- **Sin** boutique e-commerce.
+- **Sin** Stripe.
+- Con provisioning de Supabase por cliente (1 proyecto Supabase por cliente).
+
+Este plan está pensado para que lo ejecute un agente end-to-end.
+
+## 2) Fuente de verdad usada (BD real)
+
+Este plan se basa en la **BD real actual** del proyecto Supabase `tvdwepumtrrjpkvnitpw` (auditado hoy), no en SQL local potencialmente desfasado.
+
+Estado real relevante detectado:
+
+- Tablas core activas: `bookings`, `configuracion`, `imagenes_galeria`, `location_hours`, `locations`, `servicios`, `stylist_services`, `stylist_users`, `stylists`, `time_off`, `user_roles`, `working_hours`.
+- Trigger real en `auth.users`: `on_auth_user_created` -> función `public.handle_new_user()`.
+- Buckets reales: `centros`, `estilistas`, `fotos_peluqueria`, `hero_images`, `stylists`.
+- RLS desactivada en `location_hours` (mantener así para paridad actual).
+- Existen tablas boutique (`productos`, `pedidos`, etc.) pero quedan fuera de esta plantilla.
+
+## 3) Inputs que debes pedir al usuario antes de ejecutar
+
+## Variables de scaffold local
+
+- `TEMPLATE_NAME` (ejemplo: `plantilla-saas-peluqueria`)
+- `SOURCE_REPO_PATH` (default: `/Users/miguelangelbatistaruiz/Documents/Proyectos/peluqueriaprueba`)
+- `TARGET_BASE_PATH` (default: `/Users/miguelangelbatistaruiz/Documents`)
+
+## Variables del nuevo Supabase cliente
+
+- `NEW_SUPABASE_PROJECT_ID` (ejemplo: `abcdxyz...`)
+- `NEW_SUPABASE_URL`
+- `NEW_SUPABASE_ANON_KEY`
+- `NEW_ADMIN_EMAIL` (usuario admin inicial)
+
+## Variables opcionales de branding
+
+- `BRAND_NAME`
+- `SITE_URL`
+- `DEFAULT_LOCALE` (si no se pasa, `fr`)
+
+## 4) Resultado esperado
+
+Al finalizar:
+
+1. Existe un repo nuevo en `/Users/miguelangelbatistaruiz/Documents/<TEMPLATE_NAME>`.
+2. No hay código/rutas/deps de boutique ni Stripe.
+3. La BD del nuevo Supabase tiene esquema core + RLS + buckets + trigger de roles.
+4. El proyecto arranca (`npm run dev`), compila (`npm run build`) y reserva/admin funcionan.
+
+---
+
+## 5) Fase A: Crear repo plantilla local
+
+### A.1 Copia limpia desde repo origen
+
+```bash
+export SOURCE_REPO_PATH="/Users/miguelangelbatistaruiz/Documents/Proyectos/peluqueriaprueba"
+export TARGET_BASE_PATH="/Users/miguelangelbatistaruiz/Documents"
+export TEMPLATE_NAME="plantilla-saas-peluqueria"
+
+mkdir -p "$TARGET_BASE_PATH/$TEMPLATE_NAME"
+rsync -a \
+  --exclude '.git' \
+  --exclude 'node_modules' \
+  --exclude '.next' \
+  --exclude '.env.local' \
+  "$SOURCE_REPO_PATH/" "$TARGET_BASE_PATH/$TEMPLATE_NAME/"
+```
+
+### A.2 Inicializar git
+
+```bash
+cd "$TARGET_BASE_PATH/$TEMPLATE_NAME"
+git init
+git add .
+git commit -m "Base inicial plantilla single-tenant sin boutique"
+```
+
+---
+
+## 6) Fase B: Quitar boutique/Stripe del código
+
+### B.1 Eliminar rutas y componentes boutique
+
+Eliminar:
+
+- `src/app/boutique`
+- `src/components/boutique`
+- `src/app/api/boutique`
+- `src/app/admin/boutique`
+- `src/app/admin/webhook-diagnostics`
+- Docs boutique/stripe en raíz (`BOUTIQUE_*.md`, `STRIPE_*.md`, `WEBHOOK_TROUBLESHOOTING.md`) si quieres plantilla minimal.
+
+### B.2 Ajustes obligatorios de código
+
+1. `src/app/layout.tsx`
+- Quitar import y wrapper de `CarritoProvider`.
+
+2. `src/components/Navbar.tsx`
+- Quitar import de carrito (`CarritoButton`, `Carrito`, `useCarrito`).
+- Quitar enlace `/boutique`.
+
+3. `src/components/AdminNav.tsx`
+- Quitar ítem de navegación `/admin/boutique`.
+- Quitar iconos/imports usados solo por boutique.
+
+4. `src/app/mcp/route.ts`
+- Ajustar textos que mencionan “boutique” en `get_welcome`.
+
+5. `package.json`
+- Eliminar dependencia `stripe`.
+
+6. `env.example`
+- Eliminar `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `NEXT_PUBLIC_BASE_URL` si solo se usaba para Stripe.
+- Mantener:
+  - `NEXT_PUBLIC_SUPABASE_URL`
+  - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+
+### B.3 Verificación de limpieza boutique/stripe
+
+```bash
+rg -n "boutique|stripe|CarritoProvider|/api/boutique|pedidos|productos|carrito" src
+```
+
+Debe no devolver referencias funcionales activas (solo menciones históricas en docs, si decides conservarlas).
+
+---
+
+## 7) Fase C: Crear migraciones canónicas (basadas en BD real)
+
+Crear carpeta:
+
+```bash
+mkdir -p supabase/migrations
+```
+
+Crear estos archivos SQL en ese orden.
+
+## 001_core_schema.sql
+
+```sql
+create extension if not exists "uuid-ossp";
+
+create table if not exists public.locations (
+  id uuid primary key default extensions.uuid_generate_v4(),
+  name text not null,
+  address text not null,
+  phone text not null,
+  email text not null,
+  description text,
+  image text,
+  created_at timestamptz default now(),
+  active boolean default true
+);
+
+create table if not exists public.servicios (
+  id bigint generated by default as identity primary key,
+  nombre text not null,
+  descripcion text not null,
+  precio numeric not null,
+  imagen_url text not null,
+  created_at timestamptz default now(),
+  duration integer default 30,
+  active boolean default true
+);
+
+create table if not exists public.stylists (
+  id uuid primary key default extensions.uuid_generate_v4(),
+  name text not null,
+  bio text,
+  specialties text[],
+  profile_img text,
+  created_at timestamptz default now(),
+  location_ids uuid[],
+  active boolean default true
+);
+
+create table if not exists public.configuracion (
+  id bigint generated by default as identity primary key,
+  clave text not null unique,
+  valor text not null,
+  descripcion text,
+  created_at timestamptz default now(),
+  updated_at timestamptz default now()
+);
+
+create table if not exists public.imagenes_galeria (
+  id bigint generated by default as identity primary key,
+  descripcion text not null,
+  imagen_url text not null,
+  fecha date not null,
+  created_at timestamptz default now()
+);
+
+create table if not exists public.location_hours (
+  id uuid primary key default extensions.uuid_generate_v4(),
+  location_id uuid references public.locations(id) on delete cascade,
+  day_of_week integer not null,
+  slot_number integer not null,
+  start_time time not null,
+  end_time time not null,
+  created_at timestamptz default now(),
+  unique (location_id, day_of_week, slot_number)
+);
+
+create table if not exists public.stylist_services (
+  id uuid primary key default extensions.uuid_generate_v4(),
+  stylist_id uuid references public.stylists(id) on delete cascade,
+  service_id bigint references public.servicios(id) on delete cascade,
+  created_at timestamptz default now()
+);
+
+create table if not exists public.working_hours (
+  id uuid primary key default extensions.uuid_generate_v4(),
+  stylist_id uuid references public.stylists(id) on delete cascade,
+  location_id uuid references public.locations(id) on delete cascade,
+  day_of_week integer check (day_of_week >= 0 and day_of_week <= 6),
+  start_time time not null,
+  end_time time not null,
+  created_at timestamptz default now()
+);
+
+create table if not exists public.time_off (
+  id uuid primary key default extensions.uuid_generate_v4(),
+  stylist_id uuid references public.stylists(id) on delete cascade,
+  location_id uuid references public.locations(id) on delete cascade,
+  start_datetime timestamptz not null,
+  end_datetime timestamptz not null,
+  reason text,
+  created_at timestamptz default now()
+);
+
+create table if not exists public.bookings (
+  id uuid primary key default extensions.uuid_generate_v4(),
+  customer_name text not null,
+  customer_email text not null,
+  customer_phone text not null,
+  stylist_id uuid references public.stylists(id) on delete set null,
+  service_id bigint references public.servicios(id) on delete set null,
+  location_id uuid references public.locations(id) on delete set null,
+  booking_date date not null,
+  start_time time not null,
+  end_time time not null,
+  status text not null default 'pending' check (status in ('pending','confirmed','cancelled','completed')),
+  notes text,
+  created_at timestamptz default now()
+);
+
+create table if not exists public.user_roles (
+  id uuid primary key references auth.users(id) on delete cascade,
+  role varchar not null default 'employee',
+  created_at timestamptz default now(),
+  updated_at timestamptz default now()
+);
+
+create table if not exists public.stylist_users (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  stylist_id uuid not null references public.stylists(id) on delete cascade,
+  created_at timestamptz default now(),
+  updated_at timestamptz default now(),
+  unique (user_id, stylist_id)
+);
+
+create index if not exists idx_user_roles_role on public.user_roles(role);
+create index if not exists idx_stylist_users_user_id on public.stylist_users(user_id);
+create index if not exists idx_stylist_users_stylist_id on public.stylist_users(stylist_id);
+```
+
+## 002_core_rls.sql
+
+```sql
+alter table public.bookings enable row level security;
+alter table public.configuracion enable row level security;
+alter table public.imagenes_galeria enable row level security;
+-- location_hours queda SIN RLS para paridad funcional actual
+alter table public.locations enable row level security;
+alter table public.servicios enable row level security;
+alter table public.stylist_services enable row level security;
+alter table public.stylists enable row level security;
+alter table public.time_off enable row level security;
+alter table public.user_roles enable row level security;
+alter table public.stylist_users enable row level security;
+alter table public.working_hours enable row level security;
+
+-- BOOKINGS
+create policy "Permitir creación de reservas a público"
+  on public.bookings for insert
+  with check (true);
+
+create policy "Permitir gestión completa a usuarios autenticados de bookings"
+  on public.bookings for all to authenticated
+  using (true);
+
+create policy "Permitir lectura de propias reservas"
+  on public.bookings for select
+  using (true);
+
+-- CONFIGURACION
+create policy "Permitir gestión de configuración a usuarios autenticados"
+  on public.configuracion for all to authenticated
+  using (true);
+
+create policy "Permitir lectura pública de configuración"
+  on public.configuracion for select to anon
+  using (true);
+
+-- IMAGENES GALERIA
+create policy "Permitir gestión de imágenes a usuarios autenticados"
+  on public.imagenes_galeria for all to authenticated
+  using (true);
+
+create policy "Permitir lectura pública de imágenes"
+  on public.imagenes_galeria for select to anon
+  using (true);
+
+-- LOCATIONS
+create policy "Permitir gestión completa a usuarios autenticados de locations"
+  on public.locations for all to authenticated
+  using (true);
+
+create policy "Permitir lectura pública de locations"
+  on public.locations for select
+  using (true);
+
+-- SERVICIOS
+create policy "Permitir gestión de servicios a usuarios autenticados"
+  on public.servicios for all to authenticated
+  using (true);
+
+create policy "Permitir lectura pública de servicios"
+  on public.servicios for select to anon
+  using (true);
+
+-- STYLIST_SERVICES
+create policy "Permitir gestión completa a usuarios autenticados de stylist_s"
+  on public.stylist_services for all to authenticated
+  using (true);
+
+create policy "Permitir lectura pública de stylist_services"
+  on public.stylist_services for select
+  using (true);
+
+-- STYLISTS
+create policy "Permitir gestión completa a usuarios autenticados de stylists"
+  on public.stylists for all to authenticated
+  using (true);
+
+create policy "Permitir lectura pública de stylists"
+  on public.stylists for select
+  using (true);
+
+-- TIME_OFF
+create policy "Permitir gestión completa a usuarios autenticados de time_off"
+  on public.time_off for all to authenticated
+  using (true);
+
+-- WORKING_HOURS
+create policy "Permitir gestión completa a usuarios autenticados de working_h"
+  on public.working_hours for all to authenticated
+  using (true);
+
+create policy "Permitir lectura pública de working_hours"
+  on public.working_hours for select
+  using (true);
+
+-- USER_ROLES
+create policy "Los usuarios autenticados pueden leer user_roles"
+  on public.user_roles for select to authenticated
+  using (true);
+
+create policy "Solo los administradores pueden insertar en user_roles"
+  on public.user_roles for insert to authenticated
+  with check (
+    exists (
+      select 1 from public.user_roles ur
+      where ur.id = auth.uid() and ur.role = 'admin'
+    )
+  );
+
+create policy "Solo los administradores pueden actualizar user_roles"
+  on public.user_roles for update to authenticated
+  using (
+    exists (
+      select 1 from public.user_roles ur
+      where ur.id = auth.uid() and ur.role = 'admin'
+    )
+  )
+  with check (
+    exists (
+      select 1 from public.user_roles ur
+      where ur.id = auth.uid() and ur.role = 'admin'
+    )
+  );
+
+create policy "Solo los administradores pueden eliminar de user_roles"
+  on public.user_roles for delete to authenticated
+  using (
+    exists (
+      select 1 from public.user_roles ur
+      where ur.id = auth.uid() and ur.role = 'admin'
+    )
+  );
+
+-- STYLIST_USERS
+create policy "Los usuarios autenticados pueden leer stylist_users"
+  on public.stylist_users for select to authenticated
+  using (true);
+
+create policy "Solo los administradores pueden insertar en stylist_users"
+  on public.stylist_users for insert to authenticated
+  with check (
+    exists (
+      select 1 from public.user_roles ur
+      where ur.id = auth.uid() and ur.role = 'admin'
+    )
+  );
+
+create policy "Solo los administradores pueden actualizar stylist_users"
+  on public.stylist_users for update to authenticated
+  using (
+    exists (
+      select 1 from public.user_roles ur
+      where ur.id = auth.uid() and ur.role = 'admin'
+    )
+  )
+  with check (
+    exists (
+      select 1 from public.user_roles ur
+      where ur.id = auth.uid() and ur.role = 'admin'
+    )
+  );
+
+create policy "Solo los administradores pueden eliminar de stylist_users"
+  on public.stylist_users for delete to authenticated
+  using (
+    exists (
+      select 1 from public.user_roles ur
+      where ur.id = auth.uid() and ur.role = 'admin'
+    )
+  );
+```
+
+## 003_core_auth_trigger.sql
+
+```sql
+create or replace function public.handle_new_user()
+returns trigger
+language plpgsql
+security definer
+as $$
+begin
+  insert into public.user_roles (id, role)
+  values (new.id, 'employee')
+  on conflict (id) do nothing;
+  return new;
+end;
+$$;
+
+drop trigger if exists on_auth_user_created on auth.users;
+
+create trigger on_auth_user_created
+after insert on auth.users
+for each row execute function public.handle_new_user();
+```
+
+## 004_storage_buckets_policies.sql
+
+```sql
+insert into storage.buckets (id, name, public)
+values
+  ('centros','centros',true),
+  ('estilistas','estilistas',true),
+  ('fotos_peluqueria','fotos_peluqueria',true),
+  ('hero_images','hero_images',true),
+  ('stylists','stylists',true)
+on conflict (id) do nothing;
+
+-- centros
+create policy "Permitir acceso público de lectura al bucket centros"
+on storage.objects for select
+using (bucket_id = 'centros');
+
+create policy "Permitir inserción de imágenes en centros para usuarios autenticados"
+on storage.objects for insert to public
+with check (bucket_id = 'centros' and auth.role() = 'authenticated');
+
+create policy "Permitir actualización de imágenes en centros para usuarios autenticados"
+on storage.objects for update to public
+using (bucket_id = 'centros' and auth.role() = 'authenticated');
+
+create policy "Permitir eliminación de imágenes en centros para usuarios autenticados"
+on storage.objects for delete to public
+using (bucket_id = 'centros' and auth.role() = 'authenticated');
+
+-- stylists
+create policy "Imágenes de Estilistas - Lectura Pública"
+on storage.objects for select
+using (bucket_id = 'stylists');
+
+create policy "Imágenes de Estilistas - Solo Administradores Pueden Insertar"
+on storage.objects for insert to authenticated
+with check (bucket_id = 'stylists');
+
+create policy "Imágenes de Estilistas - Solo Administradores Pueden Actualizar"
+on storage.objects for update to authenticated
+using (bucket_id = 'stylists');
+
+create policy "Imágenes de Estilistas - Solo Administradores Pueden Eliminar"
+on storage.objects for delete to authenticated
+using (bucket_id = 'stylists');
+
+-- fotos_peluqueria
+create policy "Permitir lectura pública de imágenes"
+on storage.objects for select
+using (bucket_id = 'fotos_peluqueria');
+
+create policy "Permitir subida de imágenes a usuarios autenticados"
+on storage.objects for insert to authenticated
+with check (bucket_id = 'fotos_peluqueria');
+
+create policy "Permitir actualización de imágenes a usuarios autenticados"
+on storage.objects for update to authenticated
+using (bucket_id = 'fotos_peluqueria');
+
+create policy "Permitir eliminación de imágenes a usuarios autenticados"
+on storage.objects for delete to authenticated
+using (bucket_id = 'fotos_peluqueria');
+
+-- hero_images
+create policy "Permitir lectura pública de hero_images"
+on storage.objects for select
+using (bucket_id = 'hero_images');
+
+create policy "Permitir gestión de hero_images a usuarios autenticados"
+on storage.objects for all to authenticated
+using (bucket_id = 'hero_images')
+with check (bucket_id = 'hero_images');
+```
+
+## 005_seed_base.sql (mínimo)
+
+```sql
+insert into public.configuracion (clave, valor, descripcion)
+values
+  ('hero_title', 'Nom du Salon de Coiffure', 'Título hero'),
+  ('hero_subtitle', 'Le meilleur salon de coiffure pour hommes et enfants', 'Subtítulo hero'),
+  ('hero_image_desktop', '/hero-background-desktop.jpg', 'Hero desktop'),
+  ('hero_image_mobile', '/hero-background-mobile.jpg', 'Hero mobile'),
+  ('contact_phone', '+33 1 23 45 67 89', 'Teléfono principal'),
+  ('contact_email', 'contact@example.com', 'Email principal')
+on conflict (clave) do update set
+  valor = excluded.valor,
+  descripcion = excluded.descripcion,
+  updated_at = now();
+```
+
+---
+
+## 8) Fase D: Aplicar migraciones al nuevo proyecto Supabase
+
+Orden estricto:
+
+1. `001_core_schema.sql`
+2. `002_core_rls.sql`
+3. `003_core_auth_trigger.sql`
+4. `004_storage_buckets_policies.sql`
+5. `005_seed_base.sql`
+
+Si el agente usa MCP Supabase, aplicar cada archivo con `apply_migration` usando `NEW_SUPABASE_PROJECT_ID`.
+
+---
+
+## 9) Fase E: Configurar admin inicial
+
+1. Crear usuario en Supabase Auth con `NEW_ADMIN_EMAIL` (dashboard o script de admin API).
+2. Ejecutar:
+
+```sql
+insert into public.user_roles (id, role)
+select id, 'admin'
+from auth.users
+where email = '<NEW_ADMIN_EMAIL>'
+on conflict (id) do update
+set role = excluded.role,
+    updated_at = now();
+```
+
+3. Verificar:
+
+```sql
+select u.email, ur.role
+from auth.users u
+join public.user_roles ur on ur.id = u.id
+where u.email = '<NEW_ADMIN_EMAIL>';
+```
+
+---
+
+## 10) Fase F: Configuración de entorno y arranque
+
+En repo plantilla:
+
+```bash
+cp env.example .env.local
+```
+
+Rellenar:
+
+```env
+NEXT_PUBLIC_SUPABASE_URL=<NEW_SUPABASE_URL>
+NEXT_PUBLIC_SUPABASE_ANON_KEY=<NEW_SUPABASE_ANON_KEY>
+```
+
+Instalar y validar:
+
+```bash
+npm install
+npm run lint
+npm run build
+npm run dev
+```
+
+---
+
+## 11) Fase G: Smoke tests funcionales
+
+Checklist mínimo:
+
+1. Landing carga sin errores.
+2. `/reservation` flujo completo hasta crear reserva.
+3. `/admin` login correcto con admin.
+4. Gestión de servicios/galería/stylists/locations operativa.
+5. `/admin/reservations` lista, filtro y cambio de estado operativos.
+6. `/admin/user-management` visible para admin y funcional.
+7. `POST /api/reservation/create` y `GET /api/reservation/availability` responden OK.
+8. Subidas de imágenes funcionan en buckets esperados.
+
+---
+
+## 12) Criterios de aceptación
+
+Se considera completado si:
+
+1. No existe código activo de boutique/Stripe.
+2. El nuevo proyecto Supabase tiene solo el dominio core funcional (reservas/admin/roles/storage).
+3. Build y lint pasan.
+4. Reserva pública y panel admin funcionan de extremo a extremo.
+
+---
+
+## 13) Riesgos y controles (importante)
+
+1. **RLS de bookings abierta en SELECT (`using true`)**: es paridad con estado actual, pero tiene riesgo PII.
+2. **Control de acceso admin muy en frontend**: recomendable endurecer en fase posterior (middleware + checks backend).
+3. **Condición de carrera en creación de reservas**: hoy no hay constraint anti-solape transaccional en DB.
+
+Mantengo estos puntos porque el objetivo aquí es **paridad funcional** con el estado actual.
+
+---
+
+## 14) Entregables que debe dejar el agente
+
+1. Repo creado: `/Users/miguelangelbatistaruiz/Documents/<TEMPLATE_NAME>`.
+2. Carpeta `supabase/migrations` con los 5 SQL anteriores.
+3. Código sin boutique/stripe.
+4. Reporte final con:
+- Commits realizados.
+- Resultado de lint/build.
+- Resultado de smoke tests.
+- Incidencias encontradas.
