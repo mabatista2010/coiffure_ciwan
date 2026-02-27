@@ -192,6 +192,7 @@ Steel & Blade est l’application web de **Coiffure Ciwan**, un salon masculin m
   - Calendrier admin avec vues `Mois / Semaine / Jour` et navigation temporelle adaptative selon la vue active.
   - Vue `Semaine` enrichie en agenda colonnes (7 jours) avec détails des rendez-vous par jour, scroll horizontal (tablet/mobile) et accès rapide `Voir le jour`.
   - Création manuelle via `/admin/reservations/nueva`.
+  - Dans `/admin/reservations/nueva`, les filtres sont relationnels et bidirectionnels: styliste, centre, service, date et horaire se recoupent pour n'afficher que des options réellement compatibles (sans ordre imposé de sélection).
   - Dans `/admin/reservations/nueva`, le choix d'un créneau horaire n'ouvre plus automatiquement le modal client: il alimente une card de résumé (service/date/heure) avec action explicite **"Données du client"**.
   - Les modals de `/admin/reservations/nueva` utilisent `Dialog` + `ScrollArea` (shadcn) avec hauteur contrainte mobile, et les créneaux horaires sont groupés par périodes (`Matin`, `Après-midi`, `Soir`) pour éviter les listes infinies.
 - **CRM**

@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { supabase, Location, Stylist, AvailabilitySlot, Service, StylistService } from '@/lib/supabase';
+import { useState, useEffect, useMemo, useCallback } from 'react';
+import { supabase, Location, Stylist, AvailabilitySlot, Service } from '@/lib/supabase';
 import { FaUser, FaMapMarkerAlt, FaCalendarDay, FaArrowLeft, FaCheck, FaFilter, FaSyncAlt } from 'react-icons/fa';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
@@ -29,6 +29,14 @@ import { Textarea } from '@/components/ui/textarea';
 import { getImageUrl } from '@/lib/getImageUrl';
 
 type TimeSlotPeriod = 'morning' | 'afternoon' | 'evening';
+type ReservationCombination = {
+  stylistId: string;
+  locationId: string;
+  serviceId: string;
+};
+
+const buildCombinationKey = ({ stylistId, locationId, serviceId }: ReservationCombination): string =>
+  `${stylistId}|${locationId}|${serviceId}`;
 
 const timeSlotLabels: Record<TimeSlotPeriod, string> = {
   morning: 'Matin',
@@ -58,7 +66,6 @@ export default function NuevaReservacion() {
   const [allStylists, setAllStylists] = useState<Stylist[]>([]);
   const [allLocations, setAllLocations] = useState<Location[]>([]);
   const [allServices, setAllServices] = useState<Service[]>([]);
-  const [stylistServices, setStylistServices] = useState<StylistService[]>([]);
   
   // Estados para datos filtrados
   const [stylists, setStylists] = useState<Stylist[]>([]);
@@ -83,11 +90,9 @@ export default function NuevaReservacion() {
   const [bookingSuccess, setBookingSuccess] = useState<boolean>(false);
   const [bookingError, setBookingError] = useState<string | null>(null);
   
-  // Relaciones entre estilistas y centros
-  const [stylistLocations, setStylistLocations] = useState<Record<string, string[]>>({});
-  const [locationStylists, setLocationStylists] = useState<Record<string, string[]>>({});
-  const [serviceStylists, setServiceStylists] = useState<Record<string, string[]>>({});
-  const [serviceLocations, setServiceLocations] = useState<Record<string, string[]>>({});
+  // Relación real entre estilista-centro-servicio (combinaciones posibles)
+  const [allCombinations, setAllCombinations] = useState<ReservationCombination[]>([]);
+  const [availabilityByDate, setAvailabilityByDate] = useState<Record<string, Record<string, AvailabilitySlot[]>>>({});
   
   // Añadir nuevos estados para controlar la disponibilidad de los días
   const [closedDays, setClosedDays] = useState<string[]>([]);
@@ -145,68 +150,50 @@ export default function NuevaReservacion() {
         setAllStylists(stylistsData || []);
         setAllLocations(locationsData || []);
         setAllServices(servicesData || []);
-        setStylistServices(stylistServicesData || []);
         
         // Inicialmente, las listas filtradas son iguales a las completas
         setStylists(stylistsData || []);
         setLocations(locationsData || []);
         setServices(servicesData || []);
         
-        // Crear mappings de relaciones
+        // Crear mapping de relaciones estilista-centro
         const stylistToLocations: Record<string, string[]> = {};
-        const locationToStylists: Record<string, string[]> = {};
-        const serviceToStylists: Record<string, string[]> = {};
-        const serviceToLocations: Record<string, string[]> = {};
         
         // Relaciones estilista-centro (desde working_hours)
         workingHoursData?.forEach(wh => {
           if (!stylistToLocations[wh.stylist_id]) {
             stylistToLocations[wh.stylist_id] = [];
           }
-          if (!locationToStylists[wh.location_id]) {
-            locationToStylists[wh.location_id] = [];
-          }
           
           if (!stylistToLocations[wh.stylist_id].includes(wh.location_id)) {
             stylistToLocations[wh.stylist_id].push(wh.location_id);
           }
-          
-          if (!locationToStylists[wh.location_id].includes(wh.stylist_id)) {
-            locationToStylists[wh.location_id].push(wh.stylist_id);
-          }
         });
         
-        // Relaciones servicio-estilista (desde stylist_services)
+        // Construir combinaciones reales estilista-centro-servicio
+        const combinations: ReservationCombination[] = [];
+        const combinationKeys = new Set<string>();
+
         stylistServicesData?.forEach(ss => {
-          if (!serviceToStylists[ss.service_id]) {
-            serviceToStylists[ss.service_id] = [];
-          }
-          
-          if (!serviceToStylists[ss.service_id].includes(ss.stylist_id)) {
-            serviceToStylists[ss.service_id].push(ss.stylist_id);
-          }
-        });
-        
-        // Derivar relaciones servicio-centro
-        Object.entries(serviceToStylists).forEach(([serviceId, stylistIds]) => {
-          serviceToLocations[serviceId] = [];
-          
-          stylistIds.forEach(stylistId => {
-            const locationsForStylist = stylistToLocations[stylistId] || [];
-            
-            locationsForStylist.forEach(locationId => {
-              if (!serviceToLocations[serviceId].includes(locationId)) {
-                serviceToLocations[serviceId].push(locationId);
-              }
-            });
+          const stylistId = ss.stylist_id;
+          const serviceId = ss.service_id.toString();
+          const locationsForStylist = stylistToLocations[stylistId] || [];
+
+          locationsForStylist.forEach(locationId => {
+            const combination: ReservationCombination = {
+              stylistId,
+              locationId,
+              serviceId,
+            };
+            const key = buildCombinationKey(combination);
+            if (!combinationKeys.has(key)) {
+              combinationKeys.add(key);
+              combinations.push(combination);
+            }
           });
         });
-        
-        // Guardar todas las relaciones
-        setStylistLocations(stylistToLocations);
-        setLocationStylists(locationToStylists);
-        setServiceStylists(serviceToStylists);
-        setServiceLocations(serviceToLocations);
+
+        setAllCombinations(combinations);
       } catch (error) {
         console.error('Error al cargar datos iniciales:', error);
       } finally {
@@ -217,161 +204,236 @@ export default function NuevaReservacion() {
     fetchInitialData();
   }, []);
 
-  // Actualizar opciones al cambiar selección de estilista
-  useEffect(() => {
-    if (selectedStylist) {
-      // Filtrar centros donde trabaja este estilista
-      const availableLocations = stylistLocations[selectedStylist] || [];
-      setLocations(allLocations.filter(loc => availableLocations.includes(loc.id)));
-      
-      // Filtrar servicios que ofrece este estilista
-      const availableServiceIds = stylistServices
-        .filter(ss => ss.stylist_id === selectedStylist)
-        .map(ss => ss.service_id);
-      setServices(allServices.filter(service => availableServiceIds.includes(service.id)));
-      
-      // Si el centro o servicio seleccionado ya no está disponible para este estilista, resetear
-      if (selectedLocation && !availableLocations.includes(selectedLocation)) {
-        setSelectedLocation('');
-        setLocationDetail(null);
-      }
-      
-      if (selectedService && !availableServiceIds.includes(parseInt(selectedService))) {
-        setSelectedService('');
-      }
-    } else {
-      // Si no hay estilista seleccionado, aplicar solo otros filtros activos
-      if (selectedLocation) {
-        const stylistsInLocation = locationStylists[selectedLocation] || [];
-        setStylists(allStylists.filter(s => stylistsInLocation.includes(s.id)));
-        
-        if (selectedService) {
-          const stylistsForService = serviceStylists[selectedService] || [];
-          const availableStylists = stylistsInLocation.filter(
-            stylistId => stylistsForService.includes(stylistId)
-          );
-          setStylists(allStylists.filter(s => availableStylists.includes(s.id)));
-        }
-      } else if (selectedService) {
-        const stylistsForService = serviceStylists[selectedService] || [];
-        setStylists(allStylists.filter(s => stylistsForService.includes(s.id)));
-      } else {
-        setStylists(allStylists);
-        setLocations(allLocations);
-        setServices(allServices);
-      }
-    }
-  }, [selectedStylist, allLocations, allServices, stylistLocations, stylistServices, selectedLocation, selectedService, allStylists, locationStylists, serviceStylists]);
+  const primaryFilteredCombinations = useMemo(() => {
+    return allCombinations.filter(combination => {
+      if (selectedStylist && combination.stylistId !== selectedStylist) return false;
+      if (selectedLocation && combination.locationId !== selectedLocation) return false;
+      if (selectedService && combination.serviceId !== selectedService) return false;
+      return true;
+    });
+  }, [allCombinations, selectedStylist, selectedLocation, selectedService]);
 
-  // Actualizar opciones al cambiar selección de centro
-  useEffect(() => {
-    if (selectedLocation) {
-      // Filtrar estilistas que trabajan en este centro
-      const availableStylistsIds = locationStylists[selectedLocation] || [];
-      setStylists(allStylists.filter(stylist => availableStylistsIds.includes(stylist.id)));
-      
-      // Filtrar servicios disponibles en este centro
-      const servicesInLocation = new Set<number>();
-      
-      availableStylistsIds.forEach(stylistId => {
-        stylistServices
-          .filter(ss => ss.stylist_id === stylistId)
-          .forEach(ss => servicesInLocation.add(ss.service_id));
-      });
-      
-      setServices(allServices.filter(service => servicesInLocation.has(service.id)));
-      
-      // Si el estilista seleccionado no trabaja en este centro, resetear
-      if (selectedStylist && !availableStylistsIds.includes(selectedStylist)) {
-        setSelectedStylist('');
-        setStylistDetail(null);
-      }
-      
-      // Si el servicio seleccionado no está disponible en este centro, resetear
-      if (selectedService && !Array.from(servicesInLocation).includes(parseInt(selectedService))) {
-        setSelectedService('');
-      }
-    } else {
-      // Si no hay centro seleccionado, aplicar solo otros filtros activos
-      if (selectedStylist) {
-        const locationsForStylist = stylistLocations[selectedStylist] || [];
-        setLocations(allLocations.filter(loc => locationsForStylist.includes(loc.id)));
-        
-        if (selectedService) {
-          const locationsForService = serviceLocations[selectedService] || [];
-          const availableLocations = locationsForStylist.filter(
-            locationId => locationsForService.includes(locationId)
-          );
-          setLocations(allLocations.filter(loc => availableLocations.includes(loc.id)));
-        }
-      } else if (selectedService) {
-        const locationsForService = serviceLocations[selectedService] || [];
-        setLocations(allLocations.filter(loc => locationsForService.includes(loc.id)));
-      } else {
-        setStylists(allStylists);
-        setLocations(allLocations);
-        setServices(allServices);
-      }
-    }
-  }, [selectedLocation, allStylists, allServices, locationStylists, stylistServices, selectedStylist, selectedService, allLocations, serviceLocations, stylistLocations]);
+  const mergeAvailableSlotsForCombinations = useCallback(
+    (
+      combinations: ReservationCombination[],
+      dateCache: Record<string, AvailabilitySlot[]>
+    ): AvailabilitySlot[] => {
+      const uniqueTimes = new Set<string>();
 
-  // Actualizar opciones al cambiar selección de servicio
-  useEffect(() => {
-    if (selectedService) {
-      // Filtrar estilistas que ofrecen este servicio
-      const availableStylistsIds = serviceStylists[selectedService] || [];
-      setStylists(allStylists.filter(stylist => availableStylistsIds.includes(stylist.id)));
-      
-      // Filtrar centros donde se ofrece este servicio
-      const availableLocationsIds = serviceLocations[selectedService] || [];
-      setLocations(allLocations.filter(loc => availableLocationsIds.includes(loc.id)));
-      
-      // Si el estilista seleccionado no ofrece este servicio, resetear
-      if (selectedStylist && !availableStylistsIds.includes(selectedStylist)) {
-        setSelectedStylist('');
-        setStylistDetail(null);
-      }
-      
-      // Si el centro seleccionado no ofrece este servicio, resetear
-      if (selectedLocation && !availableLocationsIds.includes(selectedLocation)) {
-        setSelectedLocation('');
-        setLocationDetail(null);
-      }
-    } else {
-      // Si no hay servicio seleccionado, aplicar solo otros filtros activos
-      if (selectedStylist) {
-        const availableServiceIds = stylistServices
-          .filter(ss => ss.stylist_id === selectedStylist)
-          .map(ss => ss.service_id);
-        setServices(allServices.filter(service => availableServiceIds.includes(service.id)));
-        
-        if (selectedLocation) {
-          // Encontrar servicios que ofrece este estilista en este centro específico
-          const stylistsInLocation = locationStylists[selectedLocation] || [];
-          if (stylistsInLocation.includes(selectedStylist)) {
-            setServices(allServices.filter(service => availableServiceIds.includes(service.id)));
-          } else {
-            setServices([]);
+      combinations.forEach(combination => {
+        const key = buildCombinationKey(combination);
+        const slots = dateCache[key] || [];
+        slots.forEach(slot => {
+          if (slot.available) {
+            uniqueTimes.add(slot.time);
           }
-        }
-      } else if (selectedLocation) {
-        const availableStylistsIds = locationStylists[selectedLocation] || [];
-        const servicesInLocation = new Set<number>();
-        
-        availableStylistsIds.forEach(stylistId => {
-          stylistServices
-            .filter(ss => ss.stylist_id === stylistId)
-            .forEach(ss => servicesInLocation.add(ss.service_id));
         });
-        
-        setServices(allServices.filter(service => servicesInLocation.has(service.id)));
-      } else {
-        setStylists(allStylists);
-        setLocations(allLocations);
-        setServices(allServices);
+      });
+
+      return Array.from(uniqueTimes)
+        .sort((a, b) => a.localeCompare(b))
+        .map(time => ({ time, available: true }));
+    },
+    []
+  );
+
+  const ensureAvailabilityForDate = useCallback(
+    async (
+      date: string,
+      combinations: ReservationCombination[]
+    ): Promise<Record<string, AvailabilitySlot[]>> => {
+      const existingForDate = availabilityByDate[date] || {};
+      const uniqueCombinations = combinations.filter((combination, index, arr) => {
+        const key = buildCombinationKey(combination);
+        return arr.findIndex(candidate => buildCombinationKey(candidate) === key) === index;
+      });
+
+      const missingCombinations = uniqueCombinations.filter(
+        combination => !existingForDate[buildCombinationKey(combination)]
+      );
+
+      if (missingCombinations.length === 0) {
+        return existingForDate;
       }
+
+      const fetchedEntries = await Promise.all(
+        missingCombinations.map(async combination => {
+          const params = new URLSearchParams({
+            date,
+            stylistId: combination.stylistId,
+            locationId: combination.locationId,
+            serviceId: combination.serviceId,
+          });
+
+          try {
+            const response = await fetch(`/api/reservation/availability?${params.toString()}`);
+            if (!response.ok) {
+              return {
+                key: buildCombinationKey(combination),
+                slots: [] as AvailabilitySlot[],
+              };
+            }
+
+            const payload = await response.json();
+            return {
+              key: buildCombinationKey(combination),
+              slots: (payload.availableSlots || []) as AvailabilitySlot[],
+            };
+          } catch (error) {
+            console.error('Erreur lors du chargement des disponibilités:', error);
+            return {
+              key: buildCombinationKey(combination),
+              slots: [] as AvailabilitySlot[],
+            };
+          }
+        })
+      );
+
+      const fetchedByKey = fetchedEntries.reduce<Record<string, AvailabilitySlot[]>>((acc, entry) => {
+        acc[entry.key] = entry.slots;
+        return acc;
+      }, {});
+
+      const merged = {
+        ...existingForDate,
+        ...fetchedByKey,
+      };
+
+      setAvailabilityByDate(prev => ({
+        ...prev,
+        [date]: {
+          ...(prev[date] || {}),
+          ...fetchedByKey,
+        },
+      }));
+
+      return merged;
+    },
+    [availabilityByDate]
+  );
+
+  const isDateAvailabilityReady = useMemo(() => {
+    if (!selectedDate) return true;
+    const dateCache = availabilityByDate[selectedDate] || {};
+    return primaryFilteredCombinations.every(
+      combination => Boolean(dateCache[buildCombinationKey(combination)])
+    );
+  }, [selectedDate, availabilityByDate, primaryFilteredCombinations]);
+
+  const dateFilteredCombinations = useMemo(() => {
+    if (!selectedDate || !isDateAvailabilityReady) {
+      return primaryFilteredCombinations;
     }
-  }, [selectedService, allStylists, allLocations, serviceStylists, serviceLocations, selectedStylist, selectedLocation, allServices, locationStylists, stylistServices]);
+
+    const dateCache = availabilityByDate[selectedDate] || {};
+    return primaryFilteredCombinations.filter(combination => {
+      const slots = dateCache[buildCombinationKey(combination)] || [];
+      return slots.some(slot => slot.available);
+    });
+  }, [
+    selectedDate,
+    isDateAvailabilityReady,
+    primaryFilteredCombinations,
+    availabilityByDate,
+  ]);
+
+  const combinationsForOptions = useMemo(() => {
+    if (!selectedDate || !selectedTime || !isDateAvailabilityReady) {
+      return dateFilteredCombinations;
+    }
+
+    const dateCache = availabilityByDate[selectedDate] || {};
+    return dateFilteredCombinations.filter(combination => {
+      const slots = dateCache[buildCombinationKey(combination)] || [];
+      return slots.some(slot => slot.available && slot.time === selectedTime);
+    });
+  }, [
+    selectedDate,
+    selectedTime,
+    isDateAvailabilityReady,
+    dateFilteredCombinations,
+    availabilityByDate,
+  ]);
+
+  useEffect(() => {
+    if (!selectedDate) {
+      setAvailableSlots([]);
+      return;
+    }
+
+    if (primaryFilteredCombinations.length === 0) {
+      setAvailableSlots([]);
+      return;
+    }
+
+    let isCancelled = false;
+
+    const loadDateSlots = async () => {
+      setLoadingSlots(true);
+      try {
+        const dateCache = await ensureAvailabilityForDate(selectedDate, primaryFilteredCombinations);
+        if (isCancelled) return;
+        const mergedSlots = mergeAvailableSlotsForCombinations(primaryFilteredCombinations, dateCache);
+        setAvailableSlots(mergedSlots);
+      } finally {
+        if (!isCancelled) {
+          setLoadingSlots(false);
+        }
+      }
+    };
+
+    loadDateSlots();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [
+    selectedDate,
+    primaryFilteredCombinations,
+    ensureAvailabilityForDate,
+    mergeAvailableSlotsForCombinations,
+  ]);
+
+  useEffect(() => {
+    const stylistIds = new Set(combinationsForOptions.map(combination => combination.stylistId));
+    const locationIds = new Set(combinationsForOptions.map(combination => combination.locationId));
+    const serviceIds = new Set(combinationsForOptions.map(combination => combination.serviceId));
+
+    setStylists(allStylists.filter(stylist => stylistIds.has(stylist.id)));
+    setLocations(allLocations.filter(location => locationIds.has(location.id)));
+    setServices(allServices.filter(service => serviceIds.has(service.id.toString())));
+
+    if (!isDateAvailabilityReady) {
+      return;
+    }
+
+    if (selectedStylist && !stylistIds.has(selectedStylist)) {
+      setSelectedStylist('');
+    }
+    if (selectedLocation && !locationIds.has(selectedLocation)) {
+      setSelectedLocation('');
+    }
+    if (selectedService && !serviceIds.has(selectedService)) {
+      setSelectedService('');
+    }
+  }, [
+    combinationsForOptions,
+    allStylists,
+    allLocations,
+    allServices,
+    selectedStylist,
+    selectedLocation,
+    selectedService,
+    isDateAvailabilityReady,
+  ]);
+
+  useEffect(() => {
+    if (!selectedTime) return;
+    const isSelectedTimeAvailable = availableSlots.some(slot => slot.time === selectedTime && slot.available);
+    if (!isSelectedTimeAvailable) {
+      setSelectedTime('');
+    }
+  }, [selectedTime, availableSlots]);
 
   // Cargar detalles cuando se selecciona estilista y centro
   useEffect(() => {
@@ -426,6 +488,7 @@ export default function NuevaReservacion() {
     setSelectedDate(null);
     setSelectedTime('');
     setAvailableSlots([]);
+    setAvailabilityByDate({});
     setShowTimeModal(false);
     setShowCustomerModal(false);
     setStylists(allStylists);
@@ -491,48 +554,24 @@ export default function NuevaReservacion() {
   // Sélectionner un jour dans le calendrier
   const selectDate = (day: number) => {
     if (!day) return;
-    
-    if (!selectedStylist || !selectedLocation || !selectedService) {
-      alert('Veuillez sélectionner un styliste, un centre et un service avant de choisir la date');
-      return;
-    }
 
     const year = currentMonth.getFullYear();
     const month = currentMonth.getMonth();
     const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
     
-    setSelectedDate(dateStr);
-    setSelectedTime('');
-    setShowCustomerModal(false);
-    fetchAvailableSlots(dateStr);
-    setShowTimeModal(true);
-  };
-
-  // Obtenir les slots disponibles pour la date sélectionnée
-  const fetchAvailableSlots = async (date: string) => {
-    if (!selectedStylist || !selectedLocation || !selectedService) return;
-    
-    setLoadingSlots(true);
-    try {
-      const response = await fetch(`/api/reservation/availability?date=${date}&stylistId=${selectedStylist}&locationId=${selectedLocation}&serviceId=${selectedService}`);
-      
-      if (!response.ok) {
-        throw new Error('Erreur lors de la chargement des horaires disponibles');
-      }
-      
-      const data = await response.json();
-      setAvailableSlots(data.availableSlots || []);
-    } catch (error) {
-      console.error('Erreur lors de la chargement des slots disponibles:', error);
+    if (selectedDate !== dateStr) {
+      setSelectedTime('');
       setAvailableSlots([]);
-    } finally {
-      setLoadingSlots(false);
     }
+
+    setSelectedDate(dateStr);
+    setShowCustomerModal(false);
+    setShowTimeModal(true);
   };
 
   // Réserver un horaire
   const bookAppointment = (time: string) => {
-    if (!selectedDate || !selectedStylist || !selectedLocation || !selectedService) {
+    if (!selectedDate) {
       return;
     }
     
@@ -544,6 +583,11 @@ export default function NuevaReservacion() {
   const openCustomerDataModal = () => {
     if (!selectedDate || !selectedTime) {
       alert('Veuillez sélectionner une date et un horaire avant de continuer');
+      return;
+    }
+
+    if (!selectedStylist || !selectedLocation || !selectedService) {
+      alert('Veuillez sélectionner un styliste, un centre et un service pour continuer');
       return;
     }
 
@@ -634,7 +678,12 @@ export default function NuevaReservacion() {
   // Añadir un efecto para cargar los días que tienen reservas y su disponibilidad
   useEffect(() => {
     const fetchAvailabilityData = async () => {
-      if (!selectedLocation) return;
+      if (!selectedLocation) {
+        setClosedDays([]);
+        setFullyBookedDays([]);
+        setPartiallyBookedDays([]);
+        return;
+      }
       
       setLoadingAvailability(true);
       try {
@@ -775,18 +824,10 @@ export default function NuevaReservacion() {
     fetchAvailabilityData();
   }, [currentMonth, selectedLocation, selectedStylist]);
 
-  useEffect(() => {
-    setSelectedDate(null);
-    setSelectedTime('');
-    setAvailableSlots([]);
-    setShowTimeModal(false);
-    setShowCustomerModal(false);
-  }, [selectedStylist, selectedLocation, selectedService]);
-
   // Renderizaciones condicionales basadas en el estado
   if (isLoading) {
     return (
-      <div className="admin-scope min-h-screen bg-dark px-4 py-12">
+      <div className="admin-scope min-h-screen bg-dark px-4 py-8">
         <div className="mx-auto flex w-full max-w-7xl items-center justify-center">
           <div className="text-center">
             <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary mx-auto mb-4"></div>
@@ -817,7 +858,7 @@ export default function NuevaReservacion() {
   );
 
   return (
-    <main className="admin-scope min-h-screen bg-dark px-4 pb-12 pt-24">
+    <main className="admin-scope min-h-screen bg-dark px-4 py-8">
       <div className="mx-auto w-full max-w-7xl">
           <SectionHeader
             title="Nouvelle Réservation"
@@ -946,12 +987,12 @@ export default function NuevaReservacion() {
               </div>
             </div>
             
-            {(selectedStylist || selectedLocation || selectedService) && (
+            {(selectedStylist || selectedLocation || selectedService || selectedDate || selectedTime) && (
               <div className="mt-4 p-3 bg-blue-50 rounded-md border border-blue-200 text-sm text-blue-800">
                 <div className="flex items-start gap-2">
                   <FaFilter className="text-blue-500 mt-0.5 flex-shrink-0" />
                   <div>
-                    <strong>Filtres actifs:</strong> Les options des sélecteurs sont filtrées en fonction de vos sélections.
+                    <strong>Filtres actifs:</strong> Les options sont filtrées en fonction des sélections (styliste, centre, service, date et horaire).
                     {(stylists.length === 0 || locations.length === 0 || services.length === 0) && (
                       <p className="mt-1 text-red-600">
                         Certaines options ne sont pas disponibles avec la configuration actuelle. Vous pouvez réinitialiser les filtres en utilisant le bouton &ldquo;Réinitialiser&rdquo;.
@@ -1227,7 +1268,7 @@ export default function NuevaReservacion() {
                         <Button
                           type="button"
                           onClick={openCustomerDataModal}
-                          disabled={!selectedTime}
+                          disabled={!selectedTime || !selectedStylist || !selectedLocation || !selectedService}
                           className="text-primary-foreground"
                         >
                           Données du client
@@ -1237,6 +1278,11 @@ export default function NuevaReservacion() {
                       {!selectedTime && (
                         <p className="mt-3 text-xs text-light opacity-70">
                           Sélectionnez un horaire pour continuer vers les données du client.
+                        </p>
+                      )}
+                      {selectedTime && (!selectedStylist || !selectedLocation || !selectedService) && (
+                        <p className="mt-3 text-xs text-light opacity-70">
+                          Sélectionnez aussi styliste, centre et service pour continuer.
                         </p>
                       )}
                     </div>
