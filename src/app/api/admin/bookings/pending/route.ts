@@ -10,7 +10,7 @@ type PendingBookingRow = {
   booking_date: string;
   start_time: string;
   end_time: string;
-  status: 'pending' | 'confirmed' | 'cancelled' | 'completed';
+  status: 'pending' | 'confirmed' | 'needs_replan' | 'cancelled' | 'completed';
   customer_name: string;
   customer_email: string;
   customer_phone: string;
@@ -20,6 +20,14 @@ type PendingBookingRow = {
   stylist?: { id: string; name: string } | null;
   location?: { id: string; name: string } | null;
   service?: { id: number; nombre: string; precio: number | null } | null;
+};
+
+type PendingBookingRelation<T> = T | T[] | null | undefined;
+
+type PendingBookingRowFromQuery = Omit<PendingBookingRow, 'stylist' | 'location' | 'service'> & {
+  stylist?: PendingBookingRelation<{ id: string; name: string }>;
+  location?: PendingBookingRelation<{ id: string; name: string }>;
+  service?: PendingBookingRelation<{ id: number; nombre: string; precio: number | null }>;
 };
 
 function toDateKey(date: Date): string {
@@ -35,6 +43,22 @@ function badRequest(code: string, error: string) {
 
 function unprocessable(code: string, error: string) {
   return NextResponse.json({ code, error }, { status: 422 });
+}
+
+function firstRelationItem<T>(value: PendingBookingRelation<T>): T | null {
+  if (Array.isArray(value)) {
+    return value[0] ?? null;
+  }
+  return value ?? null;
+}
+
+function normalizePendingRows(rows: PendingBookingRowFromQuery[]): PendingBookingRow[] {
+  return rows.map((row) => ({
+    ...row,
+    stylist: firstRelationItem(row.stylist),
+    location: firstRelationItem(row.location),
+    service: firstRelationItem(row.service),
+  }));
 }
 
 async function getEmployeeStylistScope(userId: string): Promise<{ stylistId: string | null; error?: NextResponse }> {
@@ -134,7 +158,7 @@ export async function GET(request: Request) {
 
     return NextResponse.json(
       {
-        bookings: (data || []) as PendingBookingRow[],
+        bookings: normalizePendingRows((data || []) as PendingBookingRowFromQuery[]),
         scope: { role: auth.role, stylist_id: scopedStylistId },
       },
       { status: 200 }

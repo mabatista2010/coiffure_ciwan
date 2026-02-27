@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 const STATUS_CONFIG = {
   pending: { label: "En attente", variant: "warning" },
   confirmed: { label: "Confirmee", variant: "success" },
+  needs_replan: { label: "A replanifier", variant: "info" },
   cancelled: { label: "Annulee", variant: "destructive" },
   completed: { label: "Terminee", variant: "info" },
   active: { label: "Actif", variant: "success" },

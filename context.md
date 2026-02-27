@@ -93,12 +93,15 @@ Steel & Blade est l’application web de **Coiffure Ciwan**, un salon masculin m
 ### Réservation
 - `GET /api/reservation/availability`
   - Paramètres: `date`, `stylistId`, `locationId`, `serviceId`.
-  - Génère des slots toutes **15 min** en tenant compte de `working_hours`, `time_off`, `bookings` (status `pending|confirmed`) et durée du service.
+  - Délègue à la RPC SQL `public.get_availability_slots_v2`.
+  - Utilise les mêmes règles que la création (`check_booking_slot_v2`) : `working_hours`, `time_off`, `location_closures`, `bookings` (`pending|confirmed|needs_replan`), `booking_buffer_minutes`, fenêtre `min/max` et timezone métier.
+  - Retourne `availableSlots[]` avec `time`, `available`, `reasonCode`.
   - Lit les données via client Supabase `service_role` côté serveur (pas d’exposition directe de `bookings` en public).
 - `POST /api/reservation/create`
-  - Délègue la création à la RPC SQL `public.create_booking_atomic` (service role server-only).
-  - Validation atomique serveur : combinaison styliste/centre/service, horaires, `time_off`, calcul de `end_time`.
+  - Délègue la création à la RPC SQL `public.create_booking_atomic_v2` (service role server-only).
+  - Validation atomique serveur via moteur centralisé (`check_booking_slot_v2`) + verrou transactionnel (`pg_advisory_xact_lock`) pour réduire les races.
   - Codes d’erreur normalisés : `invalid_payload` (400), `slot_conflict` (409), règles métier (422), `internal_error` (500).
+  - Nouveaux codes métier: `outside_booking_window`, `location_closed`.
   - Idempotence supportée via header `Idempotency-Key` (replay de réponse pour la même clé+payload, blocage si clé réutilisée avec payload différent).
   - Logging structuré de création (`request_id`, `source`, `idempotency_key`, `error_code`, `latency_ms`).
 
@@ -132,6 +135,24 @@ Steel & Blade est l’application web de **Coiffure Ciwan**, un salon masculin m
   - Endpoint interne protégé (`admin|employee`).
   - Valide des réservations en attente (`pending -> confirmed`) en mode individuel/sélection (`bookingIds[]`) ou en masse (`approveAll`).
   - Réponse détaillée (`updated_count`, `updated_ids`, `eligible_count`, `skipped_count`) pour gérer les cas de concurrence.
+- `GET /api/admin/bookings/replan`
+  - Endpoint interne protégé (`admin|employee`).
+  - Liste les réservations `needs_replan` avec filtres (`fromDate`, `toDate`, `stylistId`, `locationId`) et scope employé.
+- `POST /api/admin/bookings/replan`
+  - Endpoint interne protégé (`admin|employee`).
+  - Actions de triage: `confirm`, `cancel`, `move` (déplacement de créneau avec validation serveur via `check_booking_slot_v2`).
+- `GET/POST /api/admin/schedule/time-off`
+  - Endpoint interne protégé.
+  - `GET`: lecture indisponibilités (`admin|employee`, scope employé restreint au styliste associé).
+  - `POST`: création indisponibilité (`admin`) avec `category`.
+- `PUT/DELETE /api/admin/schedule/time-off/[id]`
+  - Endpoint interne protégé (`admin`) pour modification/suppression.
+- `GET/POST /api/admin/schedule/location-closures`
+  - Endpoint interne protégé.
+  - `GET`: lecture fermetures centre (`admin|employee`).
+  - `POST`: création fermeture (`admin`), journée complète ou plage partielle.
+- `PUT/DELETE /api/admin/schedule/location-closures/[id]`
+  - Endpoint interne protégé (`admin`) pour modification/suppression.
 
 ### ChatGPT Apps SDK (MCP)
   - `GET|POST|DELETE /mcp`
@@ -294,17 +315,28 @@ Steel & Blade est l’application web de **Coiffure Ciwan**, un salon masculin m
 - **stylist_services**: `id` (uuid), `stylist_id` → `stylists`, `service_id` → `servicios`.
 - **working_hours**: `id` (uuid), `stylist_id`, `location_id`, `day_of_week` (0‑6), `start_time`, `end_time`.
 - **location_hours**: `id` (uuid), `location_id`, `day_of_week`, `slot_number`, `start_time`, `end_time`. *(RLS on, lecture publique contrôlée)*
-- **time_off**: `id` (uuid), `stylist_id`, `location_id`, `start_datetime`, `end_datetime`, `reason?`.
-- **bookings**: `id` (uuid), `customer_name/email/phone`, `stylist_id`, `service_id`, `location_id`, `booking_date`, `start_time`, `end_time`, `status` (`pending|confirmed|cancelled|completed`), `notes?`, `created_at`, `slot_range` (generated `tsrange`).
-  - Contraintes de robustesse actives: `bookings_start_before_end` (`start_time < end_time`) + `bookings_no_overlap` (exclusion `gist` par `stylist_id + slot_range` pour statuts `pending|confirmed`).
+- **time_off**: `id` (uuid), `stylist_id`, `location_id`, `start_datetime`, `end_datetime`, `reason?`, `category` (`vacaciones|baja|descanso|formacion|bloqueo_operativo`, default `bloqueo_operativo`).
+- **location_closures**: `id` (uuid), `location_id`, `closure_date`, `start_time?`, `end_time?`, `reason?`, `created_at`, `created_by?`.
+  - Check de fenêtre: fermeture complète (`start_time/end_time` null) ou partielle (`start_time < end_time`).
+  - Index: `idx_location_closures_location_date_time`.
+  - RLS: lecture staff (`admin|employee`), écriture `admin`.
+- **bookings**: `id` (uuid), `customer_name/email/phone`, `stylist_id`, `service_id`, `location_id`, `booking_date`, `start_time`, `end_time`, `status` (`pending|confirmed|needs_replan|cancelled|completed`), `notes?`, `replan_reason?`, `replan_marked_at?`, `created_at`, `slot_range` (generated `tsrange`).
+  - Contraintes de robustesse actives: `bookings_start_before_end` (`start_time < end_time`) + `bookings_no_overlap` (exclusion `gist` par `stylist_id + slot_range` pour statuts `pending|confirmed|needs_replan`).
   - Index agenda ajoutés: `idx_bookings_stylist_date_status_start`, `idx_bookings_location_date_status_start`, `idx_bookings_service_date`, `idx_working_hours_stylist_location_day`, `idx_time_off_stylist_location_start_end`.
 - **booking_requests**: table d’idempotence pour création réservation (`source`, `idempotency_key`, `request_hash`, `status`, `booking_id`, `http_status`, `response_body`, `error_code`, `request_id`, `latency_ms`, timestamps), index unique `(source, idempotency_key)`.
+- Fonctions SQL réservations V2:
+  - `check_booking_slot_v2`: validation centralisée d’un créneau.
+  - `create_booking_atomic_v2`: création atomique (source de vérité API create).
+  - `get_availability_slots_v2`: génération des slots disponibilité avec `reason_code`.
+  - `mark_bookings_needs_replan_v2`: marquage automatique des réservations impactées.
+  - Triggers actifs: `trg_mark_replan_working_hours_v2`, `trg_mark_replan_time_off_v2`, `trg_mark_replan_location_closures_v2`.
 - **customer_profiles**: profil CRM étendu (`customer_name/email/phone`, `birth_date`, `marital_status`, `has_children`, `hobbies`, `occupation`, `preferred_contact_channel`, `marketing_consent`, `internal_notes_summary`, audit `created_by/updated_by`, timestamps).
   - Index: `customer_profiles_email_unique` (partiel), `customer_profiles_phone_unique` (partiel normalisé), `idx_customer_profiles_name`.
 - **customer_notes**: notes CRM horodatées liées au profil client (`customer_profile_id`, `note`, `note_type`, `created_by`, `created_at`).
   - Index: `idx_customer_notes_profile_created_at`.
 - **imagenes_galeria**: `id` (int8), `descripcion`, `imagen_url`, `fecha`, `created_at`.
 - **configuracion**: `id` (int8), `clave` (unique), `valor`, `descripcion?`, `created_at`, `updated_at`.
+  - Clés opérationnelles réservations matérialisées: `booking_slot_interval_minutes=15`, `booking_buffer_minutes=0`, `booking_max_advance_days=90`, `booking_min_advance_hours=2`, `business_timezone=Europe/Zurich`.
 - **user_roles**: `id` (uuid → auth.users), `role` (default `employee`), `created_at`, `updated_at`.
 - **stylist_users**: `id` (uuid), `user_id` → auth.users, `stylist_id` → stylists.
 
@@ -339,7 +371,7 @@ Publics:
 - Une **réservation** associe client + service + styliste + centre + date/heure.
 
 ### RLS / Sécurité
-- RLS activée sur : `bookings`, `booking_requests`, `customer_profiles`, `customer_notes`, `configuracion`, `imagenes_galeria`, `locations`, `servicios`, `stylists`, `stylist_services`, `working_hours`, `time_off`, `location_hours`, `user_roles`, `stylist_users`, `productos`, `categorias_productos`, `pedidos`, `items_pedido`, `carrito_sesiones`, `items_carrito`.
+- RLS activée sur : `bookings`, `booking_requests`, `customer_profiles`, `customer_notes`, `configuracion`, `imagenes_galeria`, `locations`, `servicios`, `stylists`, `stylist_services`, `working_hours`, `time_off`, `location_hours`, `location_closures`, `user_roles`, `stylist_users`, `productos`, `categorias_productos`, `pedidos`, `items_pedido`, `carrito_sesiones`, `items_carrito`.
 - `bookings` (phase sécurité):
   - suppression des policies publiques (`INSERT public` / `SELECT public`).
   - policies actives: `bookings_staff_select` + `bookings_staff_update` pour `authenticated` avec rôle `admin|employee`.
@@ -416,6 +448,7 @@ Publics:
 - Filtrage par styliste, centre, date.
 - Cartes de réservation avec bordure jaune distinctive.
 - Sélecteur d’état adapté mobile.
+- Statut `needs_replan` intégré dans les filtres/admin badges/sélecteurs de statut.
 - Retour depuis le détail vers le calendrier: le jour consulté n’est plus conservé comme sélection visuelle (plus de bordure bleue persistante).
 - Le champ date des filtres admin utilise un rendu custom (lisible iPad/tablette) et ouvre directement la vue détail du jour sélectionné.
 - Seed démo ajouté sur `bookings`: 100 réservations créées entre le 26/02/2026 et le 31/03/2026, réparties sur 4 statuts (`pending|confirmed|completed|cancelled`), 5 stylistes et 4 centres.
@@ -485,12 +518,15 @@ Publics:
 ## Docs & Scripts utiles
 - `BOUTIQUE_README.md`, `STRIPE_INTEGRATION.md`, `STRIPE_CHECKOUT_SETUP.md`, `WEBHOOK_TROUBLESHOOTING.md`.
 - Roadmap implémentation réservations V2 par phases: `Docs/plan-implementacion-reservas-v2.md`.
-  - Le plan V2 est maintenant decision-complete (modele horaires centre+styliste, reservation atomique via RPC SQL, fenetre 90j/2h, statut `needs_replan` bloquant, timezone `Europe/Madrid`, slots configurables).
+  - Le plan V2 est maintenant majoritairement implémenté sur le noyau (RPC SQL atomique v2, fenêtre 90j/2h, statut `needs_replan` bloquant, timezone `Europe/Zurich`, slots/configs opérationnels).
 - Plan de hardening securite post-robustez (RLS/grants/PII/boutique) : `Docs/plan-hardening-seguridad-post-robustez.md`.
 - Plan d’implémentation CRM fiche client (maître-détail + profil étendu + notes) : `Docs/plan-crm-ficha-cliente.md`.
 - Migración aplicada de hardening B/C/D: `migrations/20260227_security_postrobustez_phase_bcd.sql`.
 - Migración aplicada de cierre boutique: `migrations/20260227_security_boutique_final_hardening_phase1.sql`.
 - Migración aplicada de extensión: `migrations/20260227_move_btree_gist_to_extensions.sql`.
+- Migración aplicada Reservas V2.1 Fase A: `migrations/20260227_reservas_v2_phase_a_core.sql`.
+- Migraciones aplicadas Reservas V2.1 Fase B: `migrations/20260227_reservas_v2_phase_b_engine.sql`, `migrations/20260227_reservas_v2_phase_b_availability.sql`, `migrations/20260227_reservas_v2_phase_b_availability_fix.sql`.
+- Migración aplicada Reservas V2.1 Fase C (needs_replan): `migrations/20260227_reservas_v2_phase_c_needs_replan.sql`.
 - Migraciones aplicadas CRM fase 1: `migrations/20260227_crm_customer_profiles_phase1.sql`, `migrations/20260227_crm_customer_profiles_grants_fix_phase1.sql`.
 - Script de verificación continua: `scripts/security/postrobustez_security_checks.sql`.
 - Checklist + rollback: `Docs/security-release-checklist.md`, `Docs/security-rollback-runbook.md`.

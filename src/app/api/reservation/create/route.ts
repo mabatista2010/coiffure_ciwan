@@ -41,7 +41,9 @@ const ERROR_MESSAGES: Record<string, string> = {
   idempotency_key_reused: 'La clé d\'idempotence est déjà utilisée avec une autre requête',
   idempotency_in_progress: 'Une requête identique est déjà en cours de traitement',
   invalid_combination: 'La combinaison styliste/centre/service n\'est pas valide',
+  outside_booking_window: 'Le créneau est en dehors de la fenêtre de réservation autorisée',
   outside_working_hours: 'L\'horaire sélectionné est hors horaires de travail',
+  location_closed: 'Le centre est fermé sur ce créneau',
   stylist_time_off: 'Le styliste est indisponible sur ce créneau',
   slot_conflict: 'L\'horaire sélectionné n\'est plus disponible',
   internal_error: 'Erreur lors du traitement de la réservation',
@@ -54,7 +56,9 @@ const ERROR_HTTP_STATUS: Record<string, number> = {
   idempotency_in_progress: 409,
   slot_conflict: 409,
   invalid_combination: 422,
+  outside_booking_window: 422,
   outside_working_hours: 422,
+  location_closed: 422,
   stylist_time_off: 422,
   internal_error: 500,
 };
@@ -338,7 +342,7 @@ export async function POST(request: NextRequest) {
       idempotencyLocked = true;
     }
 
-    const { data, error } = await supabaseAdmin.rpc('create_booking_atomic', {
+    const { data, error } = await supabaseAdmin.rpc('create_booking_atomic_v2', {
       p_customer_name: customerName,
       p_customer_email: customerEmail,
       p_customer_phone: customerPhone,
@@ -352,7 +356,7 @@ export async function POST(request: NextRequest) {
     });
 
     if (error) {
-      console.error('Erreur RPC create_booking_atomic:', error);
+      console.error('Erreur RPC create_booking_atomic_v2:', error);
       const mapped = buildErrorResponse('internal_error');
       return finalize(mapped.payload, mapped.status, { errorCode: mapped.payload.errorCode });
     }

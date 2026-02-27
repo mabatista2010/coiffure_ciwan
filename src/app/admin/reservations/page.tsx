@@ -67,12 +67,13 @@ type ErrorType = {
 };
 
 const WEEK_DAY_LABELS = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
-const BOOKING_STATUS_FILTER_VALUES: BookingStatusFilter[] = ['all', 'pending', 'confirmed', 'completed', 'cancelled'];
+const BOOKING_STATUS_FILTER_VALUES: BookingStatusFilter[] = ['all', 'pending', 'confirmed', 'needs_replan', 'completed', 'cancelled'];
 
 const BOOKING_STATUS_LABELS: Record<BookingStatusFilter, string> = {
   all: 'Tous les statuts',
   pending: 'En attente',
   confirmed: 'Confirmée',
+  needs_replan: 'A replanifier',
   completed: 'Terminée',
   cancelled: 'Annulée',
 };
@@ -87,6 +88,11 @@ const WEEK_CARD_STATUS_META: Record<string, { label: string; chipClass: string; 
     label: "Conf.",
     chipClass: "border-emerald-300 bg-emerald-50 text-emerald-700",
     dotClass: "bg-emerald-500",
+  },
+  needs_replan: {
+    label: "Replan.",
+    chipClass: "border-violet-300 bg-violet-50 text-violet-700",
+    dotClass: "bg-violet-500",
   },
   cancelled: {
     label: "Ann.",
@@ -603,7 +609,7 @@ export default function AdminBookingsPage() {
     fetchWeekBookings();
   }, [fetchWeekBookings]);
 
-  const handleStatusChange = async (bookingId: string, newStatus: 'pending' | 'confirmed' | 'cancelled' | 'completed') => {
+  const handleStatusChange = async (bookingId: string, newStatus: 'pending' | 'confirmed' | 'needs_replan' | 'cancelled' | 'completed') => {
     try {
       const { error } = await supabase
         .from('bookings')

@@ -48,6 +48,14 @@ type BookingWithDetails = Pick<
   service?: Pick<Service, 'id' | 'nombre' | 'precio' | 'duration'> | null;
 };
 
+type BookingRelation<T> = T | T[] | null | undefined;
+
+type BookingRowFromQuery = Omit<BookingWithDetails, 'stylist' | 'location' | 'service'> & {
+  stylist?: BookingRelation<Pick<Stylist, 'id' | 'name' | 'profile_img'>>;
+  location?: BookingRelation<Pick<Location, 'id' | 'name'>>;
+  service?: BookingRelation<Pick<Service, 'id' | 'nombre' | 'precio' | 'duration'>>;
+};
+
 type QuickActionCommand = 'open_pending_panel' | 'refresh_dashboard';
 
 type DashboardActionBase = {
@@ -248,9 +256,10 @@ const QUICK_ACTIONS_MAX_VISIBLE = 5;
 
 const STATUS_PRIORITY: Record<Booking['status'], number> = {
   pending: 0,
-  confirmed: 1,
-  completed: 2,
-  cancelled: 3,
+  needs_replan: 1,
+  confirmed: 2,
+  completed: 3,
+  cancelled: 4,
 };
 
 function toDateKey(date: Date): string {
@@ -293,6 +302,23 @@ function formatHumanDate(date: Date): string {
   }).format(date);
 
   return label.charAt(0).toUpperCase() + label.slice(1);
+}
+
+function firstRelationItem<T>(value: BookingRelation<T>): T | null {
+  if (Array.isArray(value)) {
+    return value[0] ?? null;
+  }
+
+  return value ?? null;
+}
+
+function normalizeBookingRows(rows: BookingRowFromQuery[]): BookingWithDetails[] {
+  return rows.map((row) => ({
+    ...row,
+    stylist: firstRelationItem(row.stylist),
+    location: firstRelationItem(row.location),
+    service: firstRelationItem(row.service),
+  }));
 }
 
 function getAlertStyles(level: AlertLevel): string {
@@ -525,8 +551,8 @@ export default function AdminHomePage() {
         throw pendingResponse.error;
       }
 
-      setBookingsToday((todayResponse.data || []) as BookingWithDetails[]);
-      setBookingsNextDays((weekResponse.data || []) as BookingWithDetails[]);
+      setBookingsToday(normalizeBookingRows((todayResponse.data || []) as BookingRowFromQuery[]));
+      setBookingsNextDays(normalizeBookingRows((weekResponse.data || []) as BookingRowFromQuery[]));
       setPendingUpcomingTotal(pendingResponse.count || 0);
       setLastUpdatedAt(new Date());
     } catch (fetchError) {

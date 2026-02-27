@@ -1,296 +1,293 @@
-# Plan de Implementacion Reservas V2 (Cerrado)
+# Plan de Implementación Reservas V2.1 (Actualizado)
 
-Fecha: 2026-02-25  
-Estado: Decision-complete, listo para ejecucion por agente  
-Alcance: alta empleado/estilista, horarios, indisponibilidades, cierres, disponibilidad y reservas atomicas
+Fecha: 2026-02-27
+Estado: Planeado (no implementado en este documento)
+Alcance: hardening integral de reservas (BD + motor + API + admin + QA + rollout)
 
 ## 1. Objetivo
 
-Dejar el sistema de reservas preparado para operativa real sin decisiones pendientes de implementacion:
-- disponibilidad fiable y consistente en web publica, admin y MCP,
-- gestion real de agenda (vacaciones, descansos, cierres puntuales),
-- eliminacion de colisiones por concurrencia en creacion de reservas,
-- flujo unificado de alta de empleado + estilista.
+Llevar el sistema de reservas a nivel producción robusto y consistente, de forma que:
+1. La disponibilidad sea la misma en web pública, admin y MCP.
+2. No haya doble reserva por concurrencia.
+3. Los cambios de agenda se gestionen sin romper operación.
+4. La lógica crítica viva en servidor/BD (no en heurísticas de frontend).
+5. Exista trazabilidad, rollback y criterios claros de salida a producción.
 
-## 2. Decisiones cerradas
+## 2. Qué cubre este plan (y por qué)
 
-Estas decisiones quedan bloqueadas para implementacion y no se deben reabrir salvo cambio explicito de negocio.
+Este plan existe para cerrar brechas entre diseño y estado real actual.
 
-1. Modelo de horarios:
-- Se mantiene `location_hours` como horario base del centro.
-- Se mantiene `working_hours` como disponibilidad efectiva del estilista por centro/dia/franja.
-- Se elimina el comportamiento ambiguo de "snapshot implicito" al guardar estilista.
+Brechas detectadas:
+1. `needs_replan` no está implementado end-to-end como bloqueante.
+2. Falta `location_closures` en BD.
+3. Falta `time_off.category` en BD.
+4. No existe `create_booking_atomic_v2`.
+5. `availability` no usa todavía todas las reglas de negocio configurables.
+6. No están materializadas claves operativas en `configuracion`.
+7. Falta trigger/proceso formal para marcar `needs_replan` tras cambios de agenda.
+8. Falta wizard unificado completo de alta empleado + estilista + agenda inicial.
+9. Falta validar explícitamente horario regular del centro (`location_hours`) en el motor de slot (caso límite 11:45 para servicio de 30 min con cierre 12:00).
 
-2. Reserva atomica:
-- Estrategia oficial: funcion SQL transaccional (RPC) para validacion + insercion.
+## 3. Decisiones funcionales cerradas
 
-3. Bloqueo por estado de reserva:
-- Bloquean disponibilidad: `pending`, `confirmed`, `needs_replan`.
-- `pending` bloquea indefinidamente (sin expiracion automatica).
+1. Motor de verdad: servidor + SQL (no frontend).
+2. Creación de reserva: transaccional y atómica por RPC (`create_booking_atomic_v2`).
+3. Bloqueo de hueco: `pending`, `confirmed`, `needs_replan`.
+4. Ventana de reserva configurable: `max_advance_days`, `min_advance_hours`.
+5. Intervalo de slots y buffer configurables globalmente.
+6. Cierres excepcionales de centro por fecha (completo o parcial), sin recurrencia anual en esta versión.
+7. Cambio de agenda con impacto: reservas afectadas pasan a `needs_replan` y siguen bloqueando hueco.
+8. Timezone de negocio única vía configuración (`business_timezone`) y aplicada en todo el flujo.
+9. Admin y web pública usan exactamente las mismas reglas para disponibilidad.
 
-4. Ventana de reserva:
-- Maximo 90 dias hacia futuro.
-- Minimo 2 horas de antelacion.
+## 4. Requisitos no funcionales (NFR)
 
-5. Conflictos por cambios de agenda:
-- Se permite guardar cambios de agenda.
-- Reservas afectadas pasan a estado `needs_replan`.
-- `needs_replan` sigue bloqueando hueco.
-- Notificacion automatica: solo aviso interno admin (sin aviso automatico al cliente).
+1. Consistencia cross-canal: 100% de equivalencia de reglas entre create/availability/admin/MCP.
+2. Concurrencia: cero dobles reservas del mismo estilista en el mismo hueco.
+3. Observabilidad:
+- logging estructurado con `request_id`, `error_code`, `latency_ms`, `source`.
+- métricas mínimas: tasa de conflicto, tasa error 5xx, p95 latencia.
+4. Seguridad:
+- principio de mínimo privilegio (RLS + grants ajustados).
+- operaciones críticas de escritura solo por rutas servidoras autorizadas.
+5. Operabilidad:
+- checklist de release y runbook de rollback por fase.
 
-6. Cierres excepcionales de centro:
-- Solo fecha puntual.
-- Dia completo o franja horaria parcial.
-- No se implementa recurrencia anual en esta version.
+## 5. Cambios obligatorios en BD
 
-7. Slots y buffer:
-- Granularidad de slots configurable desde admin (default 15 min).
-- Buffer entre citas configurable global desde admin (default 0 min).
+## 5.1 `bookings`
 
-8. Zona horaria y domingo:
-- Zona horaria unica de negocio: `Europe/Madrid`.
-- Domingo gestionado por datos reales de horario (no hardcoded cerrado).
+1. Ampliar check de estado:
+- `pending | confirmed | needs_replan | cancelled | completed`.
 
-9. Wizard de alta:
-- Incluye invitacion de usuario + rol + creacion/vinculacion estilista + agenda inicial.
+2. Ajustar constraint de no solape:
+- `bookings_no_overlap` debe bloquear `pending`, `confirmed`, `needs_replan`.
 
-## 3. Implementaciones incluidas (10/10)
+3. Mantener validación temporal:
+- `start_time < end_time`.
 
-1. CRUD admin de indisponibilidades de estilista (`time_off` usable por negocio).
-2. Cierres excepcionales de centro por fecha (`location_closures`).
-3. Fuente unica de verdad de horarios (`location_hours` base + `working_hours` efectivo).
-4. Multiples franjas personalizadas por estilista/dia.
-5. Validaciones fuertes de horario (UI, API y DB).
-6. Creacion de reserva atomica y segura frente a concurrencia.
-7. Validacion backend obligatoria de compatibilidad servicio-estilista-centro.
-8. Gestion completa de `duration` en CRUD de servicios.
-9. Calendario admin con capacidad real (sin heuristica fija de 30 min).
-10. Wizard unificado de alta empleado + estilista + agenda inicial.
+## 5.2 Nueva tabla `location_closures`
 
-## 4. Cambios tecnicos obligatorios
+Estructura:
+1. `id uuid pk default gen_random_uuid()`.
+2. `location_id uuid not null fk -> locations(id)`.
+3. `closure_date date not null`.
+4. `start_time time null`.
+5. `end_time time null`.
+6. `reason text null`.
+7. `created_at timestamptz default now()`.
+8. `created_by uuid null` (opcional pero recomendado).
 
-## 4.1 Cambios en base de datos
+Checks:
+1. Cierre completo: `start_time is null and end_time is null`.
+2. Cierre parcial: `start_time is not null and end_time is not null and start_time < end_time`.
 
-1. `bookings.status`
-- Ampliar enum/check para incluir `needs_replan`.
-- Estados finales: `pending | confirmed | needs_replan | cancelled | completed`.
+Índices:
+1. `(location_id, closure_date, start_time, end_time)`.
 
-2. Nueva tabla `location_closures`
-- `id uuid pk`
-- `location_id uuid fk -> locations`
-- `closure_date date not null`
-- `start_time time null`
-- `end_time time null`
-- `reason text null`
-- `created_at timestamptz default now()`
-- Regla: ambos null (cierre completo) o ambos informados (`start_time < end_time`).
+RLS:
+1. Lectura staff.
+2. Escritura solo admin (o staff según política final).
 
-3. `time_off`
-- Mantener tabla.
-- Anadir `category text` con valores de negocio:
-  - `vacaciones`
-  - `baja`
-  - `descanso`
-  - `formacion`
-  - `bloqueo_operativo`
-- Validar `start_datetime < end_datetime`.
+## 5.3 `time_off`
 
-4. Configuracion operativa en `configuracion`
-- `booking_slot_interval_minutes` default `15`
-- `booking_buffer_minutes` default `0`
-- `booking_max_advance_days` default `90`
-- `booking_min_advance_hours` default `2`
-- `business_timezone` default `Europe/Madrid`
+1. Añadir `category text not null default 'bloqueo_operativo'`.
+2. Check de dominio:
+- `vacaciones | baja | descanso | formacion | bloqueo_operativo`.
+3. Mantener check `start_datetime < end_datetime`.
 
-5. Indices recomendados
-- `bookings(stylist_id, location_id, booking_date, start_time, end_time, status)`
-- `working_hours(stylist_id, location_id, day_of_week, start_time, end_time)`
-- `time_off(stylist_id, location_id, start_datetime, end_datetime)`
-- `location_closures(location_id, closure_date, start_time, end_time)`
+## 5.4 `configuracion`
 
-## 4.2 Cambios en API y backend
+Upsert de claves:
+1. `booking_slot_interval_minutes` (default 15).
+2. `booking_buffer_minutes` (default 0).
+3. `booking_max_advance_days` (default 90).
+4. `booking_min_advance_hours` (default 2).
+5. `business_timezone` (default del negocio definido en despliegue).
 
-1. RPC oficial: `create_booking_atomic_v2`
-- Input: cliente + servicio + estilista + centro + fecha/hora inicio + notas.
-- Flujo interno transaccional:
-  - cargar configuracion global,
-  - validar ventana temporal 90d/2h,
-  - validar compatibilidad servicio-estilista-centro,
-  - validar activos (`servicio`, `estilista`, `centro`),
-  - calcular `end_time` por `servicios.duration`,
-  - validar disponibilidad efectiva con horarios, ausencias, cierres y bloqueos,
-  - insertar reserva o devolver conflicto tipado.
+## 5.5 Marcado automático `needs_replan`
 
-2. `/api/reservation/create`
-- Debe delegar siempre en `create_booking_atomic_v2`.
-- Prohibido mantener patron `check + insert` separado.
+Crear función + trigger/evento para cambios en:
+1. `working_hours`.
+2. `time_off`.
+3. `location_closures`.
 
-3. Reserva manual admin (`/admin/reservations/nueva`)
-- Debe usar el mismo servicio atomico.
-- Prohibido insertar directo en `bookings`.
+Regla:
+1. Si una reserva futura queda fuera de nueva disponibilidad, pasar a `needs_replan`.
+2. Registrar motivo de replanificación (columna de auditoría o tabla auxiliar recomendada).
 
-4. `/api/reservation/availability`
-- Debe usar las mismas reglas que la creacion atomica:
-  - timezone `Europe/Madrid`,
-  - slot interval configurable,
-  - buffer configurable,
-  - bloqueo por `pending`, `confirmed`, `needs_replan`,
-  - aplicacion de `time_off` y `location_closures`.
+## 6. Cambios obligatorios backend/API
 
-## 4.3 Cambios en frontend/admin
+## 6.1 RPC `create_booking_atomic_v2`
 
-1. Servicios (`/admin` seccion services)
-- Crear/editar `duration` obligatorio.
+Debe validar, en una transacción:
+1. payload.
+2. compatibilidad servicio-estilista-centro.
+3. activos (`servicio`, `estilista`, `centro`).
+4. ventana temporal (min/max) usando `business_timezone`.
+5. duración real del servicio.
+6. disponibilidad efectiva con:
+- `working_hours`,
+- `time_off`,
+- `location_closures`,
+- `buffer` global,
+- bloqueo por estados (`pending|confirmed|needs_replan`).
 
-2. Gestion de estilistas
-- En modo personalizado, soportar multiples franjas por dia.
-- Validacion anti-solape.
+Salida tipada:
+1. `ok`.
+2. `booking_id`.
+3. `error_code` estable.
 
-3. Modulo de ausencias estilista
-- CRUD `time_off` con categoria y rango (parcial o completo).
+## 6.2 `/api/reservation/create`
 
-4. Modulo de cierres de centro
-- CRUD `location_closures` (fecha puntual, completo/parcial).
+1. Delegación total a `create_booking_atomic_v2`.
+2. Mantener idempotencia (`booking_requests`).
+3. Homologar catálogo de errores 4xx/409/422/500.
 
-5. Wizard unificado de alta
-- Paso 1: invitacion/alta de usuario.
-- Paso 2: asignacion de rol.
-- Paso 3: crear o vincular estilista.
-- Paso 4: centros + servicios.
-- Paso 5: agenda inicial y confirmacion.
+## 6.3 `/api/reservation/availability`
 
-6. Calendario admin
-- Estado real por dia: disponible, parcial, completo, cerrado centro, needs_replan.
+1. Misma lógica que create (idealmente reutilizando función SQL común).
+2. No hardcodear intervalo, buffer ni timezone.
+3. Aplicar cierres de centro y `needs_replan` bloqueante.
+4. Devolver resultado explicable para UI (por qué un slot no está disponible).
+5. Validar también contra `location_hours` (cierre regular) para no ofrecer slots que excedan la hora de cierre del centro.
 
-## 5. Plan por fases (secuencia de ejecucion)
+## 6.4 APIs admin operativas
 
-## Fase 1 - Modelo y validaciones base
-Implementaciones: `3`, `5`, `8` (+ base de `7`)
+1. CRUD `time_off` con `category`.
+2. CRUD `location_closures`.
+3. Endpoint de triage `needs_replan` (listar, confirmar, mover o cancelar).
 
-Entregables:
-- migraciones SQL (`needs_replan`, `location_closures`, config keys, `time_off.category`),
-- validaciones UI/API/DB de horarios,
-- `duration` operativo en CRUD servicios,
-- indices y checks aplicados.
+## 7. Cambios obligatorios frontend/admin
 
-Gate de salida:
-- no se pueden guardar horarios invalidos ni desde UI ni API,
-- `duration` ya afecta a calculo de reserva.
+1. `/admin/reservations/nueva`:
+- consumir disponibilidad unificada,
+- impedir selección inválida,
+- soportar realidades de agenda (cierres/ausencias/replan).
 
-## Fase 2 - Motor de disponibilidad y reserva atomica
-Implementaciones: `6`, `7`
+2. `/admin/reservations`:
+- filtro/estado visible `needs_replan`,
+- acciones rápidas para resolución.
 
-Entregables:
-- RPC `create_booking_atomic_v2`,
-- `/api/reservation/create` refactorizado para usar RPC,
-- flujo admin manual usando motor atomico,
-- `/availability` alineado con mismas reglas.
+3. Gestión de estilistas:
+- múltiples franjas por día,
+- anti-solape,
+- aviso de impacto cuando un cambio genera `needs_replan`.
 
-Gate de salida:
-- bajo concurrencia no hay doble reserva del mismo estilista/hora,
-- web publica y admin validan igual.
+4. Gestión de cierres de centro:
+- módulo visual con alta/edición/baja y feedback de impacto.
 
-## Fase 3 - Operativa de agenda
-Implementaciones: `1`, `2`, `4`
+5. Wizard alta empleado + estilista:
+- invitación usuario,
+- rol,
+- vínculo `stylist_users`,
+- centros/servicios,
+- agenda inicial,
+- confirmación final.
 
-Entregables:
-- modulo admin ausencias estilista,
-- modulo admin cierres centro,
-- multiples franjas personalizadas por estilista/dia.
+## 8. Seguridad y permisos (hardening)
 
-Gate de salida:
-- cualquier ausencia/cierre aparece como no disponible en reserva.
+1. Revisar grants amplios existentes y ajustar mínimo privilegio.
+2. Mantener RLS por rol funcional.
+3. Evitar escrituras directas desde cliente sobre tablas críticas de reservas.
+4. Verificar que solo backends autorizados puedan ejecutar RPC crítica.
 
-## Fase 4 - Alta unificada empleado + estilista
-Implementacion: `10`
+## 9. Plan por fases (ejecución)
+
+## Fase A - Alineación BD núcleo
 
 Entregables:
-- wizard end-to-end invitacion + rol + estilista + agenda.
+1. Estado `needs_replan` en `bookings`.
+2. Constraint de solape actualizado.
+3. `time_off.category` + checks.
+4. Tabla `location_closures`.
+5. Config keys operativas upsert.
 
-Gate de salida:
-- un profesional nuevo queda operativo desde un solo flujo.
+Gate:
+1. Migraciones aplicadas sin error.
+2. Checks/constraints verificados en BD real.
 
-## Fase 5 - Calendario de capacidad real
-Implementacion: `9`
-
-Entregables:
-- calculo de ocupacion real sin heuristica fija de 30 min,
-- visualizacion de `needs_replan` bloqueante y accionable.
-
-Gate de salida:
-- el estado visual del calendario coincide con disponibilidad real.
-
-## Fase 6 - QA, despliegue y estabilizacion
-Implementaciones: validacion final `1..10`
+## Fase B - Motor unificado de reglas
 
 Entregables:
-- checklist QA firmado,
-- guia operativa de uso para admin,
-- plan de rollback por modulo.
+1. `create_booking_atomic_v2`.
+2. `availability` alineado 1:1 con reglas de create.
+3. Códigos de error homogéneos.
 
-Gate de salida:
-- sin regresiones criticas en reservas.
+Gate:
+1. Concurrencia: solo una reserva creada para mismo hueco.
+2. Mismo resultado en create/availability para casos frontera.
 
-## 6. Casos de prueba obligatorios
+## Fase C - Operativa de agenda
 
-1. Concurrencia:
-- dos requests simultaneas mismo estilista/slot => solo una reserva creada.
+Entregables:
+1. CRUD `time_off` con categoría.
+2. CRUD `location_closures`.
+3. Trigger/proceso `needs_replan`.
 
-2. Solapes:
-- intento que pisa parcial o totalmente cita existente (`pending`, `confirmed`, `needs_replan`) => conflicto.
+Gate:
+1. Cambios de agenda impactan en disponibilidad real.
+2. Reservas afectadas pasan a `needs_replan` correctamente.
 
-3. Ventana temporal:
-- menos de 2h => rechazo.
-- mas de 90 dias => rechazo.
+## Fase D - Admin UX y workflow
 
-4. Cierres de centro:
-- cierre completo y cierre parcial bloquean correctamente.
+Entregables:
+1. Triage `needs_replan`.
+2. Mejoras calendario y filtros.
+3. Wizard unificado alta empleado/estilista.
 
-5. Ausencias estilista:
-- parcial, diaria y multidia bloquean correctamente.
+Gate:
+1. Operación diaria resoluble sin SQL manual.
 
-6. Domingo data-driven:
-- si hay horario real, debe haber disponibilidad.
-- si no hay horario real, no debe haber disponibilidad.
+## Fase E - QA, rollout y estabilización
 
-7. Duracion variable:
-- cambio de `duration` modifica slots y hora fin.
+Entregables:
+1. QA técnico + funcional firmado.
+2. Checklist release.
+3. Runbook rollback.
 
-8. Conflictos por cambio de agenda:
-- al cambiar horario con reservas afectadas, reservas pasan a `needs_replan`.
-- esas reservas siguen bloqueando hueco.
+Gate:
+1. Sin regresiones críticas.
+2. KPIs mínimos de estabilidad aceptables.
 
-9. Wizard de alta:
-- usuario invitado, rol correcto, relacion `stylist_users` correcta, agenda inicial correcta.
+## 10. Matriz de pruebas obligatorias
 
-10. Consistencia cross-canal:
-- disponibilidad y bloqueo coinciden entre web publica, admin y MCP.
+1. Concurrencia simultánea (doble click + requests paralelas).
+2. Solapes parciales/totales con estados bloqueantes.
+3. Ventana temporal min/max en timezone de negocio.
+4. Cierres de centro completos y parciales.
+5. Ausencias por categorías y rangos multi-día.
+6. Cambio de agenda que produzca `needs_replan`.
+7. Duración variable por servicio.
+8. Buffer distinto de cero.
+9. Consistencia web/admin/MCP.
+10. Casos DST (cambio horario).
+11. Caso borde de cierre regular: servicio de 30 min no debe iniciar a 11:45 si `location_hours` termina 12:00.
 
-## 7. Matriz implementacion -> fase
+## 11. Rollout y rollback
 
-- `1` -> Fase 3
-- `2` -> Fase 3
-- `3` -> Fase 1
-- `4` -> Fase 3
-- `5` -> Fase 1
-- `6` -> Fase 2
-- `7` -> Fase 2
-- `8` -> Fase 1
-- `9` -> Fase 5
-- `10` -> Fase 4
+Rollout:
+1. Aplicar migraciones en orden por fase.
+2. Activar código backend.
+3. Activar UI admin.
+4. QA smoke.
+5. Monitoreo intensivo 48h.
 
-## 8. Supuestos bloqueados y defaults
+Rollback:
+1. Revertir deployment app.
+2. Desactivar rutas nuevas por feature flag si aplica.
+3. Migraciones con rollback documentado por objeto (no destructivo si hay datos vivos).
+4. Comunicación interna de incidencia y estado.
 
-- TZ unica de negocio: `Europe/Madrid`.
-- Granularidad slots default: 15 min (editable desde admin).
-- Buffer default: 0 min (editable global desde admin).
-- `pending` bloquea indefinidamente.
-- `needs_replan` bloquea hasta resolucion manual.
-- Notificacion de conflicto solo interna de admin.
-- Cierres excepcionales sin recurrencia anual en esta version.
+## 12. Definition of Done (DoD)
 
-## 9. Criterio de cierre del plan
+Se considera completado cuando:
+1. Todas las fases A-E están en verde.
+2. Plan y estado real (BD + API + UI) están alineados sin gaps.
+3. Disponibilidad y creación son consistentes en todos los canales.
+4. Existe operación administrable para `needs_replan`.
+5. Seguridad y observabilidad cumplen mínimos definidos.
 
-El plan se considera cerrado cuando:
-- no queda ninguna decision funcional o tecnica pendiente en las secciones anteriores,
-- el implementador puede ejecutar por fases sin tomar decisiones de producto adicionales.
+## 13. Nota operativa
+
+Este documento es un plan de ejecución. No implica que esté implementado en el estado actual.

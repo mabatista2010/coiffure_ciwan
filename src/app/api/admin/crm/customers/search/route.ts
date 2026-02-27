@@ -31,7 +31,7 @@ type BookingSeedRow = {
 type BookingStatsRow = {
   id: string;
   booking_date: string;
-  status: 'pending' | 'confirmed' | 'cancelled' | 'completed';
+  status: 'pending' | 'confirmed' | 'needs_replan' | 'cancelled' | 'completed';
   customer_email: string;
   customer_phone: string;
   service?: { precio?: number | null } | null;

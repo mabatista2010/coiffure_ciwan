@@ -85,7 +85,7 @@ export type Booking = {
   booking_date: string;
   start_time: string;
   end_time: string;
-  status: 'pending' | 'confirmed' | 'cancelled' | 'completed';
+  status: 'pending' | 'confirmed' | 'needs_replan' | 'cancelled' | 'completed';
   notes?: string;
   created_at: string;
 };
@@ -94,6 +94,7 @@ export type Booking = {
 export type AvailabilitySlot = {
   time: string;
   available: boolean;
+  reasonCode?: string | null;
 };
 
 // Tipo para el CRM de clientes

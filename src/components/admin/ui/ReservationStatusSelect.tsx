@@ -7,7 +7,7 @@ import {
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 
-type ReservationStatus = "pending" | "confirmed" | "cancelled" | "completed";
+type ReservationStatus = "pending" | "confirmed" | "needs_replan" | "cancelled" | "completed";
 
 interface ReservationStatusSelectProps {
   value: ReservationStatus;
@@ -18,6 +18,7 @@ interface ReservationStatusSelectProps {
 const STATUS_STYLES: Record<ReservationStatus, string> = {
   pending: "border-amber-300 bg-amber-50 text-amber-700",
   confirmed: "border-blue-300 bg-blue-50 text-blue-700",
+  needs_replan: "border-violet-300 bg-violet-50 text-violet-700",
   cancelled: "border-red-300 bg-red-50 text-red-700",
   completed: "border-emerald-300 bg-emerald-50 text-emerald-700",
 };
@@ -35,6 +36,7 @@ function ReservationStatusSelect({
       <SelectContent>
         <SelectItem value="pending">En attente</SelectItem>
         <SelectItem value="confirmed">Confirmé</SelectItem>
+        <SelectItem value="needs_replan">A replanifier</SelectItem>
         <SelectItem value="completed">Terminé</SelectItem>
         <SelectItem value="cancelled">Annulé</SelectItem>
       </SelectContent>
