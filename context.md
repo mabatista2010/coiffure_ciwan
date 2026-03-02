@@ -155,7 +155,7 @@ Steel & Blade est l’application web de **Coiffure Ciwan**, un salon masculin m
   - Endpoint interne protégé (`admin`) pour modification/suppression.
 - `POST /api/admin/schedule/working-hours`
   - Endpoint interne protégé (`admin`) pour remplacement des `working_hours` d’un styliste.
-  - Validation serveur: format des plages, anti-solape interne, compatibilité stricte avec `location_hours`.
+  - Validation serveur: format des plages, ordre strict `start < end`, anti-solape interne, compatibilité stricte avec `location_hours`; en cas d’erreur, le message inclut désormais l’index/tranche invalide, et pour `outside_location_hours` le détail `locationId/dayOfWeek/start→end`.
   - Réponse avec compteurs (`updated_working_hours_count`, `needs_replan_detected_count`).
 
 ### ChatGPT Apps SDK (MCP)
@@ -287,7 +287,8 @@ Steel & Blade est l’application web de **Coiffure Ciwan**, un salon masculin m
   - Le champ de commentaires optionnels est synchronisé entre le modal client et le modal final de confirmation.
   - Après création réussie, le modal de succès ne se ferme plus automatiquement: il propose **Nouvelle réservation** (reset complet des filtres/formulaire sur place) et **Retour au calendrier**.
   - Le calendrier de `/admin/reservations/nueva` n'affiche plus les jours passés, bloque leur sélection côté UI et désactive la navigation vers des mois antérieurs au mois courant.
-  - Dans `/admin/reservations/nueva`, quand un styliste est sélectionné, les jours fermés du calendrier se basent sur ses `working_hours` réels (pas seulement sur `location_hours` du centre).
+  - Le statut mensuel des jours dans `/admin/reservations/nueva` est calculé avec le moteur réel (`/api/reservation/availability`, cache par date+combinaison) uniquement quand les filtres aboutissent à une combinaison unique `styliste+centre+service`; sinon le calendrier n’effectue pas de préchargement massif. Les créneaux d’une date suivent la même règle (combinaison unique) pour éviter les rafales d’appels.
+  - Les jours marqués `Complet/Fermé` dans ce calendrier sont non cliquables pour éviter d’ouvrir un sélecteur horaire vide.
   - Si une date choisie n'a aucun créneau disponible, les filtres sélectionnés (styliste/centre/service) ne se réinitialisent plus automatiquement.
   - Les modals de `/admin/reservations/nueva` utilisent `Dialog` + `ScrollArea` (shadcn) avec hauteur contrainte mobile, et les créneaux horaires sont groupés par périodes (`Matin`, `Après-midi`, `Soir`) pour éviter les listes infinies.
 - **CRM**

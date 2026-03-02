@@ -121,12 +121,17 @@ export default function NuevaReservacion() {
   // Relación real entre estilista-centro-servicio (combinaciones posibles)
   const [allCombinations, setAllCombinations] = useState<ReservationCombination[]>([]);
   const [availabilityByDate, setAvailabilityByDate] = useState<Record<string, Record<string, AvailabilitySlot[]>>>({});
+  const availabilityByDateRef = useRef<Record<string, Record<string, AvailabilitySlot[]>>>({});
   
   // Añadir nuevos estados para controlar la disponibilidad de los días
   const [closedDays, setClosedDays] = useState<string[]>([]);
   const [fullyBookedDays, setFullyBookedDays] = useState<string[]>([]);
   const [partiallyBookedDays, setPartiallyBookedDays] = useState<string[]>([]);
   const [loadingAvailability, setLoadingAvailability] = useState<boolean>(false);
+
+  useEffect(() => {
+    availabilityByDateRef.current = availabilityByDate;
+  }, [availabilityByDate]);
   
   // Cargar datos iniciales
   useEffect(() => {
@@ -241,6 +246,13 @@ export default function NuevaReservacion() {
     });
   }, [allCombinations, selectedStylist, selectedLocation, selectedService]);
 
+  const selectedCombinationForAvailability = useMemo(() => {
+    if (primaryFilteredCombinations.length !== 1) {
+      return null;
+    }
+    return primaryFilteredCombinations[0];
+  }, [primaryFilteredCombinations]);
+
   const mergeAvailableSlotsForCombinations = useCallback(
     (
       combinations: ReservationCombination[],
@@ -270,7 +282,7 @@ export default function NuevaReservacion() {
       date: string,
       combinations: ReservationCombination[]
     ): Promise<Record<string, AvailabilitySlot[]>> => {
-      const existingForDate = availabilityByDate[date] || {};
+      const existingForDate = availabilityByDateRef.current[date] || {};
       const uniqueCombinations = combinations.filter((combination, index, arr) => {
         const key = buildCombinationKey(combination);
         return arr.findIndex(candidate => buildCombinationKey(candidate) === key) === index;
@@ -337,7 +349,7 @@ export default function NuevaReservacion() {
 
       return merged;
     },
-    [availabilityByDate]
+    []
   );
 
   // Filtros facetados "self-excluding":
@@ -387,7 +399,7 @@ export default function NuevaReservacion() {
       return;
     }
 
-    if (primaryFilteredCombinations.length === 0) {
+    if (!selectedCombinationForAvailability) {
       setAvailableSlots([]);
       return;
     }
@@ -397,9 +409,10 @@ export default function NuevaReservacion() {
     const loadDateSlots = async () => {
       setLoadingSlots(true);
       try {
-        const dateCache = await ensureAvailabilityForDate(selectedDate, primaryFilteredCombinations);
+        const activeCombinations = [selectedCombinationForAvailability];
+        const dateCache = await ensureAvailabilityForDate(selectedDate, activeCombinations);
         if (isCancelled) return;
-        const mergedSlots = mergeAvailableSlotsForCombinations(primaryFilteredCombinations, dateCache);
+        const mergedSlots = mergeAvailableSlotsForCombinations(activeCombinations, dateCache);
         setAvailableSlots(mergedSlots);
       } finally {
         if (!isCancelled) {
@@ -415,7 +428,7 @@ export default function NuevaReservacion() {
     };
   }, [
     selectedDate,
-    primaryFilteredCombinations,
+    selectedCombinationForAvailability,
     ensureAvailabilityForDate,
     mergeAvailableSlotsForCombinations,
   ]);
@@ -877,179 +890,143 @@ export default function NuevaReservacion() {
     }
   };
 
-  // Añadir un efecto para cargar los días que tienen reservas y su disponibilidad
+  // Cálculo mensual de estado del calendario basado en disponibilidad real (backend).
   useEffect(() => {
-    const fetchAvailabilityData = async () => {
-      if (!selectedLocation) {
+    let isCancelled = false;
+
+    const fetchMonthAvailability = async () => {
+      if (!selectedCombinationForAvailability) {
         setClosedDays([]);
         setFullyBookedDays([]);
         setPartiallyBookedDays([]);
+        setLoadingAvailability(false);
         return;
       }
-      
+
+      const year = currentMonth.getFullYear();
+      const month = currentMonth.getMonth();
+      const daysInMonth = getDaysInMonth(year, month);
+      const todayStart = getTodayStart();
+      const activeCombinations = [selectedCombinationForAvailability];
+
+      const closed: string[] = [];
+      const fullyBooked: string[] = [];
+      const partiallyBooked: string[] = [];
+      const monthDates: string[] = [];
+
+      for (let day = 1; day <= daysInMonth; day++) {
+        const dayDate = new Date(year, month, day);
+        if (dayDate < todayStart) {
+          continue;
+        }
+        monthDates.push(
+          `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`
+        );
+      }
+
       setLoadingAvailability(true);
+
       try {
-        // Determinar el primer y último día del mes actual
-        const year = currentMonth.getFullYear();
-        const month = currentMonth.getMonth();
-        const firstDay = `${year}-${String(month + 1).padStart(2, '0')}-01`;
-        const lastDay = `${year}-${String(month + 1).padStart(2, '0')}-${String(getDaysInMonth(year, month)).padStart(2, '0')}`;
-        
-        // 1. Obtener los días cerrados (sin horario real disponible)
-        const closed: string[] = [];
-        
-        // Horarios del centro (aplican cuando no hay estilista seleccionado)
-        const { data: locationHours, error: locationHoursError } = await supabase
-          .from('location_hours')
-          .select('*')
-          .eq('location_id', selectedLocation);
-        
-        if (locationHoursError) throw locationHoursError;
+        const batchSize = 5;
 
-        // Horarios del estilista en el centro (si hay estilista seleccionado)
-        let stylistWorkingHours: {
-          day_of_week: number;
-          stylist_id: string;
-          location_id: string;
-        }[] = [];
+        for (let index = 0; index < monthDates.length; index += batchSize) {
+          const batchDates = monthDates.slice(index, index + batchSize);
+          const batchResults = await Promise.all(
+            batchDates.map(async (date) => {
+              const dateCache = await ensureAvailabilityForDate(date, activeCombinations);
+              return { date, dateCache };
+            })
+          );
 
-        if (selectedStylist) {
-          const { data: stylistHours, error: stylistHoursError } = await supabase
-            .from('working_hours')
-            .select('day_of_week, stylist_id, location_id')
-            .eq('location_id', selectedLocation)
-            .eq('stylist_id', selectedStylist);
+          if (isCancelled) return;
 
-          if (stylistHoursError) throw stylistHoursError;
-          stylistWorkingHours = (stylistHours || []) as {
-            day_of_week: number;
-            stylist_id: string;
-            location_id: string;
-          }[];
-        }
-        
-        // Verificar cada día del mes si está cerrado
-        const daysInMonth = getDaysInMonth(year, month);
-        for (let day = 1; day <= daysInMonth; day++) {
-          const date = new Date(year, month, day);
-          const dayOfWeek = date.getDay(); // 0 es domingo, 6 es sábado
-          
-          // Con estilista seleccionado, cerramos por horario real del estilista.
-          // Sin estilista, cerramos por horario del centro.
-          const hasHoursForDay = selectedStylist
-            ? stylistWorkingHours.some(hour => hour.day_of_week === dayOfWeek)
-            : locationHours.some(hour => hour.day_of_week === dayOfWeek);
-          
-          if (!hasHoursForDay) {
-            // Si no hay horario, el centro está cerrado este día
-            const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-            closed.push(dateStr);
-          }
-        }
-        
-        // 2. Obtener las reservas existentes
-        let query = supabase
-          .from('bookings')
-          .select('booking_date, location_id, start_time, end_time, stylist_id')
-          .gte('booking_date', firstDay)
-          .lte('booking_date', lastDay)
-          .eq('location_id', selectedLocation);
-          
-        if (selectedStylist) {
-          query = query.eq('stylist_id', selectedStylist);
-        }
-        
-        const { data: bookings, error: bookingsError } = await query;
-        
-        if (bookingsError) throw bookingsError;
-        
-        // Agrupar las reservas por fecha
-        const bookingsByDate: Record<string, {
-          booking_date?: string;
-          booking_time?: string;
-          start_time?: string;
-          end_time?: string;
-          service_id?: number;
-          stylist_id?: string;
-          location_id?: number;
-          customer_name?: string;
-          customer_email?: string;
-          customer_phone?: string;
-          status?: string;
-        }[]> = {};
-        bookings.forEach(booking => {
-          if (!bookingsByDate[booking.booking_date]) {
-            bookingsByDate[booking.booking_date] = [];
-          }
-          bookingsByDate[booking.booking_date].push(booking);
-        });
-        
-        // 3. Determinar días parcialmente y completamente reservados
-        const fullyBooked: string[] = [];
-        const partiallyBooked: string[] = [];
-        
-        // Obtener estilistas y sus horarios para el centro seleccionado
-        const { data: workingHours, error: workingHoursError } = await supabase
-          .from('working_hours')
-          .select('*')
-          .eq('location_id', selectedLocation);
-        
-        if (workingHoursError) throw workingHoursError;
-        
-        // Para cada día con reservas, verificar si todos los slots están ocupados
-        for (const [date, dateBookings] of Object.entries(bookingsByDate)) {
-          if (closed.includes(date)) continue; // Ignorar días cerrados
-          
-          const dateObj = new Date(date);
-          const dayOfWeek = dateObj.getDay(); // 0 es domingo, 1 es lunes, etc.
-          
-          // Obtener horas de trabajo para este día
-          const stylistId = selectedStylist || undefined;
-          const hoursForDay = workingHours.filter(wh => {
-            return wh.day_of_week === dayOfWeek && (!stylistId || wh.stylist_id === stylistId);
-          });
-          
-          if (hoursForDay.length > 0) {
-            // Calcular la duración total de horas de trabajo
-            let totalWorkMinutes = 0;
-            
-            hoursForDay.forEach(wh => {
-              const [startHour, startMinute] = wh.start_time.split(':').map(Number);
-              const [endHour, endMinute] = wh.end_time.split(':').map(Number);
-              
-              const startMinutes = startHour * 60 + startMinute;
-              const endMinutes = endHour * 60 + endMinute;
-              
-              totalWorkMinutes += endMinutes - startMinutes;
+          batchResults.forEach(({ date, dateCache }) => {
+            const slotsByTime = new Map<
+              string,
+              { hasAvailable: boolean; reasons: Set<string> }
+            >();
+
+            activeCombinations.forEach((combination) => {
+              const key = buildCombinationKey(combination);
+              const slots = dateCache[key] || [];
+
+              slots.forEach((slot) => {
+                const slotEntry = slotsByTime.get(slot.time) || {
+                  hasAvailable: false,
+                  reasons: new Set<string>(),
+                };
+
+                if (slot.available) {
+                  slotEntry.hasAvailable = true;
+                } else if (slot.reasonCode) {
+                  slotEntry.reasons.add(slot.reasonCode);
+                }
+
+                slotsByTime.set(slot.time, slotEntry);
+              });
             });
-            
-            // Calcular slots disponibles basados en duración promedio de servicios (30 minutos)
-            const averageServiceDuration = 30; // minutos
-            const estimatedSlots = Math.floor(totalWorkMinutes / averageServiceDuration);
-            
-            // Determinar si está completamente reservado
-            if (dateBookings.length >= estimatedSlots) {
-              fullyBooked.push(date);
-            } else {
+
+            if (slotsByTime.size === 0) {
+              closed.push(date);
+              return;
+            }
+
+            let availableTimeCount = 0;
+            const blockedReasons = new Set<string>();
+
+            slotsByTime.forEach((slotEntry) => {
+              if (slotEntry.hasAvailable) {
+                availableTimeCount += 1;
+                return;
+              }
+
+              slotEntry.reasons.forEach((reason) => blockedReasons.add(reason));
+            });
+
+            if (availableTimeCount === 0) {
+              const hasOnlyConflicts =
+                blockedReasons.size > 0 &&
+                Array.from(blockedReasons).every((reason) => reason === 'slot_conflict');
+
+              if (hasOnlyConflicts) {
+                fullyBooked.push(date);
+              } else {
+                closed.push(date);
+              }
+              return;
+            }
+
+            if (availableTimeCount < slotsByTime.size) {
               partiallyBooked.push(date);
             }
-          }
+          });
         }
-        
-        // Actualizar estados
+
+        if (isCancelled) return;
+
         setClosedDays(closed);
         setFullyBookedDays(fullyBooked);
         setPartiallyBookedDays(partiallyBooked);
-        
       } catch (err) {
-        console.error('Erreur lors du chargement des disponibilités:', err);
+        console.error('Erreur lors du chargement des disponibilités mensuelles:', err);
+        if (!isCancelled) {
+          setClosedDays([]);
+          setFullyBookedDays([]);
+          setPartiallyBookedDays([]);
+        }
       } finally {
-        setLoadingAvailability(false);
+        if (!isCancelled) {
+          setLoadingAvailability(false);
+        }
       }
     };
-    
-    fetchAvailabilityData();
-  }, [currentMonth, selectedLocation, selectedStylist]);
+
+    fetchMonthAvailability();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [currentMonth, selectedCombinationForAvailability, ensureAvailabilityForDate]);
 
   // Renderizaciones condicionales basadas en el estado
   if (isLoading) {
@@ -1281,7 +1258,7 @@ export default function NuevaReservacion() {
                     const isClosed = closedDays.includes(dateStr);
                     const isFullyBooked = fullyBookedDays.includes(dateStr);
                     const isPartiallyBooked = partiallyBookedDays.includes(dateStr);
-                    const isDisabledDay = isPastDate || isClosed;
+                    const isDisabledDay = isPastDate || isClosed || isFullyBooked;
                     
                     let buttonClasses = 'text-center h-10 sm:h-12 flex flex-col items-center justify-center rounded-md border border-border/70 bg-card text-foreground shadow-sm text-xs sm:text-sm transition-colors duration-200';
                     let dotColor = 'bg-green-500';
@@ -1293,7 +1270,7 @@ export default function NuevaReservacion() {
                       buttonClasses += ' cursor-not-allowed opacity-65';
                       dotColor = 'bg-red-500';
                     } else if (isFullyBooked) {
-                      buttonClasses += ' cursor-pointer hover:bg-muted/60';
+                      buttonClasses += ' cursor-not-allowed opacity-70';
                       dotColor = 'bg-red-500';
                     } else if (isPartiallyBooked) {
                       buttonClasses += ' cursor-pointer hover:bg-muted/60';

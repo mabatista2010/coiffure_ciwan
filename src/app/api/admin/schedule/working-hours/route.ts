@@ -76,10 +76,11 @@ export async function POST(request: Request) {
       const endTime = normalizeTime(endTimeRaw);
 
       if (parseTimeToMinutes(endTime) <= parseTimeToMinutes(startTime)) {
-        throw new Error(`invalid_time_order:${index}`);
+        throw new Error(`invalid_time_order:${index}:${startTime}:${endTime}`);
       }
 
       return {
+        input_index: index,
         location_id: locationId,
         day_of_week: dayOfWeek,
         start_time: startTime,
@@ -173,7 +174,7 @@ export async function POST(request: Request) {
       if (!fitsCenter) {
         return badRequest(
           "outside_location_hours",
-          "Un créneau du styliste est hors horaires réguliers du centre"
+          `Créneau hors horaires centre (index ${row.input_index}): locationId=${row.location_id}, dayOfWeek=${row.day_of_week}, ${row.start_time}→${row.end_time}`
         );
       }
     }
@@ -252,7 +253,11 @@ export async function POST(request: Request) {
     }
 
     if (message.startsWith("invalid_time_order:")) {
-      return badRequest("invalid_time_order", "startTime doit être inférieur à endTime");
+      const [, index = "?", startTime = "?", endTime = "?"] = message.split(":");
+      return badRequest(
+        "invalid_time_order",
+        `Plage invalide (index ${index}): ${startTime} → ${endTime}. startTime doit être inférieur à endTime`
+      );
     }
 
     console.error("working_hours_post_unhandled_error", error);

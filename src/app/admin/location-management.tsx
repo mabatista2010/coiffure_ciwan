@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 import Image from 'next/image';
 import { v4 as uuidv4 } from 'uuid';
-import { AdminCard, AdminCardContent, AdminCardHeader, SectionHeader } from '@/components/admin/ui';
+import { AdminSidePanel, SectionHeader } from '@/components/admin/ui';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -42,19 +42,35 @@ interface LocationHour {
   end_time: string;
 }
 
+const createInitialLocationState = (): Partial<Location> => ({
+  name: '',
+  address: '',
+  description: '',
+  phone: '',
+  email: '',
+  image: '',
+  active: true,
+});
+
+const createEmptyLocationHours = (): {
+  [day: number]: Array<{ start: string; end: string }>
+} => {
+  const emptyHours: {
+    [day: number]: Array<{ start: string; end: string }>
+  } = {};
+
+  weekdays.forEach((day) => {
+    emptyHours[day.id] = [{ start: '', end: '' }];
+  });
+
+  return emptyHours;
+};
+
 export default function LocationManagement() {
   const [locations, setLocations] = useState<Location[]>([]);
   const [editingLocation, setEditingLocation] = useState<Location | null>(null);
-  const [newLocation, setNewLocation] = useState<Partial<Location>>({
-    name: '',
-    address: '',
-    description: '',
-    phone: '',
-    email: '',
-    image: '',
-    active: true,
-  });
-  const [showAddForm, setShowAddForm] = useState(false);
+  const [newLocation, setNewLocation] = useState<Partial<Location>>(createInitialLocationState());
+  const [showLocationPanel, setShowLocationPanel] = useState(false);
 
   const [locationImageFile, setLocationImageFile] = useState<File | null>(null);
   const [locationImagePreview, setLocationImagePreview] = useState<string>('');
@@ -64,15 +80,7 @@ export default function LocationManagement() {
   // Estado para los horarios del centro
   const [locationHours, setLocationHours] = useState<{
     [day: number]: Array<{ start: string; end: string }>
-  }>({
-    0: [{ start: '', end: '' }],
-    1: [{ start: '', end: '' }],
-    2: [{ start: '', end: '' }],
-    3: [{ start: '', end: '' }],
-    4: [{ start: '', end: '' }],
-    5: [{ start: '', end: '' }],
-    6: [{ start: '', end: '' }],
-  });
+  }>(createEmptyLocationHours());
 
   useEffect(() => {
     loadLocations();
@@ -261,18 +269,42 @@ export default function LocationManagement() {
     }
   };
 
-  const handleAddLocation = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
+  const initializeEmptyHours = () => {
+    setLocationHours(createEmptyLocationHours());
+  };
+
+  const resetLocationFormState = () => {
+    setEditingLocation(null);
+    setNewLocation(createInitialLocationState());
+    setLocationImageFile(null);
+    setLocationImagePreview('');
+    initializeEmptyHours();
+
+    if (locationImageInputRef.current) {
+      locationImageInputRef.current.value = '';
+    }
+  };
+
+  const closePanel = () => {
+    setShowLocationPanel(false);
+    resetLocationFormState();
+  };
+
+  const openNewLocationPanel = () => {
+    resetLocationFormState();
+    setShowLocationPanel(true);
+  };
+
+  const handleAddLocation = async () => {
     try {
       setIsUploading(true);
-      
+
       let imageUrl = '';
-      
+
       if (locationImageFile) {
         imageUrl = await uploadImage(locationImageFile) || '';
       }
-      
+
       const newLocationData = {
         id: uuidv4(),
         name: newLocation.name,
@@ -283,63 +315,38 @@ export default function LocationManagement() {
         image: imageUrl,
         active: true
       };
-      
+
       const { error } = await supabase
         .from('locations')
         .insert(newLocationData);
-        
+
       if (error) {
         throw error;
       }
-      
-      // Guardar los horarios para el nuevo centro
+
       await saveLocationHours(newLocationData.id);
-      
-      // Reiniciar el formulario
-      setNewLocation({
-        name: '',
-        address: '',
-        description: '',
-        phone: '',
-        email: '',
-        image: '',
-        active: true
-      });
-      setLocationImageFile(null);
-      setLocationImagePreview('');
-      if (locationImageInputRef.current) {
-        locationImageInputRef.current.value = '';
-      }
-      
-      // Reiniciar horarios
-      initializeEmptyHours();
-      
-      // Recharger les centres
-      loadLocations();
-      
-      setIsUploading(false);
+      await loadLocations();
+      closePanel();
     } catch (error) {
       console.error('Erreur lors de l\'ajout du centre:', error);
+    } finally {
       setIsUploading(false);
     }
   };
 
-  const handleUpdateLocation = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
+  const handleUpdateLocation = async () => {
     if (!editingLocation) return;
-    
+
     try {
       setIsUploading(true);
-      
+
       let imageUrl = editingLocation.image || '';
-      
+
       if (locationImageFile) {
         // Si hay una imagen nueva para subir
         imageUrl = await uploadImage(locationImageFile) || '';
       }
-      
-      // Actualizar información principal
+
       const { error } = await supabase
         .from('locations')
         .update({
@@ -352,47 +359,28 @@ export default function LocationManagement() {
           active: true
         })
         .eq('id', editingLocation.id);
-      
+
       if (error) {
         throw error;
       }
-      
-      // Guardar los horarios actualizados
+
       await saveLocationHours(editingLocation.id);
-      
-      // Réinitialiser le formulaire
-      setEditingLocation(null);
-      setLocationImageFile(null);
-      setLocationImagePreview('');
-      setShowAddForm(false);
-      
-      if (locationImageInputRef.current) {
-        locationImageInputRef.current.value = '';
-      }
-      
-      // Reiniciar horarios
-      initializeEmptyHours();
-      
-      // Recharger les centres
-      loadLocations();
-      
-      setIsUploading(false);
+      await loadLocations();
+      closePanel();
     } catch (error) {
       console.error('Erreur lors de la mise à jour du centre:', error);
+    } finally {
       setIsUploading(false);
     }
   };
 
   const handleEditLocation = async (location: Location) => {
     setEditingLocation(location);
+    setLocationImageFile(null);
     setLocationImagePreview(location.image || '');
-    setShowAddForm(true);
-    
-    // Cargar los horarios del centro
+    setShowLocationPanel(true);
+
     await loadLocationHours(location.id);
-    
-    // Desplazar automáticamente hacia la parte superior con animación suave
-    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const handleDeleteLocation = async (id: string) => {
@@ -427,261 +415,224 @@ export default function LocationManagement() {
     }
   };
 
-  const cancelEdit = () => {
-    setEditingLocation(null);
-    setLocationImageFile(null);
-    setLocationImagePreview('');
-    setShowAddForm(false);
-    
-    // Inicializar horarios vacíos
-    initializeEmptyHours();
-    
-    if (locationImageInputRef.current) {
-      locationImageInputRef.current.value = '';
-    }
-  };
-
   const handleFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (editingLocation) {
-      await handleUpdateLocation(e);
-    } else {
-      await handleAddLocation(e);
-      setShowAddForm(false); // Ocultar el formulario después de añadir
-    }
-  };
 
-  // Inicializar horarios vacíos
-  const initializeEmptyHours = () => {
-    const emptyHours: {
-      [day: number]: Array<{ start: string; end: string }>
-    } = {};
-    
-    weekdays.forEach(day => {
-      emptyHours[day.id] = [{ start: '', end: '' }];
-    });
-    
-    setLocationHours(emptyHours);
+    if (editingLocation) {
+      await handleUpdateLocation();
+    } else {
+      await handleAddLocation();
+    }
   };
 
   return (
-    <div className="admin-scope space-y-6">
+    <div className="admin-scope space-y-6 overflow-x-hidden">
       <SectionHeader
         title="Gestion des Centres"
         description="CRUD centres, images et plages horaires multi-slot."
       />
 
-      {!editingLocation && (
-        <Button
-          onClick={() => setShowAddForm(!showAddForm)}
-          variant={showAddForm ? 'outline' : 'default'}
-        >
-          {showAddForm ? 'Fermer formulaire' : 'Ajouter nouveau centre'}
-        </Button>
-      )}
-      
-      {/* Formulario para agregar/editar centro */}
-      {(showAddForm || editingLocation) && (
-        <AdminCard tone="highlight" className="mb-8">
-          <AdminCardHeader>
-            <h2 className="text-xl font-semibold text-primary">
-              {editingLocation ? 'Modifier un Centre' : 'Ajouter un Nouveau Centre'}
-            </h2>
-          </AdminCardHeader>
-          <AdminCardContent>
-            <form onSubmit={handleFormSubmit} className="space-y-6">
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                <div className="space-y-2">
-                  <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Nom</label>
-                  <Input
-                    type="text"
-                    value={editingLocation ? editingLocation.name : newLocation.name}
-                    onChange={(e) => editingLocation 
-                      ? setEditingLocation({...editingLocation, name: e.target.value}) 
-                      : setNewLocation({...newLocation, name: e.target.value})
-                    }
-                    required
-                  />
-                </div>
-                
-                <div className="space-y-2">
-                  <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Adresse</label>
-                  <Input
-                    type="text"
-                    value={editingLocation ? editingLocation.address : newLocation.address}
-                    onChange={(e) => editingLocation 
-                      ? setEditingLocation({...editingLocation, address: e.target.value}) 
-                      : setNewLocation({...newLocation, address: e.target.value})
-                    }
-                    required
-                  />
-                </div>
-                
-                <div className="space-y-2">
-                  <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Téléphone</label>
-                  <Input
-                    type="tel"
-                    value={editingLocation ? editingLocation.phone || '' : newLocation.phone || ''}
-                    onChange={(e) => editingLocation 
-                      ? setEditingLocation({...editingLocation, phone: e.target.value}) 
-                      : setNewLocation({...newLocation, phone: e.target.value})
-                    }
-                  />
-                </div>
-                
-                <div className="space-y-2">
-                  <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Email</label>
-                  <Input
-                    type="email"
-                    value={editingLocation ? editingLocation.email || '' : newLocation.email || ''}
-                    onChange={(e) => editingLocation 
-                      ? setEditingLocation({...editingLocation, email: e.target.value}) 
-                      : setNewLocation({...newLocation, email: e.target.value})
-                    }
-                  />
-                </div>
-                
-                <div className="space-y-2 md:col-span-2">
-                  <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Description</label>
-                  <Textarea
-                    rows={3}
-                    className="min-h-[110px]"
-                    value={editingLocation ? editingLocation.description || '' : newLocation.description || ''}
-                    onChange={(e) => editingLocation 
-                      ? setEditingLocation({...editingLocation, description: e.target.value}) 
-                      : setNewLocation({...newLocation, description: e.target.value})
-                    }
-                  />
-                </div>
-                
-                <div className="space-y-2 md:col-span-2">
-                  <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Image</label>
-                  <div className="grid gap-3 md:grid-cols-[1fr_auto] md:items-end">
-                    <div className="space-y-2">
-                      <Input
-                        ref={locationImageInputRef}
-                        type="file"
-                        accept="image/*"
-                        onChange={handleFileChange}
-                        className="h-auto py-2 file:mr-3 file:rounded-lg file:border file:border-primary/45 file:bg-primary/12 file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-primary"
+      <Button onClick={openNewLocationPanel}>
+        Ajouter nouveau centre
+      </Button>
+
+      <AdminSidePanel
+        open={showLocationPanel}
+        onOpenChange={(open) => {
+          if (!open) {
+            closePanel();
+            return;
+          }
+          setShowLocationPanel(true);
+        }}
+        width="xl"
+        title={editingLocation ? 'Modifier un Centre' : 'Ajouter un Nouveau Centre'}
+        description="Informations, image et horaires d’ouverture du centre."
+        footer={(
+          <div className="flex flex-wrap items-center justify-end gap-3">
+            <Button type="button" variant="outline" onClick={closePanel} disabled={isUploading}>
+              Fermer
+            </Button>
+            <Button type="submit" form="location-panel-form" disabled={isUploading}>
+              {isUploading ? 'Téléchargement...' : (editingLocation ? 'Mise à jour du Centre' : 'Créer un Nouveau Centre')}
+            </Button>
+          </div>
+        )}
+      >
+        <form id="location-panel-form" onSubmit={handleFormSubmit} className="space-y-6">
+          <section className="space-y-4 rounded-xl border border-border bg-card p-4">
+            <div className="grid min-w-0 grid-cols-1 gap-4 md:grid-cols-2">
+              <div className="space-y-2 min-w-0">
+                <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Nom</label>
+                <Input
+                  type="text"
+                  value={editingLocation ? editingLocation.name : newLocation.name}
+                  onChange={(e) => editingLocation
+                    ? setEditingLocation({ ...editingLocation, name: e.target.value })
+                    : setNewLocation({ ...newLocation, name: e.target.value })
+                  }
+                  required
+                />
+              </div>
+
+              <div className="space-y-2 min-w-0">
+                <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Adresse</label>
+                <Input
+                  type="text"
+                  value={editingLocation ? editingLocation.address : newLocation.address}
+                  onChange={(e) => editingLocation
+                    ? setEditingLocation({ ...editingLocation, address: e.target.value })
+                    : setNewLocation({ ...newLocation, address: e.target.value })
+                  }
+                  required
+                />
+              </div>
+
+              <div className="space-y-2 min-w-0">
+                <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Téléphone</label>
+                <Input
+                  type="tel"
+                  value={editingLocation ? editingLocation.phone || '' : newLocation.phone || ''}
+                  onChange={(e) => editingLocation
+                    ? setEditingLocation({ ...editingLocation, phone: e.target.value })
+                    : setNewLocation({ ...newLocation, phone: e.target.value })
+                  }
+                />
+              </div>
+
+              <div className="space-y-2 min-w-0">
+                <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Email</label>
+                <Input
+                  type="email"
+                  value={editingLocation ? editingLocation.email || '' : newLocation.email || ''}
+                  onChange={(e) => editingLocation
+                    ? setEditingLocation({ ...editingLocation, email: e.target.value })
+                    : setNewLocation({ ...newLocation, email: e.target.value })
+                  }
+                />
+              </div>
+
+              <div className="space-y-2 md:col-span-2 min-w-0">
+                <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Description</label>
+                <Textarea
+                  rows={3}
+                  className="min-h-[110px]"
+                  value={editingLocation ? editingLocation.description || '' : newLocation.description || ''}
+                  onChange={(e) => editingLocation
+                    ? setEditingLocation({ ...editingLocation, description: e.target.value })
+                    : setNewLocation({ ...newLocation, description: e.target.value })
+                  }
+                />
+              </div>
+
+              <div className="space-y-2 md:col-span-2 min-w-0">
+                <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Image</label>
+                <div className="grid gap-3 md:grid-cols-[1fr_auto] md:items-end min-w-0">
+                  <div className="space-y-2 min-w-0">
+                    <Input
+                      ref={locationImageInputRef}
+                      type="file"
+                      accept="image/*"
+                      onChange={handleFileChange}
+                      className="h-auto py-2 file:mr-3 file:rounded-lg file:border file:border-primary/45 file:bg-primary/12 file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-primary"
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Format recommandé: JPEG ou PNG, taille maximale 2MB
+                    </p>
+                  </div>
+
+                  {locationImagePreview && (
+                    <div className="relative h-24 w-24 overflow-hidden rounded-xl border border-border">
+                      <Image
+                        src={locationImagePreview}
+                        alt="Aperçu du centre"
+                        fill
+                        className="object-cover"
                       />
-                      <p className="text-xs text-muted-foreground">
-                        Format recommandé: JPEG ou PNG, taille maximale 2MB
-                      </p>
                     </div>
-                    
-                    {locationImagePreview && (
-                      <div className="relative h-24 w-24 overflow-hidden rounded-xl border border-border">
-                        <Image
-                          src={locationImagePreview}
-                          alt="Aperçu du centre"
-                          fill
-                          className="object-cover"
-                        />
-                      </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section className="space-y-4 rounded-xl border border-border bg-card p-4">
+            <h3 className="text-lg font-semibold text-primary">Horaires du Centre</h3>
+
+            <div className="rounded-xl border border-border bg-primary/5 p-3">
+              <p className="text-sm text-foreground">
+                <strong>Information importante:</strong> Configure les horaires d&apos;ouverture pour chaque jour. Vous pouvez ajouter plusieurs plages horaires par jour (par exemple, matin et soir).
+              </p>
+            </div>
+
+            {weekdays.map((day) => (
+              <div key={day.id} className="rounded-xl border border-border bg-background p-4">
+                <h4 className="mb-2 font-semibold text-primary">{day.name}</h4>
+
+                {locationHours[day.id]?.map((slot, slotIndex) => (
+                  <div key={slotIndex} className="mb-3 flex min-w-0 flex-col items-start space-y-2 rounded-lg border border-border bg-card p-3 sm:flex-row sm:items-center sm:space-x-4 sm:space-y-0">
+                    <div className="flex w-full min-w-0 items-center sm:w-auto">
+                      <span className="mr-2 w-10 text-foreground">De</span>
+                      <Input
+                        type="time"
+                        className="w-full sm:w-auto"
+                        value={slot.start}
+                        onChange={(e) => updateTimeSlot(day.id, slotIndex, 'start', e.target.value)}
+                        required
+                      />
+                    </div>
+
+                    <div className="flex w-full min-w-0 items-center sm:w-auto">
+                      <span className="mr-2 w-10 text-foreground">a</span>
+                      <Input
+                        type="time"
+                        className="w-full sm:w-auto"
+                        value={slot.end}
+                        onChange={(e) => updateTimeSlot(day.id, slotIndex, 'end', e.target.value)}
+                        required
+                      />
+                    </div>
+
+                    {locationHours[day.id].length > 1 && (
+                      <Button
+                        type="button"
+                        onClick={() => removeTimeSlot(day.id, slotIndex)}
+                        variant="destructive"
+                        size="sm"
+                        className="mt-2 sm:mt-0"
+                        aria-label="Eliminar franja horaria"
+                      >
+                        <span>Eliminar</span>
+                      </Button>
                     )}
                   </div>
-                </div>
-              </div>
-              
-              {/* Sección de horarios */}
-              <div className="space-y-4">
-                <h3 className="text-lg font-semibold text-primary">Horaires du Centre</h3>
-                
-                <div className="rounded-xl border border-border bg-primary/5 p-3">
-                  <p className="text-sm text-foreground">
-                    <strong>Information importante:</strong> Configure les horaires d&apos;ouverture pour chaque jour. Vous pouvez ajouter plusieurs plages horaires par jour (par exemple, matin et soir).
-                  </p>
-                </div>
-                
-                {weekdays.map((day) => (
-                  <div key={day.id} className="rounded-xl border border-border bg-card p-4">
-                    <h4 className="mb-2 font-semibold text-primary">{day.name}</h4>
-                    
-                    {locationHours[day.id]?.map((slot, slotIndex) => (
-                      <div key={slotIndex} className="mb-3 flex flex-col items-start space-y-2 rounded-lg border border-border bg-background p-3 sm:flex-row sm:items-center sm:space-x-4 sm:space-y-0">
-                        <div className="flex w-full items-center sm:w-auto">
-                          <span className="mr-2 w-10 text-foreground">De</span>
-                          <Input
-                            type="time"
-                            className="w-full sm:w-auto"
-                            value={slot.start}
-                            onChange={(e) => updateTimeSlot(day.id, slotIndex, 'start', e.target.value)}
-                            required
-                          />
-                        </div>
-                        
-                        <div className="flex w-full items-center sm:w-auto">
-                          <span className="mr-2 w-10 text-foreground">a</span>
-                          <Input
-                            type="time"
-                            className="w-full sm:w-auto"
-                            value={slot.end}
-                            onChange={(e) => updateTimeSlot(day.id, slotIndex, 'end', e.target.value)}
-                            required
-                          />
-                        </div>
-                        
-                        {locationHours[day.id].length > 1 && (
-                          <Button
-                            type="button"
-                            onClick={() => removeTimeSlot(day.id, slotIndex)}
-                            variant="destructive"
-                            size="sm"
-                            className="mt-2 sm:mt-0"
-                            aria-label="Eliminar franja horaria"
-                          >
-                            <span>Eliminar</span>
-                          </Button>
-                        )}
-                      </div>
-                    ))}
-                    
-                    <Button
-                      type="button"
-                      onClick={() => addTimeSlot(day.id)}
-                      variant="secondary"
-                      size="sm"
-                      className="mt-2"
-                    >
-                      + Ajouter une plage horaire
-                    </Button>
-                  </div>
                 ))}
-              </div>
-              
-              <div className="flex flex-wrap items-center gap-3">
-                <Button
-                  type="submit"
-                  disabled={isUploading}
-                >
-                  {isUploading ? 'Téléchargement...' : (editingLocation ? 'Mise à jour du Centre' : 'Créer un Nouveau Centre')}
-                </Button>
-                
+
                 <Button
                   type="button"
-                  onClick={cancelEdit}
+                  onClick={() => addTimeSlot(day.id)}
                   variant="secondary"
-                  disabled={isUploading}
+                  size="sm"
+                  className="mt-2 whitespace-normal"
                 >
-                  Annuler
+                  + Ajouter une plage horaire
                 </Button>
               </div>
-            </form>
-          </AdminCardContent>
-        </AdminCard>
-      )}
+            ))}
+          </section>
+        </form>
+      </AdminSidePanel>
       
       {/* Lista de centros existentes */}
       <div className="space-y-8">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid min-w-0 grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
           {locations.length === 0 ? (
             <p className="text-light">Aucun centre enregistré.</p>
           ) : (
-            locations.map(location => (
-              <div 
-                key={location.id} 
-                className="rounded-lg border border-border shadow-md hover:shadow-lg transition-all bg-secondary overflow-hidden"
+            locations.map((location) => (
+              <div
+                key={location.id}
+                className="min-w-0 overflow-hidden rounded-lg border border-border bg-secondary shadow-md transition-all hover:shadow-lg"
               >
                 {/* Imagen en la parte superior ocupando todo el ancho */}
                 <div className="relative w-full h-48 sm:h-64">

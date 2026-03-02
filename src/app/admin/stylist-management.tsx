@@ -37,6 +37,7 @@ type CenterSlot = TimeRange & {
 type CenterSlotsByLocationDay = Record<string, Record<number, CenterSlot[]>>;
 type CustomSlotsByLocationDay = Record<string, Record<number, TimeRange[]>>;
 type WorkingConfigByLocationDay = Record<string, Record<number, DayConfig>>;
+type TimeOffCategory = 'vacaciones' | 'baja' | 'descanso' | 'formacion' | 'bloqueo_operativo';
 
 type TimeOffEntry = {
   id: string;
@@ -45,7 +46,7 @@ type TimeOffEntry = {
   start_datetime: string;
   end_datetime: string;
   reason: string | null;
-  category: 'vacaciones' | 'baja' | 'descanso' | 'formacion' | 'bloqueo_operativo';
+  category: TimeOffCategory;
   created_at: string;
 };
 
@@ -64,7 +65,7 @@ type TimeOffFormState = {
   locationId: string;
   startDateTime: string;
   endDateTime: string;
-  category: TimeOffEntry['category'];
+  category: TimeOffCategory;
   reason: string;
 };
 
@@ -88,6 +89,18 @@ const weekdays = [
 ];
 
 const defaultRange: TimeRange = { start: '09:00', end: '18:00' };
+
+const TIME_OFF_CATEGORY_LABELS: Record<TimeOffCategory, string> = {
+  vacaciones: 'Vacances',
+  baja: 'Arrêt maladie',
+  descanso: 'Repos',
+  formacion: 'Formation',
+  bloqueo_operativo: 'Blocage opérationnel',
+};
+
+function getTimeOffCategoryLabel(category: TimeOffCategory): string {
+  return TIME_OFF_CATEGORY_LABELS[category];
+}
 
 interface StylistManagementProps {
   services: Service[];
@@ -122,6 +135,10 @@ function createDefaultCustomSlots(): Record<number, TimeRange[]> {
 
 function normalizeTimeValue(value: string): string {
   return value.length === 5 ? `${value}:00` : value;
+}
+
+function isValidHourMinute(value: string): boolean {
+  return /^([01]\d|2[0-3]):[0-5]\d$/.test(value);
 }
 
 function toMinutes(value: string): number {
@@ -805,6 +822,27 @@ export default function StylistManagement({ services, locations, onUpdate }: Sty
           };
         }
 
+        const invalidCenterSlot = dayCenterSlots.find((slot) => {
+          const start = slot.start.trim();
+          const end = slot.end.trim();
+
+          if (!isValidHourMinute(start) || !isValidHourMinute(end)) {
+            return true;
+          }
+
+          return toMinutes(end) <= toMinutes(start);
+        });
+
+        if (invalidCenterSlot) {
+          return {
+            payload: [],
+            validationError:
+              `${day.name} (${locations.find((l) => l.id === locationId)?.name || locationId}): ` +
+              `plage centre invalide (${invalidCenterSlot.start} → ${invalidCenterSlot.end}). ` +
+              `Corrigez les horaires du centre ou passez en mode personnalisé.`,
+          };
+        }
+
         dayCenterSlots.forEach((slot) => {
           payload.push({
             locationId,
@@ -1046,6 +1084,7 @@ export default function StylistManagement({ services, locations, onUpdate }: Sty
 
   const submitTimeOff = async (e: React.FormEvent) => {
     e.preventDefault();
+    setErrorMessage('');
 
     if (!selectedStylist) {
       setErrorMessage('Styliste introuvable');
@@ -1146,6 +1185,7 @@ export default function StylistManagement({ services, locations, onUpdate }: Sty
 
   const submitClosure = async (e: React.FormEvent) => {
     e.preventDefault();
+    setErrorMessage('');
 
     if (!closureForm.locationId || !closureForm.closureDate) {
       setErrorMessage('Centre et date sont obligatoires pour la fermeture');
@@ -1240,13 +1280,13 @@ export default function StylistManagement({ services, locations, onUpdate }: Sty
         description="Profils, services assignés, horaires de base et exceptions d’agenda."
       />
 
-      {errorMessage ? (
+      {!showStylistPanel && errorMessage ? (
         <div className="rounded-lg border border-destructive/35 bg-destructive/10 px-4 py-3 text-sm text-destructive">
           {errorMessage}
         </div>
       ) : null}
 
-      {scheduleImpactMessage ? (
+      {!showStylistPanel && scheduleImpactMessage ? (
         <div className="rounded-lg border border-primary/35 bg-primary/10 px-4 py-3 text-sm text-primary">
           {scheduleImpactMessage}
         </div>
@@ -1341,21 +1381,41 @@ export default function StylistManagement({ services, locations, onUpdate }: Sty
         title={editMode ? "Éditer le styliste" : "Nouveau styliste"}
         description="Profils, services, horaires, indisponibilités et fermetures de centre."
         footer={
-          <div className="flex flex-wrap items-center justify-end gap-3">
-            <Button type="button" variant="outline" onClick={closePanel}>
-              Fermer
-            </Button>
-            <Button
-              type="submit"
-              form="stylist-panel-form"
-              disabled={isUploading || isSavingSchedule}
-            >
-              {isUploading || isSavingSchedule
-                ? 'Enregistrement...'
-                : editMode
-                  ? 'Mettre à jour le styliste'
-                  : 'Créer le styliste'}
-            </Button>
+          <div className="flex w-full flex-col gap-3">
+            {errorMessage ? (
+              <div
+                className="rounded-lg border border-destructive/35 bg-destructive/10 px-3 py-2 text-sm text-destructive"
+                role="alert"
+                aria-live="polite"
+              >
+                {errorMessage}
+              </div>
+            ) : null}
+            {scheduleImpactMessage ? (
+              <div
+                className="rounded-lg border border-primary/35 bg-primary/10 px-3 py-2 text-sm text-primary"
+                role="status"
+                aria-live="polite"
+              >
+                {scheduleImpactMessage}
+              </div>
+            ) : null}
+            <div className="flex flex-wrap items-center justify-end gap-3">
+              <Button type="button" variant="outline" onClick={closePanel}>
+                Fermer
+              </Button>
+              <Button
+                type="submit"
+                form="stylist-panel-form"
+                disabled={isUploading || isSavingSchedule}
+              >
+                {isUploading || isSavingSchedule
+                  ? 'Enregistrement...'
+                  : editMode
+                    ? 'Mettre à jour le styliste'
+                    : 'Créer le styliste'}
+              </Button>
+            </div>
           </div>
         }
       >
@@ -1633,7 +1693,9 @@ export default function StylistManagement({ services, locations, onUpdate }: Sty
                         <div key={entry.id} className="rounded-lg border border-border bg-background p-3">
                           <div className="flex flex-wrap items-start justify-between gap-2">
                             <div>
-                              <p className="text-sm font-semibold text-foreground">{entry.category}</p>
+                              <p className="text-sm font-semibold text-foreground">
+                                {getTimeOffCategoryLabel(entry.category)}
+                              </p>
                               <p className="text-xs text-muted-foreground">{locationName}</p>
                               <p className="text-xs text-muted-foreground">
                                 {new Date(entry.start_datetime).toLocaleString('fr-FR')} →{' '}
