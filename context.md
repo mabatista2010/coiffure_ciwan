@@ -94,14 +94,14 @@ Steel & Blade est l’application web de **Coiffure Ciwan**, un salon masculin m
 - `GET /api/reservation/availability`
   - Paramètres: `date`, `stylistId`, `locationId`, `serviceId`.
   - Délègue à la RPC SQL `public.get_availability_slots_v2`.
-  - Utilise les mêmes règles que la création (`check_booking_slot_v2`) : `working_hours`, `time_off`, `location_closures`, `bookings` (`pending|confirmed|needs_replan`), `booking_buffer_minutes`, fenêtre `min/max` et timezone métier.
+  - Utilise les mêmes règles que la création (`check_booking_slot_v2`) : `working_hours`, `location_hours`, `time_off`, `location_closures`, `bookings` (`pending|confirmed|needs_replan`), `booking_buffer_minutes`, fenêtre `min/max` et timezone métier.
   - Retourne `availableSlots[]` avec `time`, `available`, `reasonCode`.
   - Lit les données via client Supabase `service_role` côté serveur (pas d’exposition directe de `bookings` en public).
 - `POST /api/reservation/create`
   - Délègue la création à la RPC SQL `public.create_booking_atomic_v2` (service role server-only).
   - Validation atomique serveur via moteur centralisé (`check_booking_slot_v2`) + verrou transactionnel (`pg_advisory_xact_lock`) pour réduire les races.
   - Codes d’erreur normalisés : `invalid_payload` (400), `slot_conflict` (409), règles métier (422), `internal_error` (500).
-  - Nouveaux codes métier: `outside_booking_window`, `location_closed`.
+  - Nouveaux codes métier: `outside_booking_window`, `outside_location_hours`, `location_closed`.
   - Idempotence supportée via header `Idempotency-Key` (replay de réponse pour la même clé+payload, blocage si clé réutilisée avec payload différent).
   - Logging structuré de création (`request_id`, `source`, `idempotency_key`, `error_code`, `latency_ms`).
 
@@ -153,6 +153,10 @@ Steel & Blade est l’application web de **Coiffure Ciwan**, un salon masculin m
   - `POST`: création fermeture (`admin`), journée complète ou plage partielle.
 - `PUT/DELETE /api/admin/schedule/location-closures/[id]`
   - Endpoint interne protégé (`admin`) pour modification/suppression.
+- `POST /api/admin/schedule/working-hours`
+  - Endpoint interne protégé (`admin`) pour remplacement des `working_hours` d’un styliste.
+  - Validation serveur: format des plages, anti-solape interne, compatibilité stricte avec `location_hours`.
+  - Réponse avec compteurs (`updated_working_hours_count`, `needs_replan_detected_count`).
 
 ### ChatGPT Apps SDK (MCP)
   - `GET|POST|DELETE /mcp`
@@ -264,7 +268,7 @@ Steel & Blade est l’application web de **Coiffure Ciwan**, un salon masculin m
 - **Configuration** (`/admin`)
   - Services, galerie, stylists, centres, hero/images.
   - Uploads Supabase Storage avec preview.
-  - Stylists : CRUD, services assignés, horaires par centre/jour (plages multi‑slots).
+  - Stylists : CRUD, services assignés, horaires via panneau latéral (`AdminSidePanel`) avec mode centre/personnalisé, `plages` personnalisées multiples, CRUD d’indisponibilités (`time_off`) et fermetures (`location_closures`) contextualisé.
   - Centres : CRUD complet (nom, adresse, tel, email, description, image) + horaires multiples par jour.
 - **Réservations**
   - Calendrier, filtres (date, centre, styliste), statuts.
@@ -328,6 +332,7 @@ Steel & Blade est l’application web de **Coiffure Ciwan**, un salon masculin m
   - `check_booking_slot_v2`: validation centralisée d’un créneau.
   - `create_booking_atomic_v2`: création atomique (source de vérité API create).
   - `get_availability_slots_v2`: génération des slots disponibilité avec `reason_code`.
+  - Guard supplémentaire planifié/apporté par migration: refus des créneaux hors `location_hours` (`outside_location_hours`).
   - `mark_bookings_needs_replan_v2`: marquage automatique des réservations impactées.
   - Triggers actifs: `trg_mark_replan_working_hours_v2`, `trg_mark_replan_time_off_v2`, `trg_mark_replan_location_closures_v2`.
 - **customer_profiles**: profil CRM étendu (`customer_name/email/phone`, `birth_date`, `marital_status`, `has_children`, `hobbies`, `occupation`, `preferred_contact_channel`, `marketing_consent`, `internal_notes_summary`, audit `created_by/updated_by`, timestamps).
@@ -527,6 +532,7 @@ Publics:
 - Migración aplicada Reservas V2.1 Fase A: `migrations/20260227_reservas_v2_phase_a_core.sql`.
 - Migraciones aplicadas Reservas V2.1 Fase B: `migrations/20260227_reservas_v2_phase_b_engine.sql`, `migrations/20260227_reservas_v2_phase_b_availability.sql`, `migrations/20260227_reservas_v2_phase_b_availability_fix.sql`.
 - Migración aplicada Reservas V2.1 Fase C (needs_replan): `migrations/20260227_reservas_v2_phase_c_needs_replan.sql`.
+- Migración aplicada guard `location_hours`: `migrations/20260227_reservas_v2_location_hours_guard.sql` (version `20260227210129`, `reservas_v2_location_hours_guard_20260227`).
 - Migraciones aplicadas CRM fase 1: `migrations/20260227_crm_customer_profiles_phase1.sql`, `migrations/20260227_crm_customer_profiles_grants_fix_phase1.sql`.
 - Script de verificación continua: `scripts/security/postrobustez_security_checks.sql`.
 - Checklist + rollback: `Docs/security-release-checklist.md`, `Docs/security-rollback-runbook.md`.
