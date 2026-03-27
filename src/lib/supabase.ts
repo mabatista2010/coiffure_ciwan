@@ -14,6 +14,13 @@ export type Service = {
   imagen_url: string;
   duration: number;
   active?: boolean;
+  slug?: string;
+  group_id?: number;
+  subgroup_id?: number | null;
+  sort_order?: number;
+  landing_featured?: boolean;
+  landing_sort_order?: number | null;
+  updated_at?: string;
 };
 
 export type GalleryImage = {

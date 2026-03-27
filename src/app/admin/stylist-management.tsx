@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { supabase, Service, Stylist } from '@/lib/supabase';
 import { v4 as uuidv4 } from 'uuid';
 import Image from 'next/image';
+import { ChevronDown, ChevronRight } from 'lucide-react';
 import {
   AdminSidePanel,
   SectionHeader,
@@ -19,6 +20,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { buildServiceCatalog, CatalogService, ServiceGroup, ServiceSubgroup } from '@/lib/serviceCatalog';
+import { fetchWithStaffAuth } from '@/lib/fetchWithStaffAuth';
 
 type DayConfig = {
   active: boolean;
@@ -155,22 +158,6 @@ function sortRanges(ranges: TimeRange[]): TimeRange[] {
   return [...ranges].sort((a, b) => toMinutes(a.start) - toMinutes(b.start));
 }
 
-async function getAdminAccessToken(): Promise<string> {
-  const { data, error } = await supabase.auth.getSession();
-  const token = data.session?.access_token;
-  if (error || !token) {
-    throw new Error('Session admin introuvable');
-  }
-  return token;
-}
-
-async function fetchWithAdminAuth(input: RequestInfo | URL, init: RequestInit = {}): Promise<Response> {
-  const token = await getAdminAccessToken();
-  const headers = new Headers(init.headers || {});
-  headers.set('Authorization', `Bearer ${token}`);
-  return fetch(input, { ...init, headers });
-}
-
 export default function StylistManagement({ services, locations, onUpdate }: StylistManagementProps) {
   const [errorMessage, setErrorMessage] = useState('');
   const [isUploading, setIsUploading] = useState(false);
@@ -229,11 +216,41 @@ export default function StylistManagement({ services, locations, onUpdate }: Sty
   const [pendingDeleteStylistId, setPendingDeleteStylistId] = useState<string | null>(null);
   const [pendingDeleteTimeOffId, setPendingDeleteTimeOffId] = useState<string | null>(null);
   const [pendingDeleteClosureId, setPendingDeleteClosureId] = useState<string | null>(null);
+  const [serviceGroups, setServiceGroups] = useState<ServiceGroup[]>([]);
+  const [serviceSubgroups, setServiceSubgroups] = useState<ServiceSubgroup[]>([]);
+  const [serviceTreeExpanded, setServiceTreeExpanded] = useState<Record<string, boolean>>({});
 
   const selectedLocationOptions = useMemo(
     () => locations.filter((location) => newStylist.locationIds.includes(location.id)),
     [locations, newStylist.locationIds]
   );
+  const serviceCatalog = useMemo(
+    () => buildServiceCatalog(serviceGroups, serviceSubgroups, services as CatalogService[]),
+    [serviceGroups, serviceSubgroups, services]
+  );
+
+  useEffect(() => {
+    async function loadServiceHierarchy() {
+      const [{ data: groupRows, error: groupError }, { data: subgroupRows, error: subgroupError }] = await Promise.all([
+        supabase.from('service_groups').select('*').order('sort_order').order('id'),
+        supabase.from('service_subgroups').select('*').order('sort_order').order('id'),
+      ]);
+
+      if (groupError) {
+        console.error('Error al cargar grupos de servicios:', groupError);
+      } else {
+        setServiceGroups((groupRows ?? []) as ServiceGroup[]);
+      }
+
+      if (subgroupError) {
+        console.error('Error al cargar subgrupos de servicios:', subgroupError);
+      } else {
+        setServiceSubgroups((subgroupRows ?? []) as ServiceSubgroup[]);
+      }
+    }
+
+    void loadServiceHierarchy();
+  }, []);
 
   const loadStylists = async () => {
     try {
@@ -300,7 +317,7 @@ export default function StylistManagement({ services, locations, onUpdate }: Sty
   const loadTimeOffEntries = async (stylistId: string) => {
     try {
       const params = new URLSearchParams({ stylistId, limit: '300' });
-      const response = await fetchWithAdminAuth(`/api/admin/schedule/time-off?${params.toString()}`);
+      const response = await fetchWithStaffAuth(`/api/admin/schedule/time-off?${params.toString()}`);
       const payload = await response.json().catch(() => ({}));
 
       if (!response.ok) {
@@ -325,7 +342,7 @@ export default function StylistManagement({ services, locations, onUpdate }: Sty
       const responses = await Promise.all(
         locationIds.map(async (locationId) => {
           const params = new URLSearchParams({ locationId, limit: '300' });
-          const response = await fetchWithAdminAuth(`/api/admin/schedule/location-closures?${params.toString()}`);
+          const response = await fetchWithStaffAuth(`/api/admin/schedule/location-closures?${params.toString()}`);
           const payload = await response.json().catch(() => ({}));
 
           if (!response.ok) {
@@ -381,6 +398,20 @@ export default function StylistManagement({ services, locations, onUpdate }: Sty
       serviceIds: [],
     });
     setErrorMessage('');
+  };
+
+  const toggleServiceTreeNode = (key: string) => {
+    setServiceTreeExpanded((prev) => ({
+      ...prev,
+      [key]: !prev[key],
+    }));
+  };
+
+  const toggleServiceSelection = (serviceId: string, checked: boolean) => {
+    setNewStylist((prev) => ({
+      ...prev,
+      serviceIds: checked ? [...prev.serviceIds, serviceId] : prev.serviceIds.filter((id) => id !== serviceId),
+    }));
   };
 
   const openNewStylistPanel = () => {
@@ -871,7 +902,7 @@ export default function StylistManagement({ services, locations, onUpdate }: Sty
     stylistId: string,
     payload: Array<{ locationId: string; dayOfWeek: number; startTime: string; endTime: string }>
   ) => {
-    const response = await fetchWithAdminAuth('/api/admin/schedule/working-hours', {
+    const response = await fetchWithStaffAuth('/api/admin/schedule/working-hours', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -1107,12 +1138,12 @@ export default function StylistManagement({ services, locations, onUpdate }: Sty
       };
 
       const response = editingTimeOff
-        ? await fetchWithAdminAuth(`/api/admin/schedule/time-off/${editingTimeOff.id}`, {
+        ? await fetchWithStaffAuth(`/api/admin/schedule/time-off/${editingTimeOff.id}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload),
           })
-        : await fetchWithAdminAuth('/api/admin/schedule/time-off', {
+        : await fetchWithStaffAuth('/api/admin/schedule/time-off', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload),
@@ -1137,7 +1168,7 @@ export default function StylistManagement({ services, locations, onUpdate }: Sty
     if (!pendingDeleteTimeOffId || !selectedStylist) return;
 
     try {
-      const response = await fetchWithAdminAuth(`/api/admin/schedule/time-off/${pendingDeleteTimeOffId}`, {
+      const response = await fetchWithStaffAuth(`/api/admin/schedule/time-off/${pendingDeleteTimeOffId}`, {
         method: 'DELETE',
       });
       const json = await response.json().catch(() => ({}));
@@ -1207,12 +1238,12 @@ export default function StylistManagement({ services, locations, onUpdate }: Sty
       };
 
       const response = editingClosure
-        ? await fetchWithAdminAuth(`/api/admin/schedule/location-closures/${editingClosure.id}`, {
+        ? await fetchWithStaffAuth(`/api/admin/schedule/location-closures/${editingClosure.id}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload),
           })
-        : await fetchWithAdminAuth('/api/admin/schedule/location-closures', {
+        : await fetchWithStaffAuth('/api/admin/schedule/location-closures', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload),
@@ -1237,7 +1268,7 @@ export default function StylistManagement({ services, locations, onUpdate }: Sty
     if (!pendingDeleteClosureId) return;
 
     try {
-      const response = await fetchWithAdminAuth(`/api/admin/schedule/location-closures/${pendingDeleteClosureId}`, {
+      const response = await fetchWithStaffAuth(`/api/admin/schedule/location-closures/${pendingDeleteClosureId}`, {
         method: 'DELETE',
       });
       const json = await response.json().catch(() => ({}));
@@ -1493,31 +1524,101 @@ export default function StylistManagement({ services, locations, onUpdate }: Sty
 
             <div className="space-y-2">
               <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Services</label>
-              <div className="grid grid-cols-1 gap-2 rounded-xl border border-border bg-background p-3 md:grid-cols-2">
-                {services.map((service) => {
-                  const value = String(service.id);
-                  const checked = newStylist.serviceIds.includes(value);
+              <div className="space-y-3 rounded-xl border border-border bg-background p-3">
+                {serviceCatalog.map((groupNode) => {
+                  const groupKey = `group:${groupNode.group.id}`;
+                  const groupExpanded = serviceTreeExpanded[groupKey] ?? true;
+
                   return (
-                    <div key={service.id} className="flex items-center text-foreground">
-                      <Input
-                        type="checkbox"
-                        id={`service-${service.id}`}
-                        checked={checked}
-                        onChange={(e) => {
-                          if (e.target.checked) {
-                            setNewStylist((prev) => ({ ...prev, serviceIds: [...prev.serviceIds, value] }));
-                            return;
-                          }
-                          setNewStylist((prev) => ({
-                            ...prev,
-                            serviceIds: prev.serviceIds.filter((id) => id !== value),
-                          }));
-                        }}
-                        className="mr-2 h-4 w-4 accent-primary"
-                      />
-                      <label htmlFor={`service-${service.id}`} className="cursor-pointer hover:text-primary">
-                        {service.nombre} - {service.precio} CHF
-                      </label>
+                    <div key={groupNode.group.id} className="overflow-hidden rounded-xl border border-border">
+                      <button
+                        type="button"
+                        onClick={() => toggleServiceTreeNode(groupKey)}
+                        className="flex w-full min-w-0 items-center gap-3 bg-card px-3 py-3 text-left"
+                      >
+                        {groupExpanded ? <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" /> : <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />}
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-sm font-semibold text-foreground">{groupNode.group.name}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {groupNode.mode === 'subgroups' ? `${groupNode.subgroups.length} sous-groupes` : `${groupNode.services.length} services directs`}
+                          </p>
+                        </div>
+                      </button>
+
+                      {groupExpanded ? (
+                        <div className="space-y-3 border-t border-border bg-background p-3">
+                          {groupNode.mode === 'services'
+                            ? groupNode.services.map((serviceNode) => {
+                                const value = String(serviceNode.service.id);
+                                const checked = newStylist.serviceIds.includes(value);
+                                return (
+                                  <label key={serviceNode.service.id} htmlFor={`service-${serviceNode.service.id}`} className="flex cursor-pointer items-start gap-3 rounded-xl border border-border/70 px-3 py-3 hover:border-primary/35">
+                                    <Input
+                                      type="checkbox"
+                                      id={`service-${serviceNode.service.id}`}
+                                      checked={checked}
+                                      onChange={(e) => toggleServiceSelection(value, e.target.checked)}
+                                      className="mt-0.5 h-4 w-4 shrink-0 accent-primary"
+                                    />
+                                    <div className="min-w-0 flex-1">
+                                      <div className="flex flex-wrap items-center gap-2">
+                                        <span className="text-sm font-medium text-foreground">{serviceNode.service.nombre}</span>
+                                        <span className="rounded-full bg-muted px-2 py-0.5 text-[11px] text-muted-foreground">{serviceNode.service.precio} CHF</span>
+                                        {serviceNode.configuredVisible ? null : <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-medium text-amber-800">Masqué</span>}
+                                      </div>
+                                    </div>
+                                  </label>
+                                );
+                              })
+                            : groupNode.subgroups.map((subgroupNode) => {
+                                const subgroupKey = `subgroup:${subgroupNode.subgroup.id}`;
+                                const subgroupExpanded = serviceTreeExpanded[subgroupKey] ?? true;
+
+                                return (
+                                  <div key={subgroupNode.subgroup.id} className="overflow-hidden rounded-xl border border-border/70">
+                                    <button
+                                      type="button"
+                                      onClick={() => toggleServiceTreeNode(subgroupKey)}
+                                      className="flex w-full min-w-0 items-center gap-3 bg-card/70 px-3 py-3 text-left"
+                                    >
+                                      {subgroupExpanded ? <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" /> : <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />}
+                                      <div className="min-w-0 flex-1">
+                                        <p className="truncate text-sm font-semibold text-foreground">{subgroupNode.subgroup.name}</p>
+                                        <p className="text-xs text-muted-foreground">{subgroupNode.services.length} services</p>
+                                      </div>
+                                    </button>
+
+                                    {subgroupExpanded ? (
+                                      <div className="space-y-2 border-t border-border/70 bg-background p-3">
+                                        {subgroupNode.services.map((serviceNode) => {
+                                          const value = String(serviceNode.service.id);
+                                          const checked = newStylist.serviceIds.includes(value);
+                                          return (
+                                            <label key={serviceNode.service.id} htmlFor={`service-${serviceNode.service.id}`} className="flex cursor-pointer items-start gap-3 rounded-xl border border-border/60 px-3 py-3 hover:border-primary/35">
+                                              <Input
+                                                type="checkbox"
+                                                id={`service-${serviceNode.service.id}`}
+                                                checked={checked}
+                                                onChange={(e) => toggleServiceSelection(value, e.target.checked)}
+                                                className="mt-0.5 h-4 w-4 shrink-0 accent-primary"
+                                              />
+                                              <div className="min-w-0 flex-1">
+                                                <div className="flex flex-wrap items-center gap-2">
+                                                  <span className="text-sm font-medium text-foreground">{serviceNode.service.nombre}</span>
+                                                  <span className="rounded-full bg-muted px-2 py-0.5 text-[11px] text-muted-foreground">{serviceNode.service.precio} CHF</span>
+                                                  {serviceNode.configuredVisible ? null : <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-medium text-amber-800">Masqué</span>}
+                                                </div>
+                                              </div>
+                                            </label>
+                                          );
+                                        })}
+                                      </div>
+                                    ) : null}
+                                  </div>
+                                );
+                              })}
+                        </div>
+                      ) : null}
                     </div>
                   );
                 })}

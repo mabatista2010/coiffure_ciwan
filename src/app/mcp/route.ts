@@ -12,6 +12,7 @@ import { ListToolsRequestSchema } from "@modelcontextprotocol/sdk/types.js";
 import { supabase } from "@/lib/supabase";
 import { getImageUrl } from "@/lib/getImageUrl";
 import { getSafeServiceDuration } from "@/lib/serviceDuration";
+import { buildServiceCatalog, CatalogService, getPublicDirectServices, getPublicServiceGroups, getPublicSubgroups, ServiceGroup, ServiceSubgroup } from "@/lib/serviceCatalog";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -280,26 +281,77 @@ const createReservationServer = (baseUrl: string) => {
       },
     },
     async () => {
-      const { data, error } = await supabase
-        .from("servicios")
-        .select("id,nombre,descripcion,precio,imagen_url,duration,active")
-        .eq("active", true)
-        .order("id");
+      const [
+        { data: groupRows, error: groupError },
+        { data: subgroupRows, error: subgroupError },
+        { data: serviceRows, error: serviceError },
+      ] = await Promise.all([
+        supabase.from("service_groups").select("*").order("sort_order").order("id"),
+        supabase.from("service_subgroups").select("*").order("sort_order").order("id"),
+        supabase.from("servicios").select("*").order("sort_order").order("id"),
+      ]);
 
-      if (error) {
-        return reply({ services: [] }, "Erreur lors du chargement des services.");
+      if (groupError || subgroupError || serviceError) {
+        return reply({ groups: [] }, "Erreur lors du chargement des services.");
       }
 
-      const services = (data || []).map((service) => ({
-        id: service.id,
-        name: service.nombre,
-        description: service.descripcion || "",
-        price: service.precio,
-        duration: getSafeServiceDuration(service.duration),
-        image_url: service.imagen_url ? getImageUrl(service.imagen_url) : "",
+      const catalog = getPublicServiceGroups(
+        buildServiceCatalog(
+          (groupRows ?? []) as ServiceGroup[],
+          (subgroupRows ?? []) as ServiceSubgroup[],
+          (serviceRows ?? []) as CatalogService[]
+        )
+      );
+
+      const groups = catalog.map((groupNode) => ({
+        id: groupNode.group.id,
+        name: groupNode.group.name,
+        slug: groupNode.group.slug,
+        description: groupNode.group.description || "",
+        image_url: groupNode.group.image_url ? getImageUrl(groupNode.group.image_url) : "",
+        configured_visible: groupNode.configuredVisible,
+        effective_visible: groupNode.effectiveVisible,
+        visible_service_count: groupNode.visibleServiceCount,
+        visible_subgroup_count: groupNode.visibleSubgroupCount,
+        mode: groupNode.mode,
+        subgroups: getPublicSubgroups(groupNode).map((subgroupNode) => ({
+          id: subgroupNode.subgroup.id,
+          name: subgroupNode.subgroup.name,
+          slug: subgroupNode.subgroup.slug,
+          description: subgroupNode.subgroup.description || "",
+          configured_visible: subgroupNode.configuredVisible,
+          effective_visible: subgroupNode.effectiveVisible,
+          visible_service_count: subgroupNode.visibleServiceCount,
+          services: subgroupNode.services
+            .filter((serviceNode) => serviceNode.effectiveVisible)
+            .map((serviceNode) => ({
+              id: serviceNode.service.id,
+              name: serviceNode.service.nombre,
+              slug: serviceNode.service.slug,
+              description: serviceNode.service.descripcion || "",
+              price: serviceNode.service.precio,
+              duration: getSafeServiceDuration(serviceNode.service.duration),
+              image_url: serviceNode.service.imagen_url ? getImageUrl(serviceNode.service.imagen_url) : "",
+              configured_visible: serviceNode.configuredVisible,
+              effective_visible: serviceNode.effectiveVisible,
+            })),
+        })),
+        services: getPublicDirectServices(groupNode).map((serviceNode) => ({
+          id: serviceNode.service.id,
+          name: serviceNode.service.nombre,
+          slug: serviceNode.service.slug,
+          description: serviceNode.service.descripcion || "",
+          price: serviceNode.service.precio,
+          duration: getSafeServiceDuration(serviceNode.service.duration),
+          image_url: serviceNode.service.imagen_url ? getImageUrl(serviceNode.service.imagen_url) : "",
+          configured_visible: serviceNode.configuredVisible,
+          effective_visible: serviceNode.effectiveVisible,
+          landing_featured: Boolean(serviceNode.service.landing_featured),
+          landing_sort_order: serviceNode.service.landing_sort_order,
+        })),
       }));
 
-      return reply({ services }, "Services charges.");
+      return reply({ groups }, "Services charges.");
     }
   );
 

@@ -1,6 +1,8 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { Suspense, useEffect, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
+
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 import ServiceSelect from '@/components/reservation/ServiceSelect';
@@ -11,7 +13,6 @@ import CustomerForm, { CustomerData } from '@/components/reservation/CustomerFor
 import Confirmation from '@/components/reservation/Confirmation';
 import { Service, Location, Stylist } from '@/lib/supabase';
 
-// Étapes du processus de réservation
 enum BookingStage {
   ServiceSelect = 1,
   LocationSelect = 2,
@@ -21,61 +22,67 @@ enum BookingStage {
   Confirmation = 6,
 }
 
+const SERVICE_FLOW_FALLBACK = { current: 1, total: 3 };
+
 export default function ReservationPage() {
-  // État pour l'étape actuelle
+  return (
+    <Suspense fallback={<ReservationPageContent fallbackServiceSlug={null} />}>
+      <ReservationPageSearchParams />
+    </Suspense>
+  );
+}
+
+function ReservationPageSearchParams() {
+  const searchParams = useSearchParams();
+  return <ReservationPageContent fallbackServiceSlug={searchParams.get('service')} />;
+}
+
+function ReservationPageContent({ fallbackServiceSlug }: { fallbackServiceSlug: string | null }) {
   const [currentStage, setCurrentStage] = useState<BookingStage>(BookingStage.ServiceSelect);
-  
-  // États pour conserver les sélections de l'utilisateur
+  const [serviceFlowMeta, setServiceFlowMeta] = useState(SERVICE_FLOW_FALLBACK);
   const [selectedService, setSelectedService] = useState<Service | null>(null);
   const [selectedLocation, setSelectedLocation] = useState<Location | null>(null);
   const [selectedStylist, setSelectedStylist] = useState<Stylist | null>(null);
-  const [selectedDate, setSelectedDate] = useState<string>('');
-  const [selectedTime, setSelectedTime] = useState<string>('');
+  const [selectedDate, setSelectedDate] = useState('');
+  const [selectedTime, setSelectedTime] = useState('');
   const [customerData, setCustomerData] = useState<CustomerData | null>(null);
-  const [bookingId, setBookingId] = useState<string>('');
+  const [bookingId, setBookingId] = useState('');
 
-  // Añadir un efecto para desplazar al principio cuando cambia la etapa
   useEffect(() => {
-    // Desplazar al principio cuando se llega a la confirmación
     if (currentStage === BookingStage.Confirmation) {
-      window.scrollTo({
-        top: 0,
-        behavior: 'smooth'
-      });
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     }
   }, [currentStage]);
 
-  // Gérer la sélection de service
   const handleServiceSelect = (service: Service) => {
     setSelectedService(service);
+    setSelectedLocation(null);
+    setSelectedStylist(null);
+    setSelectedDate('');
+    setSelectedTime('');
     setCurrentStage(BookingStage.LocationSelect);
   };
 
-  // Gérer la sélection de centre
   const handleLocationSelect = (location: Location) => {
     setSelectedLocation(location);
     setCurrentStage(BookingStage.StylistSelect);
   };
 
-  // Gérer la sélection de styliste
   const handleStylistSelect = (stylist: Stylist) => {
     setSelectedStylist(stylist);
     setCurrentStage(BookingStage.DateTimeSelect);
   };
 
-  // Gérer la sélection de date et heure
   const handleDateTimeSelect = (date: string, time: string) => {
     setSelectedDate(date);
     setSelectedTime(time);
     setCurrentStage(BookingStage.CustomerForm);
   };
 
-  // Gérer l'envoi du formulaire du client
   const handleCustomerSubmit = async (data: CustomerData) => {
     setCustomerData(data);
-    
+
     try {
-      // Envoyer les données de la réservation à l'API
       const response = await fetch('/api/reservation/create', {
         method: 'POST',
         headers: {
@@ -109,110 +116,124 @@ export default function ReservationPage() {
     }
   };
 
-  // Gérer le bouton de retour
   const handleBack = () => {
+    if (currentStage === BookingStage.LocationSelect) {
+      setCurrentStage(BookingStage.ServiceSelect);
+      return;
+    }
+
     if (currentStage > BookingStage.ServiceSelect) {
-      setCurrentStage(currentStage - 1);
+      setCurrentStage((prev) => prev - 1);
     }
   };
 
-  // Rendre l'étape actuelle
   const renderCurrentStage = () => {
     switch (currentStage) {
       case BookingStage.ServiceSelect:
-        return <ServiceSelect onServiceSelect={handleServiceSelect} />;
-      
-      case BookingStage.LocationSelect:
-        if (!selectedService) return null;
         return (
-          <LocationSelect 
-            selectedService={selectedService} 
-            onLocationSelect={handleLocationSelect} 
-            onBack={handleBack}
+          <ServiceSelect
+            onServiceSelect={handleServiceSelect}
+            preselectedServiceSlug={fallbackServiceSlug}
+            onProgressMetaChange={setServiceFlowMeta}
           />
         );
-      
+
+      case BookingStage.LocationSelect:
+        if (!selectedService) return null;
+        return <LocationSelect selectedService={selectedService} onLocationSelect={handleLocationSelect} onBack={handleBack} />;
+
       case BookingStage.StylistSelect:
         if (!selectedService || !selectedLocation) return null;
         return (
-          <StylistSelect 
-            selectedService={selectedService} 
-            selectedLocation={selectedLocation} 
-            onStylistSelect={handleStylistSelect} 
+          <StylistSelect
+            selectedService={selectedService}
+            selectedLocation={selectedLocation}
+            onStylistSelect={handleStylistSelect}
             onBack={handleBack}
           />
         );
-      
+
       case BookingStage.DateTimeSelect:
         if (!selectedService || !selectedLocation || !selectedStylist) return null;
         return (
-          <DateTimeSelect 
-            selectedService={selectedService} 
-            selectedLocation={selectedLocation} 
-            selectedStylist={selectedStylist} 
-            onDateTimeSelect={handleDateTimeSelect} 
+          <DateTimeSelect
+            selectedService={selectedService}
+            selectedLocation={selectedLocation}
+            selectedStylist={selectedStylist}
+            onDateTimeSelect={handleDateTimeSelect}
             onBack={handleBack}
           />
         );
-      
+
       case BookingStage.CustomerForm:
         if (!selectedService || !selectedLocation || !selectedStylist || !selectedDate || !selectedTime) return null;
         return (
-          <CustomerForm 
-            selectedService={selectedService} 
-            selectedLocation={selectedLocation} 
-            selectedStylist={selectedStylist} 
-            selectedDate={selectedDate} 
-            selectedTime={selectedTime} 
-            onSubmit={handleCustomerSubmit} 
+          <CustomerForm
+            selectedService={selectedService}
+            selectedLocation={selectedLocation}
+            selectedStylist={selectedStylist}
+            selectedDate={selectedDate}
+            selectedTime={selectedTime}
+            onSubmit={handleCustomerSubmit}
             onBack={handleBack}
           />
         );
-      
+
       case BookingStage.Confirmation:
         if (!selectedService || !selectedLocation || !selectedStylist || !selectedDate || !selectedTime || !customerData) return null;
         return (
-          <Confirmation 
+          <Confirmation
             bookingId={bookingId}
-            selectedService={selectedService} 
-            selectedLocation={selectedLocation} 
-            selectedStylist={selectedStylist} 
-            selectedDate={selectedDate} 
-            selectedTime={selectedTime} 
+            selectedService={selectedService}
+            selectedLocation={selectedLocation}
+            selectedStylist={selectedStylist}
+            selectedDate={selectedDate}
+            selectedTime={selectedTime}
             customerData={customerData}
           />
         );
-      
+
       default:
         return null;
     }
   };
 
-  // Rendre la barre de progression
   const renderProgressBar = () => {
-    // Ne montrer que sur les étapes 1-5, pas sur la confirmation
     if (currentStage >= BookingStage.Confirmation) return null;
+
+    const totalSteps = serviceFlowMeta.total + 4;
+    const currentStep =
+      currentStage === BookingStage.ServiceSelect
+        ? serviceFlowMeta.current
+        : serviceFlowMeta.total +
+          (currentStage === BookingStage.LocationSelect
+            ? 1
+            : currentStage === BookingStage.StylistSelect
+              ? 2
+              : currentStage === BookingStage.DateTimeSelect
+                ? 3
+                : 4);
 
     return (
       <div className="container mx-auto px-4 py-4">
         <div className="relative pt-1">
-          <div className="flex mb-2 items-center justify-between">
+          <div className="mb-2 flex items-center justify-between">
             <div>
-              <span className="text-xs font-semibold inline-block py-1 px-2 uppercase rounded-full text-secondary bg-primary">
-                Étape {currentStage} de 5
+              <span className="inline-block rounded-full bg-primary px-2 py-1 text-xs font-semibold uppercase text-secondary">
+                Étape {currentStep} de {totalSteps}
               </span>
             </div>
             <div className="text-right">
-              <span className="text-xs font-semibold inline-block text-secondary">
-                {Math.round((currentStage / 5) * 100)}%
+              <span className="inline-block text-xs font-semibold text-secondary">
+                {Math.round((currentStep / totalSteps) * 100)}%
               </span>
             </div>
           </div>
-          <div className="overflow-hidden h-2 mb-4 text-xs flex rounded bg-gray-200">
-            <div 
-              style={{ width: `${(currentStage / 5) * 100}%` }} 
-              className="shadow-none flex flex-col text-center whitespace-nowrap text-white justify-center bg-primary transition-all duration-500"
-            ></div>
+          <div className="mb-4 flex h-2 overflow-hidden rounded bg-gray-200 text-xs">
+            <div
+              style={{ width: `${(currentStep / totalSteps) * 100}%` }}
+              className="flex flex-col justify-center whitespace-nowrap bg-primary text-center text-white shadow-none transition-all duration-500"
+            />
           </div>
         </div>
       </div>
@@ -220,13 +241,21 @@ export default function ReservationPage() {
   };
 
   return (
-    <main className="min-h-screen flex flex-col bg-gray-50">
+    <main className="flex min-h-screen flex-col bg-gray-50">
       <Navbar />
-      <div className="flex-grow pt-24 pb-12 bg-gray-50">
-        {renderProgressBar()}
-        {renderCurrentStage()}
+      <div className="relative flex-grow overflow-hidden pb-12 pt-24">
+        <div
+          className="absolute inset-0 bg-cover bg-center bg-no-repeat opacity-20"
+          style={{ backgroundImage: "url('/reservation/booking-bg-16x9.jpeg')" }}
+          aria-hidden="true"
+        />
+        <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(252,249,243,0.94)_0%,rgba(250,247,241,0.97)_38%,rgba(248,244,237,0.985)_100%)]" aria-hidden="true" />
+        <div className="relative">
+          {renderProgressBar()}
+          {renderCurrentStage()}
+        </div>
       </div>
       <Footer />
     </main>
   );
-} 
+}

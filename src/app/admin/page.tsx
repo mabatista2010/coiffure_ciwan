@@ -1,23 +1,16 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { Suspense, useState, useEffect, useRef, useCallback } from 'react';
 import { supabase, Service, GalleryImage } from '@/lib/supabase';
 import { v4 as uuidv4 } from 'uuid';
 import Image from 'next/image';
 import { useRouter, useSearchParams } from 'next/navigation';
 import StylistManagement from './stylist-management';
 import LocationManagement from './location-management';
+import ServiceManagement from '@/components/admin/services/ServiceManagement';
 import { AdminCard, AdminCardContent, AdminCardHeader, SectionHeader } from '@/components/admin/ui';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
-import {
-  DEFAULT_SERVICE_DURATION_MINUTES,
-  MAX_SERVICE_DURATION_MINUTES,
-  MIN_SERVICE_DURATION_MINUTES,
-  getSafeServiceDuration,
-  getServiceDurationValidationMessage,
-} from '@/lib/serviceDuration';
 
 // Definir la interfaz Location
 interface Location {
@@ -31,7 +24,7 @@ interface Location {
   [key: string]: string | boolean | number | string[] | undefined | Record<string, unknown>;
 }
 
-export default function AdminPage() {
+function AdminPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const sectionParam = searchParams.get('section');
@@ -39,19 +32,7 @@ export default function AdminPage() {
     sectionParam && ['services', 'gallery', 'stylists', 'locations', 'hero'].includes(sectionParam)
   );
 
-  // Estado para servicios
   const [services, setServices] = useState<Service[]>([]);
-  const [newService, setNewService] = useState<Partial<Service>>({
-    nombre: '',
-    descripcion: '',
-    precio: 0,
-    duration: DEFAULT_SERVICE_DURATION_MINUTES,
-    imagen_url: '',
-  });
-  const [serviceImageFile, setServiceImageFile] = useState<File | null>(null);
-  const [serviceImagePreview, setServiceImagePreview] = useState<string>('');
-  const [showServiceForm, setShowServiceForm] = useState(false);
-  const [editingServiceId, setEditingServiceId] = useState<number | null>(null);
   
   // Estado para galería
   const [galleryImages, setGalleryImages] = useState<GalleryImage[]>([]);
@@ -86,7 +67,6 @@ export default function AdminPage() {
   // Referencias para los inputs de fichero
   const heroDesktopInputRef = useRef<HTMLInputElement>(null);
   const heroMobileInputRef = useRef<HTMLInputElement>(null);
-  const serviceImageInputRef = useRef<HTMLInputElement>(null);
   const galleryImageInputRef = useRef<HTMLInputElement>(null);
   const servicesBackgroundInputRef = useRef<HTMLInputElement>(null);
   const servicesBackgroundMobileInputRef = useRef<HTMLInputElement>(null);
@@ -111,13 +91,7 @@ export default function AdminPage() {
     router.replace('/admin?section=services');
   }, [hasValidSection, router, sectionParam]);
 
-  useEffect(() => {
-    if (!hasValidSection) return;
-    // Cargar los datos iniciales solo cuando la sección de configuración es válida.
-    loadData();
-  }, [hasValidSection]);
-
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     try {
       // Cargar servicios
       const { data: servicesData, error: servicesError } = await supabase
@@ -200,7 +174,13 @@ export default function AdminPage() {
       console.error('Error al cargar datos:', error);
       setErrorMessage(error instanceof Error ? error.message : 'Error al cargar datos');
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    if (!hasValidSection) return;
+    // Cargar los datos iniciales solo cuando la sección de configuración es válida.
+    loadData();
+  }, [hasValidSection, loadData]);
 
   // Fonction pour gérer la sélection de fichiers
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, setFile: React.Dispatch<React.SetStateAction<File | null>>, setPreview: React.Dispatch<React.SetStateAction<string>>) => {
@@ -263,155 +243,6 @@ export default function AdminPage() {
       return null;
     } finally {
       setIsUploading(false);
-    }
-  };
-
-  const handleAddService = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    try {
-      const durationError = getServiceDurationValidationMessage(newService.duration);
-
-      if (durationError) {
-        setErrorMessage(durationError);
-        return;
-      }
-
-      const normalizedDuration = getSafeServiceDuration(newService.duration);
-      let imageUrl = newService.imagen_url;
-      
-      if (serviceImageFile) {
-        setIsUploading(true);
-        try {
-          const { data, error } = await supabase.storage
-            .from('fotos_peluqueria')
-            .upload(`servicios/${uuidv4()}`, serviceImageFile);
-          
-          if (error) throw error;
-          
-          if (data) {
-            const { data: publicUrlData } = supabase.storage
-              .from('fotos_peluqueria')
-              .getPublicUrl(data.path);
-              
-            imageUrl = publicUrlData.publicUrl;
-          }
-        } catch (uploadError) {
-          console.error('Error al subir imagen:', uploadError);
-          setErrorMessage('Error al subir la imagen del servicio');
-          setIsUploading(false);
-          return;
-        }
-      }
-      
-      // Crear o actualizar servicio
-      if (editingServiceId) {
-        // Actualizar servicio existente
-        const { error } = await supabase
-          .from('servicios')
-          .update({
-            nombre: newService.nombre,
-            descripcion: newService.descripcion,
-            precio: newService.precio,
-            duration: normalizedDuration,
-            imagen_url: imageUrl
-          })
-          .eq('id', editingServiceId);
-          
-        if (error) throw error;
-      } else {
-        // Crear nuevo servicio
-        const { error } = await supabase
-          .from('servicios')
-          .insert([{
-            nombre: newService.nombre,
-            descripcion: newService.descripcion,
-            precio: newService.precio,
-            duration: normalizedDuration,
-            imagen_url: imageUrl
-          }]);
-          
-        if (error) throw error;
-      }
-      
-      // Reiniciar formulario
-      setNewService({
-        nombre: '',
-        descripcion: '',
-        precio: 0,
-        duration: DEFAULT_SERVICE_DURATION_MINUTES,
-        imagen_url: ''
-      });
-      
-      setServiceImageFile(null);
-      setServiceImagePreview('');
-      if (serviceImageInputRef.current) {
-        serviceImageInputRef.current.value = '';
-      }
-      
-      setShowServiceForm(false);
-      setEditingServiceId(null);
-      setIsUploading(false);
-      
-      // Recargar servicios
-      loadData();
-    } catch (error) {
-      console.error('Error al guardar servicio:', error);
-      setErrorMessage(error instanceof Error ? error.message : 'Error al guardar el servicio');
-      setIsUploading(false);
-    }
-  };
-
-  // Añadir función para editar un servicio
-  const handleEditService = (service: Service) => {
-    setNewService({
-      nombre: service.nombre,
-      descripcion: service.descripcion,
-      precio: service.precio,
-      duration: getSafeServiceDuration(service.duration),
-      imagen_url: service.imagen_url,
-    });
-    setServiceImagePreview(service.imagen_url || '');
-    setEditingServiceId(service.id);
-    setShowServiceForm(true);
-    
-    // Desplazar automáticamente hacia la parte superior con animación suave
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  };
-
-  // Modificar función para cancelar
-  const cancelServiceForm = () => {
-    setNewService({
-      nombre: '',
-      descripcion: '',
-      precio: 0,
-      duration: DEFAULT_SERVICE_DURATION_MINUTES,
-      imagen_url: '',
-    });
-    setServiceImageFile(null);
-    setServiceImagePreview('');
-    setShowServiceForm(false);
-    setEditingServiceId(null);
-    if (serviceImageInputRef.current) {
-      serviceImageInputRef.current.value = '';
-    }
-  };
-
-  const handleDeleteService = async (id: number) => {
-    if (confirm('Êtes-vous sûr de vouloir supprimer ce service ?')) {
-      try {
-        const { error } = await supabase
-          .from('servicios')
-          .delete()
-          .eq('id', id);
-        
-        if (error) throw error;
-        
-        loadData();
-      } catch (error: Error | unknown) {
-        setErrorMessage(error instanceof Error ? error.message : String(error));
-        console.error('Erreur lors de la suppression du service:', error);
-      }
     }
   };
 
@@ -608,212 +439,7 @@ export default function AdminPage() {
         
         {/* Contenido según la sección activa */}
         {activeSection === 'services' && (
-          <div className="space-y-6">
-            <SectionHeader
-              title="Gestion des Services"
-              description="CRUD des services et gestion d'images."
-            />
-
-            <Button
-              onClick={() => {
-                if (showServiceForm) {
-                  cancelServiceForm();
-                } else {
-                  setShowServiceForm(true);
-                }
-              }}
-              variant={showServiceForm ? 'outline' : 'default'}
-            >
-              {showServiceForm ? 'Fermer formulaire' : 'Ajouter nouveau service'}
-            </Button>
-
-            {showServiceForm && (
-              <AdminCard tone="highlight">
-                <AdminCardHeader>
-                  <h2 className="text-xl font-semibold text-primary">
-                    {editingServiceId ? 'Éditer service' : 'Ajouter nouveau service'}
-                  </h2>
-                </AdminCardHeader>
-                <AdminCardContent>
-                  {errorMessage && (
-                    <div className="mb-4 rounded-lg border border-destructive/45 bg-destructive/10 p-3 text-sm text-destructive-foreground">
-                      {errorMessage}
-                    </div>
-                  )}
-
-                  <form onSubmit={handleAddService} className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                    <div className="space-y-2">
-                      <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                        Nom
-                      </label>
-                      <Input
-                        type="text"
-                        value={newService.nombre}
-                        onChange={(e) => setNewService({ ...newService, nombre: e.target.value })}
-                        required
-                      />
-                    </div>
-
-                    <div className="space-y-2">
-                      <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                        Prix (CHF)
-                      </label>
-                      <Input
-                        type="number"
-                        value={newService.precio}
-                        onChange={(e) => setNewService({ ...newService, precio: Number(e.target.value) })}
-                        required
-                      />
-                    </div>
-
-                    <div className="space-y-2">
-                      <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                        Durée (min)
-                      </label>
-                      <Input
-                        type="number"
-                        min={MIN_SERVICE_DURATION_MINUTES}
-                        max={MAX_SERVICE_DURATION_MINUTES}
-                        step={1}
-                        value={newService.duration ?? DEFAULT_SERVICE_DURATION_MINUTES}
-                        onChange={(e) => setNewService({ ...newService, duration: Number(e.target.value) })}
-                        required
-                      />
-                      <p className="text-xs text-muted-foreground">
-                        Valeur entière entre {MIN_SERVICE_DURATION_MINUTES} et {MAX_SERVICE_DURATION_MINUTES} minutes. Les durées usuelles avancent souvent par paliers de 5, mais tout entier valide est accepté.
-                      </p>
-                    </div>
-
-                    <div className="space-y-2 md:col-span-2">
-                      <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                        Description
-                      </label>
-                      <Textarea
-                        rows={3}
-                        className="min-h-[110px]"
-                        value={newService.descripcion}
-                        onChange={(e) => setNewService({ ...newService, descripcion: e.target.value })}
-                        required
-                      />
-                    </div>
-
-                    <div className="space-y-2 md:col-span-2">
-                      <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                        Image
-                      </label>
-                      <div className="grid gap-3 md:grid-cols-[1fr_auto] md:items-end">
-                        <div className="space-y-2">
-                          <Input
-                            ref={serviceImageInputRef}
-                            type="file"
-                            accept="image/*"
-                            className="h-auto py-2 file:mr-3 file:rounded-lg file:border file:border-primary/45 file:bg-primary/12 file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-primary"
-                            onChange={(e) => handleFileChange(e, setServiceImageFile, setServiceImagePreview)}
-                          />
-                          <p className="text-xs text-muted-foreground">
-                            Format recommandé: JPEG ou PNG, taille maximale 2MB
-                          </p>
-                        </div>
-
-                        {serviceImagePreview && (
-                          <div className="relative h-24 w-24 overflow-hidden rounded-xl border border-primary/45">
-                            <Image
-                              src={serviceImagePreview}
-                              alt="Aperçu du service"
-                              fill
-                              className="object-cover"
-                            />
-                          </div>
-                        )}
-                      </div>
-                    </div>
-
-                    <div className="flex flex-wrap items-center gap-3 pt-2 md:col-span-2">
-                      <Button type="submit" disabled={isUploading}>
-                        {isUploading ? 'Téléchargement...' : editingServiceId ? 'Mise à jour' : 'Ajouter service'}
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="secondary"
-                        onClick={cancelServiceForm}
-                      >
-                        Annuler
-                      </Button>
-                    </div>
-                  </form>
-                </AdminCardContent>
-              </AdminCard>
-            )}
-
-            <AdminCard>
-              <AdminCardHeader>
-                <h2 className="text-xl font-semibold text-primary">Liste de services</h2>
-              </AdminCardHeader>
-              <AdminCardContent>
-                {services.length === 0 ? (
-                  <div className="rounded-xl border border-border bg-card p-6 text-sm text-muted-foreground">
-                    Aucun service disponible.
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3">
-                    {services.map((service) => (
-                      <article
-                        key={service.id}
-                        className="overflow-hidden rounded-2xl border border-border bg-card shadow-[var(--admin-shadow-card)]"
-                      >
-                        <div className="relative h-48 w-full">
-                          {service.imagen_url ? (
-                            <Image
-                              src={service.imagen_url}
-                              alt={service.nombre}
-                              fill
-                              className="object-cover"
-                            />
-                          ) : (
-                            <div className="flex h-full w-full items-center justify-center bg-muted/35">
-                              <span className="text-5xl font-bold text-primary">
-                                {service.nombre.charAt(0)}
-                              </span>
-                            </div>
-                          )}
-                        </div>
-
-                        <div className="space-y-3 p-5">
-                          <div className="flex items-start justify-between gap-3">
-                            <h3 className="text-lg font-semibold text-foreground">{service.nombre}</h3>
-                            <div className="text-right">
-                              <p className="text-sm font-semibold text-primary">{service.precio} CHF</p>
-                              <p className="text-xs text-muted-foreground">{getSafeServiceDuration(service.duration)} min</p>
-                            </div>
-                          </div>
-                          <p className="text-sm leading-relaxed text-muted-foreground">{service.descripcion}</p>
-                        </div>
-
-                        <div className="flex gap-2 border-t border-border p-4">
-                          <Button
-                            type="button"
-                            variant="outline"
-                            className="flex-1"
-                            onClick={() => handleEditService(service)}
-                          >
-                            Modifier
-                          </Button>
-                          <Button
-                            type="button"
-                            variant="destructive"
-                            className="flex-1"
-                            onClick={() => handleDeleteService(service.id)}
-                          >
-                            Supprimer
-                          </Button>
-                        </div>
-                      </article>
-                    ))}
-                  </div>
-                )}
-              </AdminCardContent>
-            </AdminCard>
-          </div>
+          <ServiceManagement onUpdate={loadData} />
         )}
         
         {activeSection === 'gallery' && (
@@ -1183,4 +809,26 @@ export default function AdminPage() {
       </div>
     </div>
   );
-} 
+}
+
+export default function AdminPage() {
+  return (
+    <Suspense
+      fallback={(
+        <div className="admin-scope admin-theme admin-theme-blue">
+          <div className="min-h-screen bg-background px-4 py-8">
+            <div className="mx-auto max-w-4xl">
+              <AdminCard>
+                <AdminCardContent className="py-12 text-center">
+                  <h1 className="text-2xl font-bold text-primary">Chargement...</h1>
+                </AdminCardContent>
+              </AdminCard>
+            </div>
+          </div>
+        </div>
+      )}
+    >
+      <AdminPageContent />
+    </Suspense>
+  );
+}

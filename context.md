@@ -97,6 +97,101 @@ Steel & Blade est l’application web de **Coiffure Ciwan**, un salon masculin m
 - Fase 2 ajoute `public.location_daily_schedule` comme registre explicite de l’état quotidien (`is_closed`) avec 7 lignes par centre après backfill.
 - Fase 2.5 retire la compatibilité legacy basée uniquement sur l’absence de lignes dans `location_hours` pour savoir si un jour est fermé.
 
+## Catalogue services hiérarchique
+- Le catalogue n’est plus pensé comme une simple liste plate : il repose désormais sur **`service_groups` → `service_subgroups` (optionnel) → `servicios`**.
+- `public.servicios` reste la table métier réservée par `service_id`, mais elle a été étendue avec :
+  - `slug`
+  - `group_id`
+  - `subgroup_id`
+  - `sort_order`
+  - `landing_featured`
+  - `landing_sort_order`
+  - `updated_at`
+- Nouvelles tables :
+  - `public.service_groups`
+  - `public.service_subgroups`
+- Règles de domaine :
+  - un groupe peut contenir **soit** des services directs **soit** des sous-groupes,
+  - un service direct a `group_id` renseigné et `subgroup_id = null`,
+  - un service dans un sous-groupe a `subgroup_id` renseigné et son groupe effectif dérive du sous-groupe,
+  - visibilité configurée indépendante sur groupe / sous-groupe / service,
+  - visibilité effective héritée vers le bas,
+  - noms uniques entre frères,
+  - slugs uniques par type,
+  - maximum `6` services mis en avant sur la landing.
+- La migration initiale a créé :
+  - groupe `Services`
+  - sous-groupe `General`
+  - backfill automatique des services existants vers cette hiérarchie.
+
+## Réservation publique - sélection de service
+- `src/components/reservation/ServiceSelect.tsx` gère désormais un flux hiérarchique :
+  - **groupe**
+  - **sous-groupe** si applicable
+  - **service**
+- Les groupes affichent :
+  - nom
+  - image optionnelle
+  - description
+  - compteur visible effectif
+- Les sous-groupes affichent :
+  - nom
+  - description optionnelle
+  - compteur visible effectif
+- Les services affichent :
+  - nom
+  - description
+  - prix
+  - durée
+  - image optionnelle avec fallback
+- Auto-avance :
+  - sélection groupe → étape suivante
+  - sélection sous-groupe → étape suivante
+- Cas spéciaux :
+  - si le salon n'a qu'un seul groupe visible effectif, le pas groupe est masqué publiquement et la réservation démarre directement sur le niveau utile (services directs ou sous-groupes)
+  - dans ce mode groupe unique, la UI publique n'affiche pas de libellé explicite `groupe` / `sous-groupe`; le copy devient neutre (`option`, `services disponibles`)
+  - groupe en mode services directs → accès direct à la liste des services
+  - saut du sous-groupe uniquement si le groupe a exactement `1` sous-groupe visible et le flag `skip_subgroup_step_when_single_visible_child = true`
+  - combinaison des deux règles : un salon avec un seul groupe visible + un seul sous-groupe visible arrive désormais directement à la liste des services, même sans activer explicitement le flag de saut
+- La page `/reservation` accepte désormais `?service=<service-slug>` :
+  - si le slug est valide et publiquement réservable, le service est préselectionné et le parcours continue vers le centre,
+  - sinon, fallback vers le début du parcours avec message clair.
+- La barre de progression de `/reservation` s’adapte au nombre réel d’étapes actives du flux service.
+
+## Admin - services
+- La section `/admin?section=services` a été refactorisée vers `src/components/admin/services/ServiceManagement.tsx`.
+- Une action admin permet désormais de convertir un groupe avec un seul sous-groupe en **services directs** : tous les services du sous-groupe sont déplacés au niveau du groupe puis le sous-groupe est supprimé de manière atomique.
+- UX admin :
+  - arbre hiérarchique expand/collapse,
+  - recherche globale,
+  - badges de visibilité configurée / effective,
+  - ordre manuel `haut/bas`,
+  - panneau latéral unique pour groupe / sous-groupe / service,
+  - actions contextuelles “créer ici”,
+  - sélection landing (`landing_featured`, `landing_sort_order`),
+  - suppression définitive autorisée pour les services individuels depuis le menu d'édition,
+  - action de suppression toujours visible sur groupes / sous-groupes, mais si l'élément n'est pas vide une modale stylée explique qu'il faut d'abord supprimer ou re-déplacer les services associés,
+  - suppression définitive autorisée pour un groupe ou un sous-groupe uniquement s'il est vide,
+  - suppression avec confirmation explicite stylée (plus d'alertes navigateur sur cette gestion),
+  - lors d'une suppression de service, les affectations `stylist_services` sont supprimées en cascade et les réservations historiques gardent la réservation mais avec `service_id = null`,
+  - blocage explicite au 7e service mis en avant.
+- Les slugs sont gérés côté formulaire avec mode auto/manuel cohérent avec le nom, puis validés définitivement en base via triggers.
+- Support SQL ajouté : `public.convert_group_single_subgroup_to_direct_services(p_group_id bigint)` pour aplatir un groupe mono-sous-groupe sans casser les contraintes de mode exclusif.
+
+## Landing - section services
+- `src/components/Services.tsx` n’affiche plus automatiquement tous les services actifs.
+- La landing affiche uniquement les services :
+  - `landing_featured = true`
+  - visibles effectifs
+  - publiquement réservables
+- Limite d’affichage : `6` cartes maximum, triées par `landing_sort_order`.
+- Chaque carte pointe vers `/reservation?service=<slug>` pour ouvrir directement la réservation du service sélectionné.
+
+## Admin - affectation services aux stylistes
+- `src/app/admin/stylist-management.tsx` affiche désormais l’affectation des services par hiérarchie groupe / sous-groupe.
+- Les groupes et sous-groupes sont repliables.
+- Les services masqués restent assignables en admin, avec badge explicite.
+
 ## APIs (Route Handlers)
 ### Réservation
 - `GET /api/reservation/availability`
@@ -187,6 +282,7 @@ Steel & Blade est l’application web de **Coiffure Ciwan**, un salon masculin m
   - `/.well-known/oauth-protected-resource` annonce `authorization_servers` sur l’issuer Supabase (`<supabaseUrl>/auth/v1`) et limite `scopes_supported` a `email` (pas d’`openid`).
   - La page `/oauth/consent` redirige automatiquement si l’autorisation est `auto_approved` (y compris via un appel d’approbation automatique quand aucun `redirect_url` n’est renvoye).
   - `create_booking` appelle `/api/reservation/create` (si l’écriture est bloquée côté plan ChatGPT, le tool renvoie un message d’échec).
+  - `list_services` renvoie maintenant une structure **hiérarchique** (groupes, sous-groupes, services directs), avec compteurs visibles effectifs et slugs résolus.
 - `GET /api/chatgpt-preview/locations`
   - Endpoint de preview pour charger les centres (avec images) dans `/chatgpt-preview`.
 
