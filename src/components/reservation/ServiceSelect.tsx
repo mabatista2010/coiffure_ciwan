@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import Image from 'next/image';
 import { supabase, Service } from '@/lib/supabase';
+import { getSafeServiceDuration } from '@/lib/serviceDuration';
 
 interface ServiceSelectProps {
   onServiceSelect: (service: Service) => void;
@@ -75,12 +76,18 @@ export default function ServiceSelect({ onServiceSelect }: ServiceSelectProps) {
               onClick={() => onServiceSelect(service)}
             >
               <div className="relative h-48 w-full">
-                <Image
-                  src={service.imagen_url}
-                  alt={service.nombre}
-                  fill
-                  className="object-cover"
-                />
+                {service.imagen_url ? (
+                  <Image
+                    src={service.imagen_url}
+                    alt={service.nombre}
+                    fill
+                    className="object-cover"
+                  />
+                ) : (
+                  <div className="flex h-full w-full items-center justify-center bg-gray-100">
+                    <span className="text-5xl font-bold text-primary">{service.nombre.charAt(0)}</span>
+                  </div>
+                )}
               </div>
               <div className="p-6">
                 <div className="flex justify-between items-center mb-2">
@@ -95,7 +102,7 @@ export default function ServiceSelect({ onServiceSelect }: ServiceSelectProps) {
                   {service.descripcion}
                 </p>
                 <div className="flex justify-between text-sm text-gray-500">
-                  <span>Durée: {service.duration || 30} min</span>
+                  <span>Durée: {getSafeServiceDuration(service.duration)} min</span>
                 </div>
               </div>
             </motion.div>

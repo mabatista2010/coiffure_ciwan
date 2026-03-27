@@ -11,6 +11,13 @@ import { AdminCard, AdminCardContent, AdminCardHeader, SectionHeader } from '@/c
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
+import {
+  DEFAULT_SERVICE_DURATION_MINUTES,
+  MAX_SERVICE_DURATION_MINUTES,
+  MIN_SERVICE_DURATION_MINUTES,
+  getSafeServiceDuration,
+  getServiceDurationValidationMessage,
+} from '@/lib/serviceDuration';
 
 // Definir la interfaz Location
 interface Location {
@@ -38,6 +45,7 @@ export default function AdminPage() {
     nombre: '',
     descripcion: '',
     precio: 0,
+    duration: DEFAULT_SERVICE_DURATION_MINUTES,
     imagen_url: '',
   });
   const [serviceImageFile, setServiceImageFile] = useState<File | null>(null);
@@ -262,6 +270,14 @@ export default function AdminPage() {
     e.preventDefault();
     
     try {
+      const durationError = getServiceDurationValidationMessage(newService.duration);
+
+      if (durationError) {
+        setErrorMessage(durationError);
+        return;
+      }
+
+      const normalizedDuration = getSafeServiceDuration(newService.duration);
       let imageUrl = newService.imagen_url;
       
       if (serviceImageFile) {
@@ -297,6 +313,7 @@ export default function AdminPage() {
             nombre: newService.nombre,
             descripcion: newService.descripcion,
             precio: newService.precio,
+            duration: normalizedDuration,
             imagen_url: imageUrl
           })
           .eq('id', editingServiceId);
@@ -310,6 +327,7 @@ export default function AdminPage() {
             nombre: newService.nombre,
             descripcion: newService.descripcion,
             precio: newService.precio,
+            duration: normalizedDuration,
             imagen_url: imageUrl
           }]);
           
@@ -321,6 +339,7 @@ export default function AdminPage() {
         nombre: '',
         descripcion: '',
         precio: 0,
+        duration: DEFAULT_SERVICE_DURATION_MINUTES,
         imagen_url: ''
       });
       
@@ -349,6 +368,7 @@ export default function AdminPage() {
       nombre: service.nombre,
       descripcion: service.descripcion,
       precio: service.precio,
+      duration: getSafeServiceDuration(service.duration),
       imagen_url: service.imagen_url,
     });
     setServiceImagePreview(service.imagen_url || '');
@@ -365,6 +385,7 @@ export default function AdminPage() {
       nombre: '',
       descripcion: '',
       precio: 0,
+      duration: DEFAULT_SERVICE_DURATION_MINUTES,
       imagen_url: '',
     });
     setServiceImageFile(null);
@@ -614,6 +635,12 @@ export default function AdminPage() {
                   </h2>
                 </AdminCardHeader>
                 <AdminCardContent>
+                  {errorMessage && (
+                    <div className="mb-4 rounded-lg border border-destructive/45 bg-destructive/10 p-3 text-sm text-destructive-foreground">
+                      {errorMessage}
+                    </div>
+                  )}
+
                   <form onSubmit={handleAddService} className="grid grid-cols-1 gap-4 md:grid-cols-2">
                     <div className="space-y-2">
                       <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
@@ -637,6 +664,24 @@ export default function AdminPage() {
                         onChange={(e) => setNewService({ ...newService, precio: Number(e.target.value) })}
                         required
                       />
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                        Durée (min)
+                      </label>
+                      <Input
+                        type="number"
+                        min={MIN_SERVICE_DURATION_MINUTES}
+                        max={MAX_SERVICE_DURATION_MINUTES}
+                        step={1}
+                        value={newService.duration ?? DEFAULT_SERVICE_DURATION_MINUTES}
+                        onChange={(e) => setNewService({ ...newService, duration: Number(e.target.value) })}
+                        required
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Valeur entière entre {MIN_SERVICE_DURATION_MINUTES} et {MAX_SERVICE_DURATION_MINUTES} minutes. Les durées usuelles avancent souvent par paliers de 5, mais tout entier valide est accepté.
+                      </p>
                     </div>
 
                     <div className="space-y-2 md:col-span-2">
@@ -736,7 +781,10 @@ export default function AdminPage() {
                         <div className="space-y-3 p-5">
                           <div className="flex items-start justify-between gap-3">
                             <h3 className="text-lg font-semibold text-foreground">{service.nombre}</h3>
-                            <p className="text-sm font-semibold text-primary">{service.precio} CHF</p>
+                            <div className="text-right">
+                              <p className="text-sm font-semibold text-primary">{service.precio} CHF</p>
+                              <p className="text-xs text-muted-foreground">{getSafeServiceDuration(service.duration)} min</p>
+                            </div>
                           </div>
                           <p className="text-sm leading-relaxed text-muted-foreground">{service.descripcion}</p>
                         </div>

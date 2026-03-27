@@ -11,6 +11,7 @@ import { WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/
 import { ListToolsRequestSchema } from "@modelcontextprotocol/sdk/types.js";
 import { supabase } from "@/lib/supabase";
 import { getImageUrl } from "@/lib/getImageUrl";
+import { getSafeServiceDuration } from "@/lib/serviceDuration";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -294,7 +295,7 @@ const createReservationServer = (baseUrl: string) => {
         name: service.nombre,
         description: service.descripcion || "",
         price: service.precio,
-        duration: service.duration || 30,
+        duration: getSafeServiceDuration(service.duration),
         image_url: service.imagen_url ? getImageUrl(service.imagen_url) : "",
       }));
 

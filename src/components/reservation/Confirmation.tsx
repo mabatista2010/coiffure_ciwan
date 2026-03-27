@@ -7,6 +7,7 @@ import { Service, Location, Stylist } from '@/lib/supabase';
 import { CustomerData } from './CustomerForm';
 import { FaCheckCircle, FaCalendarAlt, FaHome } from 'react-icons/fa';
 import { addToCalendar } from '@/lib/calendarUtils';
+import { getSafeServiceDuration } from '@/lib/serviceDuration';
 
 interface ConfirmationProps {
   bookingId: string;
@@ -27,6 +28,8 @@ export default function Confirmation({
   selectedTime,
   customerData
 }: ConfirmationProps) {
+  const serviceDuration = getSafeServiceDuration(selectedService.duration);
+
   // Efecto para desplazar al principio cuando se monta el componente
   useEffect(() => {
     window.scrollTo({
@@ -69,7 +72,7 @@ export default function Confirmation({
     `;
     const location = selectedLocation.address;
     const startDate = new Date(`${selectedDate}T${selectedTime}`);
-    const endDate = new Date(`${selectedDate}T${calculateEndTime(selectedTime, selectedService.duration)}`);
+    const endDate = new Date(`${selectedDate}T${calculateEndTime(selectedTime, serviceDuration)}`);
     
     addToCalendar(title, description, location, startDate, endDate);
   };
@@ -105,7 +108,7 @@ export default function Confirmation({
           <div>
             <p className="text-gray-700 mb-1"><strong>Service:</strong> {selectedService.nombre}</p>
             <p className="text-gray-700 mb-1"><strong>Prix:</strong> {selectedService.precio} CHF</p>
-            <p className="text-gray-700 mb-1"><strong>Durée:</strong> {selectedService.duration || 30} min</p>
+            <p className="text-gray-700 mb-1"><strong>Durée:</strong> {serviceDuration} min</p>
             <p className="text-gray-700 mb-1"><strong>Centre:</strong> {selectedLocation.name}</p>
             <p className="text-gray-700 mb-1"><strong>Adresse:</strong> {selectedLocation.address}</p>
             <p className="text-gray-700 mb-4"><strong>Styliste:</strong> {selectedStylist.name}</p>

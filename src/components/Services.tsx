@@ -153,6 +153,7 @@ export default function Services() {
             nombre: 'Coupe de Cheveux',
             descripcion: 'Nous offrons des solutions professionnelles et personnalisées pour créer votre look parfait.',
             precio: 25,
+            duration: 30,
             imagen_url: '/services/corte-clasico.jpg',
           },
           {
@@ -160,6 +161,7 @@ export default function Services() {
             nombre: 'Rasage',
             descripcion: 'Nous offrons une expérience de rasage traditionnelle unique, transformant une procédure ordinaire en un rituel relaxant.',
             precio: 20,
+            duration: 30,
             imagen_url: '/services/fade.jpg',
           },
           {
@@ -167,6 +169,7 @@ export default function Services() {
             nombre: 'Barbe',
             descripcion: 'Nous offrons des soins professionnels pour la barbe, y compris la taille, le style et l&apos;utilisation de produits de toilettage de haute qualité.',
             precio: 15,
+            duration: 20,
             imagen_url: '/services/barba.jpg',
           },
           {
@@ -174,6 +177,7 @@ export default function Services() {
             nombre: 'Coupe Enfants',
             descripcion: 'Coupes spéciales pour les plus petits avec une attention particulière et une ambiance détendue.',
             precio: 13,
+            duration: 30,
             imagen_url: '/services/corte-ninos.jpg',
           },
         ]);
@@ -282,12 +286,20 @@ return (
           >
             <div className="service-card-image p-0">
               <div className="relative w-full pt-[70%]">
-                <Image
-                  src={getImageUrl(service.imagen_url)}
-                  alt={service.nombre}
-                  fill
-                  className="object-cover rounded-sm shadow-[0_0_15px_rgba(255,255,255,0.2)]"
-                />
+                {service.imagen_url ? (
+                  <Image
+                    src={getImageUrl(service.imagen_url)}
+                    alt={service.nombre}
+                    fill
+                    className="object-cover rounded-sm shadow-[0_0_15px_rgba(255,255,255,0.2)]"
+                  />
+                ) : (
+                  <div className="absolute inset-0 flex items-center justify-center rounded-sm bg-white/10 shadow-[0_0_15px_rgba(255,255,255,0.12)]">
+                    <span className="text-6xl font-bold text-light" style={{ textShadow: '0 2px 8px rgba(0, 0, 0, 0.9)' }}>
+                      {service.nombre.charAt(0)}
+                    </span>
+                  </div>
+                )}
               </div>
             </div>
             <div className="service-card-content pt-4 pb-2 text-center rounded-b-sm">

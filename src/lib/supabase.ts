@@ -12,7 +12,7 @@ export type Service = {
   descripcion: string;
   precio: number;
   imagen_url: string;
-  duration?: number;
+  duration: number;
   active?: boolean;
 };
 

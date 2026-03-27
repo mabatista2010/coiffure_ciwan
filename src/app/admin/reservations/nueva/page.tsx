@@ -39,6 +39,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { getImageUrl } from '@/lib/getImageUrl';
 import { CustomerSearchPanel } from '@/components/admin/crm/CustomerSearchPanel';
 import { type AdminCustomerSearchResult, searchAdminCustomers } from '@/lib/adminCustomerSearch';
+import { getSafeServiceDuration } from '@/lib/serviceDuration';
 
 type TimeSlotPeriod = 'morning' | 'afternoon' | 'evening';
 type ReservationCombination = {
@@ -1044,6 +1045,9 @@ export default function NuevaReservacion() {
 
   const selectedServiceDetail =
     selectedService ? allServices.find(service => service.id.toString() === selectedService) : null;
+  const selectedServiceDuration = selectedServiceDetail
+    ? getSafeServiceDuration(selectedServiceDetail.duration)
+    : null;
   const selectedDateLabel = selectedDate
     ? new Date(`${selectedDate}T00:00:00`).toLocaleDateString('fr-FR', {
         weekday: 'long',
@@ -1373,7 +1377,7 @@ export default function NuevaReservacion() {
                       <div className="flex justify-between items-center my-2">
                         <span className="text-light text-sm">Durée estimée :</span>
                         <span className="bg-dark text-light text-xs px-2 py-1 rounded">
-                          {selectedServiceDetail.duration} min
+                          {selectedServiceDuration} min
                         </span>
                       </div>
                       <div className="flex justify-between items-center">
@@ -1869,7 +1873,7 @@ export default function NuevaReservacion() {
                     <div className="flex justify-between gap-3">
                       <span className="text-muted-foreground">Durée</span>
                       <span className="font-medium text-foreground text-right">
-                        {selectedServiceDetail?.duration ? `${selectedServiceDetail.duration} min` : '-'}
+                        {selectedServiceDuration ? `${selectedServiceDuration} min` : '-'}
                       </span>
                     </div>
                     <div className="flex justify-between gap-3 sm:col-span-2">

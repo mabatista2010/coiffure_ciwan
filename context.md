@@ -332,7 +332,7 @@ Steel & Blade est l’application web de **Coiffure Ciwan**, un salon masculin m
 
 ## Supabase : Modèle réel (DB)
 ### Tables principales
-- **servicios**: `id` (int8), `nombre`, `descripcion`, `precio`, `imagen_url`, `duration` (default 30), `active` (default true), `created_at`.
+- **servicios**: `id` (int8), `nombre`, `descripcion`, `precio`, `imagen_url`, `duration` (int, `default 30`, `NOT NULL`, `CHECK duration > 0 AND duration <= 240`), `active` (default true), `created_at`.
 - **locations**: `id` (uuid), `name`, `address`, `phone`, `email`, `description?`, `image?`, `active` (default true), `created_at`.
 - **stylists**: `id` (uuid), `name`, `bio?`, `specialties?` (text[]), `profile_img?`, `location_ids?` (uuid[]), `active` (default true), `created_at`.
 - **stylist_services**: `id` (uuid), `stylist_id` → `stylists`, `service_id` → `servicios`.
