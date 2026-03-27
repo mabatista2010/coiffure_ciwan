@@ -64,6 +64,15 @@ export type WorkingHour = {
   created_at?: string;
 };
 
+export type LocationDailySchedule = {
+  id: string;
+  location_id: string;
+  day_of_week: number;
+  is_closed: boolean;
+  created_at?: string;
+  updated_at?: string;
+};
+
 export type TimeOff = {
   id: string;
   stylist_id: string;

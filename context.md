@@ -89,12 +89,20 @@ Steel & Blade est l’application web de **Coiffure Ciwan**, un salon masculin m
 
 > Note : `src/app/admin/reservations/page.tsx.bak` est un backup.
 
+### Admin - Gestion des centres
+- `src/app/admin/location-management.tsx` gère désormais les horaires hebdomadaires avec un état explicite `Ouvert/Fermé` par jour.
+- Contrat UI de Fase 1 : `daySchedules[]` avec `dayOfWeek`, `isClosed`, `slots[]`.
+- Un jour `Fermé` n’insère aucune ligne dans `location_hours`, mais l’état autoritatif est désormais `location_daily_schedule.is_closed`.
+- Le panneau latéral admin affiche les erreurs de validation et confirmations de sauvegarde directement dans le panneau.
+- Fase 2 ajoute `public.location_daily_schedule` comme registre explicite de l’état quotidien (`is_closed`) avec 7 lignes par centre après backfill.
+- Fase 2.5 retire la compatibilité legacy basée uniquement sur l’absence de lignes dans `location_hours` pour savoir si un jour est fermé.
+
 ## APIs (Route Handlers)
 ### Réservation
 - `GET /api/reservation/availability`
   - Paramètres: `date`, `stylistId`, `locationId`, `serviceId`.
   - Délègue à la RPC SQL `public.get_availability_slots_v2`.
-  - Utilise les mêmes règles que la création (`check_booking_slot_v2`) : `working_hours`, `location_hours`, `time_off`, `location_closures`, `bookings` (`pending|confirmed|needs_replan`), `booking_buffer_minutes`, fenêtre `min/max` et timezone métier.
+  - Utilise les mêmes règles que la création (`check_booking_slot_v2`) : `working_hours`, `location_daily_schedule` (état ouvert/fermé autoritatif), `location_hours` (plages des jours ouverts), `time_off`, `location_closures`, `bookings` (`pending|confirmed|needs_replan`), `booking_buffer_minutes`, fenêtre `min/max` et timezone métier.
   - Retourne `availableSlots[]` avec `time`, `available`, `reasonCode`.
   - Lit les données via client Supabase `service_role` côté serveur (pas d’exposition directe de `bookings` en public).
 - `POST /api/reservation/create`
@@ -104,6 +112,7 @@ Steel & Blade est l’application web de **Coiffure Ciwan**, un salon masculin m
   - Nouveaux codes métier: `outside_booking_window`, `outside_location_hours`, `location_closed`.
   - Idempotence supportée via header `Idempotency-Key` (replay de réponse pour la même clé+payload, blocage si clé réutilisée avec payload différent).
   - Logging structuré de création (`request_id`, `source`, `idempotency_key`, `error_code`, `latency_ms`).
+  - `check_booking_slot_v2` considère désormais `location_daily_schedule` comme source unique de vérité pour savoir si un jour est fermé.
 
 ### CRM Admin
 - `GET /api/admin/crm/customers/[id]/profile`
@@ -157,6 +166,15 @@ Steel & Blade est l’application web de **Coiffure Ciwan**, un salon masculin m
   - Endpoint interne protégé (`admin`) pour remplacement des `working_hours` d’un styliste.
   - Validation serveur: format des plages, ordre strict `start < end`, anti-solape interne, compatibilité stricte avec `location_hours`; en cas d’erreur, le message inclut désormais l’index/tranche invalide, et pour `outside_location_hours` le détail `locationId/dayOfWeek/start→end`.
   - Réponse avec compteurs (`updated_working_hours_count`, `needs_replan_detected_count`).
+- `POST /api/admin/schedule/location-hours`
+  - Endpoint interne protégé (`admin`) pour remplacement complet des horaires hebdomadaires d’un centre.
+  - Attend `locationId` + `daySchedules[]` (7 jours) et appelle la fonction SQL transactionnelle `public.save_location_weekly_schedule_v2`.
+  - Persistance métier actuelle :
+    - `location_daily_schedule` = source autoritative de l’état ouvert/fermé par jour,
+    - `location_hours` = plages horaires des jours ouverts uniquement.
+  - `isClosed=true` => `location_daily_schedule.is_closed=true` + aucune ligne `location_hours` pour ce jour.
+  - Validation serveur : unicité `dayOfWeek`, jour ouvert avec au moins une plage valide, format `HH:mm`, ordre strict `start < end`, anti-solape intra-jour.
+  - Réponse avec compteurs (`updated_location_hours_count`, `closed_days_count`).
 
 ### ChatGPT Apps SDK (MCP)
   - `GET|POST|DELETE /mcp`

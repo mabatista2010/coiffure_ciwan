@@ -1,9 +1,9 @@
 # Status
 
 - Estado: Ready for QA
-- Current phase: Fase F (completada)
-- Last completed task: QA funcional completo (stylists + reservations), validación de migración `location_hours_guard` en BD objetivo y fix de modales anidados en side panel
-- Next task: QA/UAT final de negocio y cierre del pack con `$impl-pack-close` cuando el usuario confirme
-- Tests pending: Ninguno a nivel técnico del pack
+- Current phase: Fase F (completada) + cierre documental completado
+- Last completed task: Cierre documental del pack (`implementation/checklist/tests/status`) y preparación de gate de QA manual
+- Next task: QA manual del usuario
+- Tests pending: QA/UAT manual final del usuario (validación funcional y visual final en entorno objetivo)
 - Bloqueos: Ninguno
-- Last update: 2026-02-27 23:35 CET
+- Last update: 2026-03-03 18:05 CET

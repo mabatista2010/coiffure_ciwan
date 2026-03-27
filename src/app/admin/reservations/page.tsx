@@ -329,15 +329,15 @@ export default function AdminBookingsPage() {
         return;
       }
 
-      let locationHours: Array<Record<string, unknown>> = [];
+      let locationDailySchedule: Array<Record<string, unknown>> = [];
       if (selectedLocation !== 'all') {
-        const { data: locHours, error: locError } = await supabase
-          .from('location_hours')
-          .select('*')
+        const { data: locDaily, error: locError } = await supabase
+          .from('location_daily_schedule')
+          .select('day_of_week,is_closed')
           .eq('location_id', selectedLocation);
 
         if (locError) throw locError;
-        locationHours = locHours || [];
+        locationDailySchedule = locDaily || [];
       }
 
       let stylistHours: Array<Record<string, unknown>> = [];
@@ -365,14 +365,9 @@ export default function AdminBookingsPage() {
         const dayName = getDayName(dayOfWeek);
         let isClosed = false;
 
-        if (selectedLocation !== 'all' && locationHours.length > 0) {
-          const centerOpen = locationHours.some(hour =>
-            hour.day_of_week === dayOfWeek ||
-            hour.day === dayName ||
-            hour.day === dayName.toLowerCase()
-          );
-
-          if (!centerOpen) {
+        if (selectedLocation !== 'all') {
+          const explicitDay = locationDailySchedule.find((day) => day.day_of_week === dayOfWeek);
+          if (!explicitDay || explicitDay.is_closed === true) {
             isClosed = true;
           }
         }

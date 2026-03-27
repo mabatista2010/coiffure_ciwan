@@ -3,7 +3,7 @@
 import React, { useState, useEffect, Fragment } from 'react';
 import { motion } from 'framer-motion';
 import { FaMapMarkerAlt, FaPhone, FaClock, FaEnvelope, FaChevronLeft, FaChevronRight } from 'react-icons/fa';
-import { supabase } from '@/lib/supabase';
+import { supabase, LocationDailySchedule } from '@/lib/supabase';
 
 // Tipo para los datos de centro
 interface LocationData {
@@ -56,6 +56,7 @@ const dayNames = [
 export default function Location() {
   const [locations, setLocations] = useState<LocationData[]>([]);
   const [locationHours, setLocationHours] = useState<{[key: string]: LocationHour[]}>({});
+  const [locationDailySchedule, setLocationDailySchedule] = useState<{[key: string]: LocationDailySchedule[]}>({});
   const [selectedLocation, setSelectedLocation] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -104,12 +105,22 @@ export default function Location() {
           setSelectedLocation(locationsData[0].id);
           
           // Obtener los horarios de todos los centros
-          const { data: hoursData, error: hoursError } = await supabase
-            .from('location_hours')
-            .select('*')
-            .in('location_id', locationsData.map(loc => loc.id));
+          const [
+            { data: hoursData, error: hoursError },
+            { data: dailyData, error: dailyError },
+          ] = await Promise.all([
+            supabase
+              .from('location_hours')
+              .select('*')
+              .in('location_id', locationsData.map(loc => loc.id)),
+            supabase
+              .from('location_daily_schedule')
+              .select('*')
+              .in('location_id', locationsData.map(loc => loc.id))
+          ]);
           
           if (hoursError) throw hoursError;
+          if (dailyError) throw dailyError;
           
           // Organizar los horarios por centro
           const hoursByLocation: {[key: string]: LocationHour[]} = {};
@@ -124,6 +135,18 @@ export default function Location() {
           }
           
           setLocationHours(hoursByLocation);
+
+          const dailyByLocation: {[key: string]: LocationDailySchedule[]} = {};
+          if (dailyData) {
+            dailyData.forEach((daySchedule) => {
+              if (!dailyByLocation[daySchedule.location_id]) {
+                dailyByLocation[daySchedule.location_id] = [];
+              }
+              dailyByLocation[daySchedule.location_id].push(daySchedule);
+            });
+          }
+
+          setLocationDailySchedule(dailyByLocation);
         }
       } catch (err) {
         console.error('Error al cargar centros:', err);
@@ -169,6 +192,7 @@ export default function Location() {
     if (!locationId) return {}; // Manejar el caso donde no hay un ID de centro válido
     
     const hours = locationHours[locationId] || [];
+    const dailySchedule = locationDailySchedule[locationId] || [];
     
     // Organizar las horas por día de la semana
     const hoursByDay: {[key: number]: {start: string, end: string}[]} = {};
@@ -187,6 +211,12 @@ export default function Location() {
       }
     });
     
+    dailySchedule.forEach((daySchedule) => {
+      if (daySchedule.is_closed) {
+        hoursByDay[daySchedule.day_of_week] = [];
+      }
+    });
+
     return hoursByDay;
   };
   

@@ -1,24 +1,21 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { supabase } from '@/lib/supabase';
 import Image from 'next/image';
 import { v4 as uuidv4 } from 'uuid';
 import { AdminSidePanel, SectionHeader } from '@/components/admin/ui';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-
-// Definir días de la semana
-const weekdays = [
-  { id: 0, name: 'Dimanche' },
-  { id: 1, name: 'Lundi' },
-  { id: 2, name: 'Mardi' },
-  { id: 3, name: 'Mercredi' },
-  { id: 4, name: 'Jeudi' },
-  { id: 5, name: 'Vendredi' },
-  { id: 6, name: 'Samedi' }
-];
+import { fetchWithAdminAuth } from '@/lib/fetchWithAdminAuth';
+import {
+  createDefaultLocationSchedule,
+  createEmptyDaySlot,
+  DaySchedule,
+  validateLocationSchedule,
+  WEEKDAYS,
+} from '@/lib/locationSchedule';
+import { supabase } from '@/lib/supabase';
 
 // Definir la interfaz Location
 interface Location {
@@ -32,16 +29,6 @@ interface Location {
   active: boolean;
 }
 
-// Interfaz para los horarios de centros
-interface LocationHour {
-  id?: string;
-  location_id: string;
-  day_of_week: number;
-  slot_number: number;
-  start_time: string;
-  end_time: string;
-}
-
 const createInitialLocationState = (): Partial<Location> => ({
   name: '',
   address: '',
@@ -51,20 +38,6 @@ const createInitialLocationState = (): Partial<Location> => ({
   image: '',
   active: true,
 });
-
-const createEmptyLocationHours = (): {
-  [day: number]: Array<{ start: string; end: string }>
-} => {
-  const emptyHours: {
-    [day: number]: Array<{ start: string; end: string }>
-  } = {};
-
-  weekdays.forEach((day) => {
-    emptyHours[day.id] = [{ start: '', end: '' }];
-  });
-
-  return emptyHours;
-};
 
 export default function LocationManagement() {
   const [locations, setLocations] = useState<Location[]>([]);
@@ -77,10 +50,9 @@ export default function LocationManagement() {
   const [isUploading, setIsUploading] = useState(false);
   const locationImageInputRef = useRef<HTMLInputElement>(null);
 
-  // Estado para los horarios del centro
-  const [locationHours, setLocationHours] = useState<{
-    [day: number]: Array<{ start: string; end: string }>
-  }>(createEmptyLocationHours());
+  const [daySchedules, setDaySchedules] = useState<DaySchedule[]>(createDefaultLocationSchedule());
+  const [scheduleErrors, setScheduleErrors] = useState<string[]>([]);
+  const [panelFeedback, setPanelFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
   useEffect(() => {
     loadLocations();
@@ -101,53 +73,60 @@ export default function LocationManagement() {
 
   // Función para cargar los horarios de un centro
   const loadLocationHours = async (locationId: string) => {
-    const { data, error } = await supabase
-      .from('location_hours')
-      .select('*')
-      .eq('location_id', locationId)
-      .order('day_of_week')
-      .order('slot_number');
+    const [
+      { data: hoursData, error: hoursError },
+      { data: dailyData, error: dailyError },
+    ] = await Promise.all([
+      supabase
+        .from('location_hours')
+        .select('*')
+        .eq('location_id', locationId)
+        .order('day_of_week')
+        .order('slot_number'),
+      supabase
+        .from('location_daily_schedule')
+        .select('day_of_week,is_closed')
+        .eq('location_id', locationId)
+        .order('day_of_week'),
+    ]);
     
-    if (error) {
-      console.error('Erreur lors du chargement des horaires:', error);
+    if (hoursError || dailyError) {
+      console.error('Erreur lors du chargement des horaires:', hoursError || dailyError);
       return;
     }
     
-    // Inicializar estructura de horarios
-    const initialHours: {
-      [day: number]: Array<{ start: string; end: string }>
-    } = {};
-    
-    // Inicializar cada día con un slot vacío
-    weekdays.forEach(day => {
-      initialHours[day.id] = [{ start: '', end: '' }];
+    const initialSchedule = createDefaultLocationSchedule();
+
+    initialSchedule.forEach((daySchedule) => {
+      const explicitDay = (dailyData || []).find((row) => row.day_of_week === daySchedule.dayOfWeek);
+      if (explicitDay) {
+        daySchedule.isClosed = explicitDay.is_closed;
+      }
     });
-    
-    // Rellenar con datos existentes
-    if (data && data.length > 0) {
-      data.forEach(hour => {
-        const dayOfWeek = hour.day_of_week;
-        const slotNumber = hour.slot_number;
-        
-        // Asegurarse de que el día existe en el objeto
-        if (!initialHours[dayOfWeek]) {
-          initialHours[dayOfWeek] = [];
+
+    if (hoursData && hoursData.length > 0) {
+      hoursData.forEach((hour) => {
+        const daySchedule = initialSchedule.find((day) => day.dayOfWeek === hour.day_of_week);
+
+        if (!daySchedule) {
+          return;
         }
-        
-        // Si el número de slot es mayor que la longitud del array, rellenar con slots vacíos
-        while (initialHours[dayOfWeek].length <= slotNumber) {
-          initialHours[dayOfWeek].push({ start: '', end: '' });
+
+        daySchedule.isClosed = false;
+
+        while (daySchedule.slots.length <= hour.slot_number) {
+          daySchedule.slots.push(createEmptyDaySlot());
         }
-        
-        // Actualizar el slot específico
-        initialHours[dayOfWeek][slotNumber] = {
-          start: hour.start_time.substring(0, 5), // Convertir "09:00:00" a "09:00"
-          end: hour.end_time.substring(0, 5)
+
+        daySchedule.slots[hour.slot_number] = {
+          start: hour.start_time.substring(0, 5),
+          end: hour.end_time.substring(0, 5),
         };
       });
     }
-    
-    setLocationHours(initialHours);
+
+    setDaySchedules(initialSchedule);
+    setScheduleErrors([]);
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -191,86 +170,82 @@ export default function LocationManagement() {
   };
 
   // Funciones para gestionar los horarios
+  const updateDaySchedule = (
+    dayOfWeek: number,
+    updater: (current: DaySchedule) => DaySchedule
+  ) => {
+    setScheduleErrors([]);
+    setPanelFeedback(null);
+    setDaySchedules((prev) => prev.map((day) => (
+      day.dayOfWeek === dayOfWeek ? updater(day) : day
+    )));
+  };
+
   const addTimeSlot = (dayOfWeek: number) => {
-    setLocationHours(prev => {
-      const updatedHours = { ...prev };
-      updatedHours[dayOfWeek] = [
-        ...updatedHours[dayOfWeek],
-        { start: '', end: '' }
-      ];
-      return updatedHours;
-    });
+    updateDaySchedule(dayOfWeek, (day) => ({
+      ...day,
+      slots: [...day.slots, createEmptyDaySlot()],
+    }));
   };
 
   const removeTimeSlot = (dayOfWeek: number, slotIndex: number) => {
-    setLocationHours(prev => {
-      const updatedHours = { ...prev };
-      if (updatedHours[dayOfWeek].length > 1) {
-        updatedHours[dayOfWeek] = updatedHours[dayOfWeek].filter((_, index) => index !== slotIndex);
-      } else {
-        updatedHours[dayOfWeek] = [{ start: '', end: '' }];
-      }
-      return updatedHours;
-    });
+    updateDaySchedule(dayOfWeek, (day) => ({
+      ...day,
+      slots: day.slots.length > 1
+        ? day.slots.filter((_, index) => index !== slotIndex)
+        : [createEmptyDaySlot()],
+    }));
   };
 
   const updateTimeSlot = (dayOfWeek: number, slotIndex: number, field: 'start' | 'end', value: string) => {
-    setLocationHours(prev => {
-      const updatedHours = { ...prev };
-      updatedHours[dayOfWeek][slotIndex][field] = value;
-      return updatedHours;
-    });
+    updateDaySchedule(dayOfWeek, (day) => ({
+      ...day,
+      slots: day.slots.map((slot, index) => (
+        index === slotIndex
+          ? { ...slot, [field]: value }
+          : slot
+      )),
+    }));
   };
 
-  // Función para guardar los horarios en la base de datos
+  const toggleClosedState = (dayOfWeek: number, isClosed: boolean) => {
+    updateDaySchedule(dayOfWeek, (day) => ({
+      ...day,
+      isClosed,
+      slots: isClosed
+        ? (day.slots.length > 0 ? day.slots : [createEmptyDaySlot()])
+        : (day.slots.some((slot) => slot.start || slot.end) ? day.slots : [createEmptyDaySlot()]),
+    }));
+  };
+
   const saveLocationHours = async (locationId: string) => {
-    try {
-      // Primero eliminamos los horarios existentes
-      const { error: deleteError } = await supabase
-        .from('location_hours')
-        .delete()
-        .eq('location_id', locationId);
-      
-      if (deleteError) {
-        throw deleteError;
-      }
-      
-      // Preparamos los nuevos horarios
-      const newHours: LocationHour[] = [];
-      
-      Object.entries(locationHours).forEach(([dayStr, slots]) => {
-        const day = parseInt(dayStr);
-        
-        slots.forEach((slot, index) => {
-          // Solo guardar slots con valores válidos
-          if (slot.start && slot.end) {
-            newHours.push({
-              location_id: locationId,
-              day_of_week: day,
-              slot_number: index,
-              start_time: `${slot.start}:00`,
-              end_time: `${slot.end}:00`
-            });
-          }
-        });
-      });
-      
-      if (newHours.length > 0) {
-        const { error: insertError } = await supabase
-          .from('location_hours')
-          .insert(newHours);
-        
-        if (insertError) {
-          throw insertError;
-        }
-      }
-    } catch (error) {
-      console.error('Erreur lors de la sauvegarde des horaires:', error);
+    const response = await fetchWithAdminAuth('/api/admin/schedule/location-hours', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        locationId,
+        daySchedules,
+      }),
+    });
+
+    const payload = await response.json().catch(() => null);
+
+    if (!response.ok) {
+      throw new Error(
+        payload?.error
+        || payload?.message
+        || 'Impossible de sauvegarder les horaires du centre.'
+      );
     }
+
+    return payload;
   };
 
   const initializeEmptyHours = () => {
-    setLocationHours(createEmptyLocationHours());
+    setDaySchedules(createDefaultLocationSchedule());
+    setScheduleErrors([]);
   };
 
   const resetLocationFormState = () => {
@@ -278,6 +253,7 @@ export default function LocationManagement() {
     setNewLocation(createInitialLocationState());
     setLocationImageFile(null);
     setLocationImagePreview('');
+    setPanelFeedback(null);
     initializeEmptyHours();
 
     if (locationImageInputRef.current) {
@@ -296,8 +272,20 @@ export default function LocationManagement() {
   };
 
   const handleAddLocation = async () => {
+    const validationErrors = validateLocationSchedule(daySchedules);
+    setScheduleErrors(validationErrors);
+
+    if (validationErrors.length > 0) {
+      setPanelFeedback({
+        type: 'error',
+        message: 'Corrigez les horaires signalés avant de sauvegarder ce centre.',
+      });
+      return;
+    }
+
     try {
       setIsUploading(true);
+      setPanelFeedback(null);
 
       let imageUrl = '';
 
@@ -307,8 +295,8 @@ export default function LocationManagement() {
 
       const newLocationData = {
         id: uuidv4(),
-        name: newLocation.name,
-        address: newLocation.address,
+        name: newLocation.name ?? '',
+        address: newLocation.address ?? '',
         description: newLocation.description,
         phone: newLocation.phone,
         email: newLocation.email,
@@ -326,9 +314,18 @@ export default function LocationManagement() {
 
       await saveLocationHours(newLocationData.id);
       await loadLocations();
-      closePanel();
+      setEditingLocation(newLocationData);
+      setLocationImageFile(null);
+      setPanelFeedback({
+        type: 'success',
+        message: 'Centre créé et horaires enregistrés avec succès.',
+      });
     } catch (error) {
       console.error('Erreur lors de l\'ajout du centre:', error);
+      setPanelFeedback({
+        type: 'error',
+        message: error instanceof Error ? error.message : 'Impossible de créer ce centre.',
+      });
     } finally {
       setIsUploading(false);
     }
@@ -337,8 +334,20 @@ export default function LocationManagement() {
   const handleUpdateLocation = async () => {
     if (!editingLocation) return;
 
+    const validationErrors = validateLocationSchedule(daySchedules);
+    setScheduleErrors(validationErrors);
+
+    if (validationErrors.length > 0) {
+      setPanelFeedback({
+        type: 'error',
+        message: 'Corrigez les horaires signalés avant de sauvegarder ce centre.',
+      });
+      return;
+    }
+
     try {
       setIsUploading(true);
+      setPanelFeedback(null);
 
       let imageUrl = editingLocation.image || '';
 
@@ -366,9 +375,21 @@ export default function LocationManagement() {
 
       await saveLocationHours(editingLocation.id);
       await loadLocations();
-      closePanel();
+      setEditingLocation({
+        ...editingLocation,
+        image: imageUrl,
+      });
+      setLocationImageFile(null);
+      setPanelFeedback({
+        type: 'success',
+        message: 'Centre mis à jour avec succès.',
+      });
     } catch (error) {
       console.error('Erreur lors de la mise à jour du centre:', error);
+      setPanelFeedback({
+        type: 'error',
+        message: error instanceof Error ? error.message : 'Impossible de mettre à jour ce centre.',
+      });
     } finally {
       setIsUploading(false);
     }
@@ -378,6 +399,7 @@ export default function LocationManagement() {
     setEditingLocation(location);
     setLocationImageFile(null);
     setLocationImagePreview(location.image || '');
+    setPanelFeedback(null);
     setShowLocationPanel(true);
 
     await loadLocationHours(location.id);
@@ -460,6 +482,29 @@ export default function LocationManagement() {
         )}
       >
         <form id="location-panel-form" onSubmit={handleFormSubmit} className="space-y-6">
+          {panelFeedback && (
+            <section
+              className={`rounded-xl border p-4 ${
+                panelFeedback.type === 'success'
+                  ? 'border-emerald-500/35 bg-emerald-500/10 text-emerald-900'
+                  : 'border-destructive/35 bg-destructive/10 text-destructive'
+              }`}
+            >
+              <p className="text-sm font-medium">{panelFeedback.message}</p>
+            </section>
+          )}
+
+          {scheduleErrors.length > 0 && (
+            <section className="rounded-xl border border-destructive/35 bg-destructive/10 p-4 text-destructive">
+              <p className="text-sm font-semibold">Horaires à corriger avant sauvegarde</p>
+              <ul className="mt-2 list-disc space-y-1 pl-5 text-sm">
+                {scheduleErrors.map((error) => (
+                  <li key={error}>{error}</li>
+                ))}
+              </ul>
+            </section>
+          )}
+
           <section className="space-y-4 rounded-xl border border-border bg-card p-4">
             <div className="grid min-w-0 grid-cols-1 gap-4 md:grid-cols-2">
               <div className="space-y-2 min-w-0">
@@ -565,11 +610,44 @@ export default function LocationManagement() {
               </p>
             </div>
 
-            {weekdays.map((day) => (
-              <div key={day.id} className="rounded-xl border border-border bg-background p-4">
-                <h4 className="mb-2 font-semibold text-primary">{day.name}</h4>
+            {WEEKDAYS.map((day) => {
+              const daySchedule = daySchedules.find((item) => item.dayOfWeek === day.id);
+              const daySlots = daySchedule?.slots || [createEmptyDaySlot()];
+              const isClosed = daySchedule?.isClosed ?? true;
 
-                {locationHours[day.id]?.map((slot, slotIndex) => (
+              return (
+              <div key={day.id} className="rounded-xl border border-border bg-background p-4">
+                <div className="mb-4 flex min-w-0 flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                  <div className="min-w-0">
+                    <h4 className="font-semibold text-primary">{day.name}</h4>
+                    <p className="text-sm text-muted-foreground">
+                      {isClosed ? 'Jour fermé: aucune réservation ne sera proposée.' : 'Jour ouvert: configurez une ou plusieurs plages horaires.'}
+                    </p>
+                  </div>
+
+                  <div className="grid min-w-0 grid-cols-2 gap-2 rounded-xl border border-border bg-card p-1">
+                    <Button
+                      type="button"
+                      variant={!isClosed ? 'default' : 'ghost'}
+                      size="sm"
+                      className="whitespace-normal"
+                      onClick={() => toggleClosedState(day.id, false)}
+                    >
+                      Ouvert
+                    </Button>
+                    <Button
+                      type="button"
+                      variant={isClosed ? 'default' : 'ghost'}
+                      size="sm"
+                      className="whitespace-normal"
+                      onClick={() => toggleClosedState(day.id, true)}
+                    >
+                      Fermé
+                    </Button>
+                  </div>
+                </div>
+
+                {!isClosed && daySlots.map((slot, slotIndex) => (
                   <div key={slotIndex} className="mb-3 flex min-w-0 flex-col items-start space-y-2 rounded-lg border border-border bg-card p-3 sm:flex-row sm:items-center sm:space-x-4 sm:space-y-0">
                     <div className="flex w-full min-w-0 items-center sm:w-auto">
                       <span className="mr-2 w-10 text-foreground">De</span>
@@ -577,8 +655,10 @@ export default function LocationManagement() {
                         type="time"
                         className="w-full sm:w-auto"
                         value={slot.start}
-                        onChange={(e) => updateTimeSlot(day.id, slotIndex, 'start', e.target.value)}
-                        required
+                        onChange={(e) => {
+                          updateTimeSlot(day.id, slotIndex, 'start', e.target.value);
+                          setPanelFeedback(null);
+                        }}
                       />
                     </div>
 
@@ -588,12 +668,14 @@ export default function LocationManagement() {
                         type="time"
                         className="w-full sm:w-auto"
                         value={slot.end}
-                        onChange={(e) => updateTimeSlot(day.id, slotIndex, 'end', e.target.value)}
-                        required
+                        onChange={(e) => {
+                          updateTimeSlot(day.id, slotIndex, 'end', e.target.value);
+                          setPanelFeedback(null);
+                        }}
                       />
                     </div>
 
-                    {locationHours[day.id].length > 1 && (
+                    {daySlots.length > 1 && (
                       <Button
                         type="button"
                         onClick={() => removeTimeSlot(day.id, slotIndex)}
@@ -608,17 +690,26 @@ export default function LocationManagement() {
                   </div>
                 ))}
 
-                <Button
-                  type="button"
-                  onClick={() => addTimeSlot(day.id)}
-                  variant="secondary"
-                  size="sm"
-                  className="mt-2 whitespace-normal"
-                >
-                  + Ajouter une plage horaire
-                </Button>
+                {isClosed && (
+                  <div className="rounded-lg border border-dashed border-border bg-card/60 p-3 text-sm text-muted-foreground">
+                    Ce jour est fermé. Passez-le sur <strong>Ouvert</strong> pour ajouter des horaires.
+                  </div>
+                )}
+
+                {!isClosed && (
+                  <Button
+                    type="button"
+                    onClick={() => addTimeSlot(day.id)}
+                    variant="secondary"
+                    size="sm"
+                    className="mt-2 whitespace-normal"
+                  >
+                    + Ajouter une plage horaire
+                  </Button>
+                )}
               </div>
-            ))}
+              );
+            })}
           </section>
         </form>
       </AdminSidePanel>

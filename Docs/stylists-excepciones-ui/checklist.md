@@ -83,3 +83,10 @@
 
 ### Gate: tests de fase pasados
 - [x] Gate Fase F aprobado.
+
+## Cierre documental del pack
+
+### Tareas
+- [x] Añadir outcome summary en `implementation.md`.
+- [x] Consolidar estado de validaciones en `tests.md`.
+- [ ] QA manual final del usuario (UAT) y confirmación `ok limpiar`.

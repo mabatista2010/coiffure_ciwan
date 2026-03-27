@@ -219,3 +219,28 @@ Mitigación: confirmación previa + resumen post-guardado + enlace de triage.
 ## 9. Resultado esperado
 
 Tras implementar este plan, `stylists` pasa de ser un editor básico de horario semanal a una consola operativa completa de agenda real: horario base, excepciones, cierres y gestión de impacto sobre reservas, manteniendo la robustez del motor backend ya existente.
+
+## 10. Outcome summary (cierre documental 2026-03-03)
+
+### Qué se implementó
+1. Se completó el alcance funcional de las fases A-F del pack:
+- panel lateral operativo en `stylists`,
+- soporte de múltiples `plages` por día/centro,
+- CRUD completo de `time_off` y `location_closures`,
+- robustez de motor para respetar `location_hours` y coherencia `availability/create`.
+2. Se ejecutó QA técnico con evidencias en `tests.md` y gates de fase aprobados en `checklist.md`.
+3. Se dejó el pack en estado `Ready for QA` para validación final del usuario.
+
+### Qué se cambió vs plan original
+1. No hubo cambios de alcance funcional mayores respecto al plan por fases.
+2. Durante QA se añadió un ajuste no previsto inicialmente:
+- hardening de z-index en `Dialog` para soportar modales anidados sobre `AdminSidePanel`.
+
+### Pendientes
+1. QA/UAT manual final del usuario sobre escenarios de negocio en entorno objetivo.
+2. Confirmación explícita del usuario para limpiar el puntero activo (`ok limpiar`).
+
+### Riesgos conocidos post-release
+1. Riesgo de regresiones visuales móviles en secciones admin fuera del scope del pack si se alteran wrappers/layout globales.
+2. Dependencia de configuración correcta de datos maestros (`location_hours`, horarios y cierres) para mantener la calidad de disponibilidad.
+3. Posibles diferencias de comportamiento entre entornos si no se aplica el mismo estado de migraciones en BD objetivo.

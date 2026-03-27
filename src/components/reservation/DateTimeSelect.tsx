@@ -28,6 +28,13 @@ export default function DateTimeSelect({
   const [currentWeekStart, setCurrentWeekStart] = useState<Date>(new Date());
   const [calendarView, setCalendarView] = useState<'week' | 'month'>('week');
 
+  const enabledSlots = availableSlots.filter((slot) => slot.available);
+  const allSlotsUnavailable = availableSlots.length > 0 && enabledSlots.length === 0;
+  const closedReasonCodes = new Set(['outside_location_hours', 'location_closed']);
+  const isClosedDay = allSlotsUnavailable && availableSlots.every((slot) => (
+    !slot.available && closedReasonCodes.has(slot.reasonCode || '')
+  ));
+
   // Generar fechas disponibles según la vista actual
   useEffect(() => {
     const dates = [];
@@ -278,6 +285,24 @@ export default function DateTimeSelect({
               <p className="text-center py-4 text-gray-600">
                 Il n&apos;y a pas d&apos;horaires disponibles pour cette date. Veuillez sélectionner une autre date.
               </p>
+            ) : isClosedDay ? (
+              <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-5 text-center">
+                <p className="font-medium text-amber-800">
+                  Ce centre est fermé pour cette date.
+                </p>
+                <p className="mt-1 text-sm text-amber-700">
+                  Veuillez sélectionner un autre jour pour voir les créneaux disponibles.
+                </p>
+              </div>
+            ) : allSlotsUnavailable ? (
+              <div className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-5 text-center">
+                <p className="font-medium text-slate-800">
+                  Aucun créneau disponible pour cette date.
+                </p>
+                <p className="mt-1 text-sm text-slate-600">
+                  Tous les horaires sont indisponibles actuellement. Essayez une autre date.
+                </p>
+              </div>
             ) : (
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
                 {availableSlots.map((slot, index) => (

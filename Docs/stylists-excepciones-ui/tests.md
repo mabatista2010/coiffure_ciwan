@@ -39,3 +39,10 @@
    - `GET /api/reservation/availability` y `POST /api/reservation/create` se mantienen coherentes ante slots límite fuera de reglas (rechazo de creación con código de negocio).
 8. Hardening UI detectado durante QA:
    - Ajuste de z-index en `src/components/ui/dialog.tsx` para permitir modales anidados sobre `AdminSidePanel` (evita bloqueo de clic en CRUD de excepciones/cierres).
+
+## Actualización de cierre (2026-03-03)
+1. Validaciones ejecutadas durante el cierre documental:
+   - `npm run lint -- --file src/app/admin/home/page.tsx --file src/components/admin/ui/SectionHeader.tsx`: PASS.
+2. Qué queda por ejecutar:
+   - QA/UAT manual final del usuario en flujo completo de negocio.
+   - Confirmación del usuario para limpieza de puntero activo.

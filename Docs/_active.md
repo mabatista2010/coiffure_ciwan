@@ -1,17 +1,7 @@
 # Active implementation
 
-- slug: stylists-excepciones-ui
-- path: Docs/stylists-excepciones-ui
-- read_order:
-  1. status.md
-  2. checklist.md
-  3. implementation.md
-  4. tests.md
-- Current phase: Fase F (completada)
-- Next task: Validación UAT final del usuario y cierre con `$impl-pack-close`
-- Last update: 2026-02-27 23:35 CET
+No active implementation.
 
-#OBLIGATORIO:
-- Marcar checks cuando se termine cada punto del checklist
-- actulizar status despues de cada cambio importante
-- Actualizar tests despues de cada test pasado exitosamente
+- last_closed_slug: centros-estado-ferme-2-fases
+- last_closed_path: Docs/centros-estado-ferme-2-fases
+- cleared_at: 2026-03-27 10:51 Europe/Zurich
