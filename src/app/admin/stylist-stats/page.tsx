@@ -8,6 +8,7 @@ import {
   type FocusEvent,
   type MouseEvent,
 } from "react";
+import { useAdminAccess } from "@/components/admin/AdminAccessProvider";
 import Image from "next/image";
 import { Maximize2 } from "lucide-react";
 import {
@@ -42,6 +43,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { getPermissionScopeFilter } from "@/lib/permissions/helpers";
 import { supabase } from "@/lib/supabase";
 
 type DateRangeType =
@@ -152,6 +154,7 @@ interface Stylist {
   id: string;
   name: string;
   profile_img: string | null;
+  location_ids?: string[] | null;
 }
 
 interface ServiceCount {
@@ -280,6 +283,8 @@ function buildDateRange(
 }
 
 export default function StylistStatsPage() {
+  const { accessContext, isLoading: loadingAccess } = useAdminAccess();
+  const statsScope = useMemo(() => getPermissionScopeFilter(accessContext, "stats.view"), [accessContext]);
   const [stylists, setStylists] = useState<Stylist[]>([]);
   const [selectedStylist, setSelectedStylist] = useState<string | null>(null);
   const [selectedStylistData, setSelectedStylistData] = useState<Stylist | null>(null);
@@ -307,23 +312,56 @@ export default function StylistStatsPage() {
   );
 
   useEffect(() => {
+    if (loadingAccess) {
+      return;
+    }
+
+    if (statsScope.kind === "none") {
+      setStylists([]);
+      setSelectedStylist("");
+      setError("Votre compte n'a pas accès aux statistiques de stylistes.");
+      setLoading(false);
+      return;
+    }
+
     async function loadStylists() {
       try {
-        const { data, error: stylistsError } = await supabase
+        let query = supabase
           .from("stylists")
-          .select("id, name, profile_img")
+          .select("id, name, profile_img, location_ids")
           .eq("active", true)
           .order("name");
+
+        if (statsScope.kind === "stylist") {
+          query = query.eq("id", statsScope.stylistId);
+        }
+
+        const { data, error: stylistsError } = await query;
 
         if (stylistsError) {
           throw stylistsError;
         }
 
-        setStylists(data || []);
+        const scopedStylists = (data || []).filter((stylist) => {
+          if (statsScope.kind !== "locations") {
+            return true;
+          }
 
-        if (data && data.length > 0) {
-          setSelectedStylist(data[0].id);
-        }
+          const locationIds = stylist.location_ids || [];
+          return locationIds.some((locationId: string) => statsScope.locationIds.includes(locationId));
+        });
+
+        setStylists(scopedStylists);
+        setSelectedStylist((current) => {
+          if (statsScope.kind === "stylist") {
+            return statsScope.stylistId;
+          }
+          if (current && scopedStylists.some((stylist) => stylist.id === current)) {
+            return current;
+          }
+          return scopedStylists[0]?.id ?? "";
+        });
+        setError(scopedStylists.length === 0 ? "Aucun styliste autorisé pour ce scope." : null);
       } catch (err) {
         console.error("Error al cargar estilistas:", err);
         setError("Error al cargar la lista de estilistas");
@@ -333,7 +371,7 @@ export default function StylistStatsPage() {
     }
 
     void loadStylists();
-  }, []);
+  }, [loadingAccess, statsScope]);
 
   useEffect(() => {
     if (selectedStylist && stylists.length > 0) {
@@ -352,7 +390,7 @@ export default function StylistStatsPage() {
     setTrendPopover(null);
     setIsReservationSummaryOpen(false);
     setExpandedTrendDay(null);
-  }, [selectedStylist, dateRange]);
+  }, [dateRange, loadingAccess, selectedStylist, statsScope, stylists]);
 
   const openTrendPopover = (
     event:
@@ -394,8 +432,22 @@ export default function StylistStatsPage() {
   };
 
   useEffect(() => {
-    if (!selectedStylist) {
+    if (loadingAccess || !selectedStylist || statsScope.kind === "none") {
       return;
+    }
+
+    if (statsScope.kind === "stylist" && selectedStylist !== statsScope.stylistId) {
+      setError("Styliste non autorisé pour le scope courant.");
+      return;
+    }
+
+    if (statsScope.kind === "locations") {
+      const selectedStylistRow = stylists.find((stylist) => stylist.id === selectedStylist);
+      const locationIds = selectedStylistRow?.location_ids || [];
+      if (!locationIds.some((locationId: string) => statsScope.locationIds.includes(locationId))) {
+        setError("Styliste non autorisé pour le scope courant.");
+        return;
+      }
     }
 
     async function loadStylistStats() {
@@ -581,7 +633,7 @@ export default function StylistStatsPage() {
     }
 
     void loadStylistStats();
-  }, [selectedStylist, dateRange]);
+  }, [dateRange, loadingAccess, selectedStylist, statsScope, stylists]);
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat("fr-FR", {

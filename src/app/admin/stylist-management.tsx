@@ -5,6 +5,7 @@ import { supabase, Service, Stylist } from '@/lib/supabase';
 import { v4 as uuidv4 } from 'uuid';
 import Image from 'next/image';
 import { ChevronDown, ChevronRight } from 'lucide-react';
+import { useAdminAccess } from '@/components/admin/AdminAccessProvider';
 import {
   AdminSidePanel,
   SectionHeader,
@@ -22,6 +23,7 @@ import {
 } from '@/components/ui/dialog';
 import { buildServiceCatalog, CatalogService, ServiceGroup, ServiceSubgroup } from '@/lib/serviceCatalog';
 import { fetchWithStaffAuth } from '@/lib/fetchWithStaffAuth';
+import { canAccessScopedResource, hasPermission } from '@/lib/permissions/helpers';
 
 type DayConfig = {
   active: boolean;
@@ -159,6 +161,7 @@ function sortRanges(ranges: TimeRange[]): TimeRange[] {
 }
 
 export default function StylistManagement({ services, locations, onUpdate }: StylistManagementProps) {
+  const { accessContext } = useAdminAccess();
   const [errorMessage, setErrorMessage] = useState('');
   const [isUploading, setIsUploading] = useState(false);
   const [isSavingSchedule, setIsSavingSchedule] = useState(false);
@@ -219,6 +222,31 @@ export default function StylistManagement({ services, locations, onUpdate }: Sty
   const [serviceGroups, setServiceGroups] = useState<ServiceGroup[]>([]);
   const [serviceSubgroups, setServiceSubgroups] = useState<ServiceSubgroup[]>([]);
   const [serviceTreeExpanded, setServiceTreeExpanded] = useState<Record<string, boolean>>({});
+  const canViewStylistProfiles = hasPermission(accessContext, 'stylists.profile.view');
+  const canEditStylistProfiles = hasPermission(accessContext, 'stylists.profile.edit');
+  const canDeleteStylistProfiles = hasPermission(accessContext, 'stylists.profile.delete');
+  const canViewStylistOperations = hasPermission(accessContext, 'stylists.operations.view');
+  const canEditStylistOperations = hasPermission(accessContext, 'stylists.operations.edit');
+  const canManageWorkingHours = hasPermission(accessContext, 'schedule.working_hours.manage');
+  const canManageTimeOff = hasPermission(accessContext, 'schedule.time_off.manage');
+  const canManageClosures = hasPermission(accessContext, 'schedule.location_closures.manage');
+  const canCreateStylist = canEditStylistProfiles && canEditStylistOperations && canManageWorkingHours;
+  const canEditStylistPanel = canEditStylistProfiles || canEditStylistOperations || canManageWorkingHours || canManageTimeOff || canManageClosures;
+  const canViewStylists = canViewStylistProfiles || canViewStylistOperations || canManageWorkingHours || canManageTimeOff;
+  const filteredStylists = stylists.filter((stylist) => (
+    (stylist.location_ids ?? [null]).some((locationId) => (
+      canAccessScopedResource(accessContext, 'stylists.profile.view', { stylistId: stylist.id, locationId })
+      || canAccessScopedResource(accessContext, 'stylists.operations.view', { stylistId: stylist.id, locationId })
+      || canAccessScopedResource(accessContext, 'schedule.working_hours.manage', { stylistId: stylist.id, locationId })
+      || canAccessScopedResource(accessContext, 'schedule.time_off.manage', { stylistId: stylist.id, locationId })
+    ))
+  ));
+  const manageableLocations = locations.filter((location) => (
+    canAccessScopedResource(accessContext, 'stylists.operations.edit', { locationId: location.id })
+    || canAccessScopedResource(accessContext, 'schedule.working_hours.manage', { locationId: location.id })
+    || canAccessScopedResource(accessContext, 'schedule.location_closures.manage', { locationId: location.id })
+    || canAccessScopedResource(accessContext, 'locations.profile.view', { locationId: location.id })
+  ));
 
   const selectedLocationOptions = useMemo(
     () => locations.filter((location) => newStylist.locationIds.includes(location.id)),
@@ -415,6 +443,7 @@ export default function StylistManagement({ services, locations, onUpdate }: Sty
   };
 
   const openNewStylistPanel = () => {
+    if (!canCreateStylist) return;
     setErrorMessage('');
     setEditMode(false);
     setSelectedStylist('');
@@ -646,7 +675,7 @@ export default function StylistManagement({ services, locations, onUpdate }: Sty
   };
 
   const loadStylistForEdit = async (stylistId: string) => {
-    const stylist = stylists.find((item) => item.id === stylistId);
+    const stylist = filteredStylists.find((item) => item.id === stylistId);
     if (!stylist) return;
 
     setErrorMessage('');
@@ -902,6 +931,10 @@ export default function StylistManagement({ services, locations, onUpdate }: Sty
     stylistId: string,
     payload: Array<{ locationId: string; dayOfWeek: number; startTime: string; endTime: string }>
   ) => {
+    if (!canManageWorkingHours) {
+      throw new Error('Vous n’avez pas les permissions suffisantes pour modifier les horaires du styliste.');
+    }
+
     const response = await fetchWithStaffAuth('/api/admin/schedule/working-hours', {
       method: 'POST',
       headers: {
@@ -928,22 +961,26 @@ export default function StylistManagement({ services, locations, onUpdate }: Sty
 
   const handleStylistSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!canEditStylistPanel) return;
 
     try {
       setErrorMessage('');
       setIsSavingSchedule(true);
 
-      if (!newStylist.name.trim()) {
+      if ((canEditStylistProfiles || !editMode) && !newStylist.name.trim()) {
         setErrorMessage('Le nom du styliste est obligatoire');
         return;
       }
 
-      if (newStylist.locationIds.length === 0) {
+      if ((canEditStylistOperations || canManageWorkingHours || canManageClosures || !editMode) && newStylist.locationIds.length === 0) {
         setErrorMessage('Le styliste doit être associé à au moins un centre');
         return;
       }
 
-      const { payload: workingHoursPayload, validationError } = buildWorkingHoursPayload();
+      const shouldSaveWorkingHours = canManageWorkingHours;
+      const { payload: workingHoursPayload, validationError } = shouldSaveWorkingHours
+        ? buildWorkingHoursPayload()
+        : { payload: [] as Array<{ locationId: string; dayOfWeek: number; startTime: string; endTime: string }>, validationError: null };
       if (validationError) {
         setErrorMessage(validationError);
         return;
@@ -951,7 +988,7 @@ export default function StylistManagement({ services, locations, onUpdate }: Sty
 
       let profileImgUrl = editMode ? stylists.find((item) => item.id === selectedStylist)?.profile_img || '' : '';
 
-      if (stylistImageFile) {
+      if (stylistImageFile && canEditStylistProfiles) {
         const uploadedUrl = await uploadFile(stylistImageFile, 'stylists');
         if (uploadedUrl) {
           profileImgUrl = uploadedUrl;
@@ -961,71 +998,69 @@ export default function StylistManagement({ services, locations, onUpdate }: Sty
       let stylistId = selectedStylist;
 
       if (editMode) {
-        const { error } = await supabase
-          .from('stylists')
-          .update({
-            name: newStylist.name.trim(),
-            bio: newStylist.bio.trim(),
-            location_ids: newStylist.locationIds,
-            profile_img: profileImgUrl,
-          })
-          .eq('id', selectedStylist);
+        const stylistUpdatePayload: Record<string, unknown> = {};
 
-        if (error) {
-          throw new Error(`Erreur lors de la mise à jour du styliste: ${error.message}`);
+        if (canEditStylistProfiles) {
+          stylistUpdatePayload.name = newStylist.name.trim();
+          stylistUpdatePayload.bio = newStylist.bio.trim();
+          stylistUpdatePayload.profile_img = profileImgUrl;
+        }
+
+        if (canEditStylistOperations) {
+          stylistUpdatePayload.location_ids = newStylist.locationIds;
+        }
+
+        if (Object.keys(stylistUpdatePayload).length > 0 || canEditStylistOperations) {
+          const response = await fetchWithStaffAuth(`/api/admin/stylists/${selectedStylist}`, {
+            method: 'PATCH',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              ...stylistUpdatePayload,
+              ...(canEditStylistOperations ? {
+                locationIds: newStylist.locationIds,
+                serviceIds: newStylist.serviceIds.map((serviceId) => Number(serviceId)),
+              } : {}),
+            }),
+          });
+
+          const payload = await response.json().catch(() => null);
+          if (!response.ok) {
+            throw new Error(
+              payload?.error
+              || payload?.message
+              || 'Erreur lors de la mise à jour du styliste'
+            );
+          }
         }
       } else {
-        const { data, error } = await supabase
-          .from('stylists')
-          .insert([
-            {
-              name: newStylist.name.trim(),
-              bio: newStylist.bio.trim(),
-              location_ids: newStylist.locationIds,
-              profile_img: profileImgUrl,
-              active: true,
-            },
-          ])
-          .select('id')
-          .single();
+        const response = await fetchWithStaffAuth('/api/admin/stylists', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            name: newStylist.name.trim(),
+            bio: newStylist.bio.trim(),
+            locationIds: newStylist.locationIds,
+            profileImg: profileImgUrl,
+            active: true,
+            serviceIds: newStylist.serviceIds.map((serviceId) => Number(serviceId)),
+          }),
+        });
 
-        if (error || !data?.id) {
-          throw new Error(`Erreur lors de la création du styliste: ${error?.message || 'ID introuvable'}`);
+        const payload = await response.json().catch(() => null);
+        if (!response.ok || !payload?.stylist?.id) {
+          throw new Error(`Erreur lors de la création du styliste: ${payload?.error || 'ID introuvable'}`);
         }
 
-        stylistId = data.id;
+        stylistId = payload.stylist.id;
       }
 
-      if (!stylistId) {
-        throw new Error('Impossible de déterminer l\'ID du styliste');
+      if (shouldSaveWorkingHours) {
+        await saveWorkingHoursServerSide(stylistId, workingHoursPayload);
       }
-
-      // Services: reemplazo completo
-      const { error: deleteServiceError } = await supabase
-        .from('stylist_services')
-        .delete()
-        .eq('stylist_id', stylistId);
-
-      if (deleteServiceError) {
-        throw new Error(`Erreur lors de la suppression des services actuels: ${deleteServiceError.message}`);
-      }
-
-      if (newStylist.serviceIds.length > 0) {
-        const toInsert = newStylist.serviceIds.map((serviceId) => ({
-          stylist_id: stylistId,
-          service_id: Number(serviceId),
-        }));
-
-        const { error: insertServiceError } = await supabase
-          .from('stylist_services')
-          .insert(toInsert);
-
-        if (insertServiceError) {
-          throw new Error(`Erreur lors de l\'insertion des services: ${insertServiceError.message}`);
-        }
-      }
-
-      await saveWorkingHoursServerSide(stylistId, workingHoursPayload);
 
       await loadStylists();
       onUpdate();
@@ -1049,27 +1084,19 @@ export default function StylistManagement({ services, locations, onUpdate }: Sty
 
   const handleConfirmDeleteStylist = async () => {
     if (!pendingDeleteStylistId) return;
+    if (!canDeleteStylistProfiles) return;
 
     try {
       const stylistId = pendingDeleteStylistId;
       setPendingDeleteStylistId(null);
 
-      const { error: servicesError } = await supabase
-        .from('stylist_services')
-        .delete()
-        .eq('stylist_id', stylistId);
+      const response = await fetchWithStaffAuth(`/api/admin/stylists/${stylistId}`, {
+        method: 'DELETE',
+      });
+      const payload = await response.json().catch(() => null);
 
-      if (servicesError) {
-        throw new Error(`Erreur lors de la suppression des services du styliste: ${servicesError.message}`);
-      }
-
-      const { error } = await supabase
-        .from('stylists')
-        .delete()
-        .eq('id', stylistId);
-
-      if (error) {
-        throw new Error(`Erreur lors de la suppression du styliste: ${error.message}`);
+      if (!response.ok) {
+        throw new Error(`Erreur lors du retrait du styliste: ${payload?.error || 'Erreur inconnue'}`);
       }
 
       await loadStylists();
@@ -1085,6 +1112,7 @@ export default function StylistManagement({ services, locations, onUpdate }: Sty
   };
 
   const openTimeOffDialog = (entry?: TimeOffEntry) => {
+    if (!canManageTimeOff) return;
     if (!selectedStylist) {
       setErrorMessage('Sélectionnez d\'abord un styliste');
       return;
@@ -1115,6 +1143,7 @@ export default function StylistManagement({ services, locations, onUpdate }: Sty
 
   const submitTimeOff = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!canManageTimeOff) return;
     setErrorMessage('');
 
     if (!selectedStylist) {
@@ -1166,6 +1195,7 @@ export default function StylistManagement({ services, locations, onUpdate }: Sty
 
   const confirmDeleteTimeOff = async () => {
     if (!pendingDeleteTimeOffId || !selectedStylist) return;
+    if (!canManageTimeOff) return;
 
     try {
       const response = await fetchWithStaffAuth(`/api/admin/schedule/time-off/${pendingDeleteTimeOffId}`, {
@@ -1186,6 +1216,7 @@ export default function StylistManagement({ services, locations, onUpdate }: Sty
   };
 
   const openClosureDialog = (entry?: ClosureEntry) => {
+    if (!canManageClosures) return;
     if (newStylist.locationIds.length === 0) {
       setErrorMessage('Associez d\'abord au moins un centre au styliste');
       return;
@@ -1216,6 +1247,7 @@ export default function StylistManagement({ services, locations, onUpdate }: Sty
 
   const submitClosure = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!canManageClosures) return;
     setErrorMessage('');
 
     if (!closureForm.locationId || !closureForm.closureDate) {
@@ -1266,6 +1298,7 @@ export default function StylistManagement({ services, locations, onUpdate }: Sty
 
   const confirmDeleteClosure = async () => {
     if (!pendingDeleteClosureId) return;
+    if (!canManageClosures) return;
 
     try {
       const response = await fetchWithStaffAuth(`/api/admin/schedule/location-closures/${pendingDeleteClosureId}`, {
@@ -1311,6 +1344,18 @@ export default function StylistManagement({ services, locations, onUpdate }: Sty
         description="Profils, services assignés, horaires de base et exceptions d’agenda."
       />
 
+      {!canViewStylists ? (
+        <div className="rounded-lg border border-border bg-card px-4 py-3 text-sm text-muted-foreground">
+          Vous n’avez pas accès aux stylistes.
+        </div>
+      ) : null}
+
+      {canViewStylists && !canEditStylistPanel ? (
+        <div className="rounded-lg border border-border bg-card px-4 py-3 text-sm text-muted-foreground">
+          Accès en lecture seule: les profils restent visibles, mais les actions de modification sont désactivées.
+        </div>
+      ) : null}
+
       {!showStylistPanel && errorMessage ? (
         <div className="rounded-lg border border-destructive/35 bg-destructive/10 px-4 py-3 text-sm text-destructive">
           {errorMessage}
@@ -1323,16 +1368,18 @@ export default function StylistManagement({ services, locations, onUpdate }: Sty
         </div>
       ) : null}
 
+      {canCreateStylist ? (
       <Button onClick={openNewStylistPanel}>
         Ajouter nouveau styliste
       </Button>
+      ) : null}
 
       <div className="mb-6">
         <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
-          {stylists.length === 0 ? (
+          {!canViewStylists ? null : filteredStylists.length === 0 ? (
             <p className="text-light">Aucun styliste enregistré.</p>
           ) : (
-            stylists.map((stylist) => (
+            filteredStylists.map((stylist) => (
               <div
                 key={stylist.id}
                 className="overflow-hidden rounded-lg border border-border bg-secondary shadow-md transition-all hover:shadow-lg"
@@ -1380,6 +1427,7 @@ export default function StylistManagement({ services, locations, onUpdate }: Sty
                     type="button"
                     variant="outline"
                     className="flex-1"
+                    disabled={!canEditStylistPanel}
                     onClick={() => loadStylistForEdit(stylist.id)}
                   >
                     Modifier
@@ -1388,6 +1436,7 @@ export default function StylistManagement({ services, locations, onUpdate }: Sty
                     type="button"
                     variant="destructive"
                     className="flex-1"
+                    disabled={!canDeleteStylistProfiles}
                     onClick={() => setPendingDeleteStylistId(stylist.id)}
                   >
                     Supprimer
@@ -1438,7 +1487,7 @@ export default function StylistManagement({ services, locations, onUpdate }: Sty
               <Button
                 type="submit"
                 form="stylist-panel-form"
-                disabled={isUploading || isSavingSchedule}
+                disabled={isUploading || isSavingSchedule || !canEditStylistPanel}
               >
                 {isUploading || isSavingSchedule
                   ? 'Enregistrement...'
@@ -1451,7 +1500,7 @@ export default function StylistManagement({ services, locations, onUpdate }: Sty
         }
       >
         <form id="stylist-panel-form" onSubmit={handleStylistSubmit} className="space-y-6">
-          <section className="space-y-4 rounded-xl border border-border bg-card p-4">
+          <fieldset className="space-y-4 rounded-xl border border-border bg-card p-4" disabled={!canEditStylistProfiles}>
             <h3 className="text-base font-semibold text-primary">Informations du styliste</h3>
             <div className="space-y-2">
               <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Nom</label>
@@ -1495,15 +1544,15 @@ export default function StylistManagement({ services, locations, onUpdate }: Sty
                 ) : null}
               </div>
             </div>
-          </section>
+          </fieldset>
 
-          <section className="space-y-4 rounded-xl border border-border bg-card p-4">
+          <fieldset className="space-y-4 rounded-xl border border-border bg-card p-4" disabled={!canEditStylistOperations}>
             <h3 className="text-base font-semibold text-primary">Centres et services</h3>
 
             <div className="space-y-2">
               <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Centres</label>
               <div className="grid grid-cols-1 gap-2 rounded-xl border border-border bg-background p-3 md:grid-cols-2">
-                {locations.map((location) => (
+                {manageableLocations.map((location) => (
                   <div key={location.id} className="flex items-center text-foreground">
                     <Input
                       type="checkbox"
@@ -1624,9 +1673,9 @@ export default function StylistManagement({ services, locations, onUpdate }: Sty
                 })}
               </div>
             </div>
-          </section>
+          </fieldset>
 
-          <section className="space-y-4 rounded-xl border border-border bg-card p-4">
+          <fieldset className="space-y-4 rounded-xl border border-border bg-card p-4" disabled={!canManageWorkingHours}>
             <h3 className="text-base font-semibold text-primary">Horaires de base</h3>
             <p className="text-sm text-muted-foreground">
               Utilisez les plages du centre ou des plages personnalisées multiples par jour.
@@ -1770,14 +1819,14 @@ export default function StylistManagement({ services, locations, onUpdate }: Sty
                 })}
               </div>
             )}
-          </section>
+          </fieldset>
 
           {editMode ? (
             <>
               <section className="space-y-4 rounded-xl border border-border bg-card p-4">
                 <div className="flex items-center justify-between gap-3">
                   <h3 className="text-base font-semibold text-primary">Indisponibilités du styliste</h3>
-                  <Button type="button" variant="secondary" onClick={() => openTimeOffDialog()}>
+                  <Button type="button" variant="secondary" disabled={!canManageTimeOff} onClick={() => openTimeOffDialog()}>
                     Ajouter indisponibilité
                   </Button>
                 </div>
@@ -1807,12 +1856,13 @@ export default function StylistManagement({ services, locations, onUpdate }: Sty
                               ) : null}
                             </div>
                             <div className="flex gap-2">
-                              <Button type="button" variant="outline" onClick={() => openTimeOffDialog(entry)}>
+                              <Button type="button" variant="outline" disabled={!canManageTimeOff} onClick={() => openTimeOffDialog(entry)}>
                                 Éditer
                               </Button>
                               <Button
                                 type="button"
                                 variant="destructive"
+                                disabled={!canManageTimeOff}
                                 onClick={() => setPendingDeleteTimeOffId(entry.id)}
                               >
                                 Supprimer
@@ -1829,7 +1879,7 @@ export default function StylistManagement({ services, locations, onUpdate }: Sty
               <section className="space-y-4 rounded-xl border border-border bg-card p-4">
                 <div className="flex items-center justify-between gap-3">
                   <h3 className="text-base font-semibold text-primary">Fermetures des centres associés</h3>
-                  <Button type="button" variant="secondary" onClick={() => openClosureDialog()}>
+                  <Button type="button" variant="secondary" disabled={!canManageClosures} onClick={() => openClosureDialog()}>
                     Ajouter fermeture
                   </Button>
                 </div>
@@ -1856,12 +1906,13 @@ export default function StylistManagement({ services, locations, onUpdate }: Sty
                               ) : null}
                             </div>
                             <div className="flex gap-2">
-                              <Button type="button" variant="outline" onClick={() => openClosureDialog(entry)}>
+                              <Button type="button" variant="outline" disabled={!canManageClosures} onClick={() => openClosureDialog(entry)}>
                                 Éditer
                               </Button>
                               <Button
                                 type="button"
                                 variant="destructive"
+                                disabled={!canManageClosures}
                                 onClick={() => setPendingDeleteClosureId(entry.id)}
                               >
                                 Supprimer
@@ -1894,9 +1945,9 @@ export default function StylistManagement({ services, locations, onUpdate }: Sty
       <Dialog open={Boolean(pendingDeleteStylistId)} onOpenChange={(open) => !open && setPendingDeleteStylistId(null)}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Supprimer ce styliste ?</DialogTitle>
+            <DialogTitle>Retirer ce styliste ?</DialogTitle>
             <DialogDescription>
-              Cette action est irréversible et supprimera aussi ses associations de services.
+              Ce styliste sera retiré des parcours actifs sans suppression définitive de son historique.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
@@ -1904,7 +1955,7 @@ export default function StylistManagement({ services, locations, onUpdate }: Sty
               Annuler
             </Button>
             <Button type="button" variant="destructive" onClick={handleConfirmDeleteStylist}>
-              Supprimer
+              Retirer
             </Button>
           </DialogFooter>
         </DialogContent>

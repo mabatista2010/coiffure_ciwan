@@ -23,7 +23,6 @@ import {
 import * as DialogPrimitive from '@radix-ui/react-dialog';
 import { ChevronDown, ChevronRight, Pin, PinOff, X } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
-import { getUserRole } from '@/lib/userRoles';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card';
 import {
@@ -34,11 +33,12 @@ import {
   DialogPortal,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { useAdminAccess } from '@/components/admin/AdminAccessProvider';
+import { canAccessModule } from '@/lib/permissions/helpers';
+import { MODULE_VIEW_PERMISSIONS, type StaffRole } from '@/lib/permissions/catalog';
+import { canAccessAdminPath } from '@/lib/permissions/routing';
 import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
-
-// Definir el tipo para el rol
-type NavRole = 'admin' | 'employee' | 'all';
 
 // Tipo para las secciones de configuración
 type ConfigSection = 'services' | 'gallery' | 'stylists' | 'locations' | 'hero' | null;
@@ -50,7 +50,7 @@ type RouteMenuItem = {
   href: string;
   label: string;
   icon: IconType;
-  role: NavRole;
+  role: 'admin' | 'all';
 };
 
 type ConfigMenuItem = {
@@ -59,7 +59,7 @@ type ConfigMenuItem = {
   section: ConfigSectionKey;
   label: string;
   icon: IconType;
-  role: NavRole;
+  role: 'admin' | 'all';
 };
 
 type SidebarMenuItem = RouteMenuItem | ConfigMenuItem;
@@ -67,7 +67,7 @@ type SidebarMenuItem = RouteMenuItem | ConfigMenuItem;
 type SidebarGroup = {
   id: string;
   label: string;
-  role: NavRole;
+  role: 'admin' | 'all';
   items: SidebarMenuItem[];
 };
 
@@ -205,9 +205,8 @@ export default function AdminNav({
   activeSection?: ConfigSection;
   setActiveSection?: (section: ConfigSection) => void;
 }) {
+  const { accessContext, isLoading } = useAdminAccess();
   const [isOpen, setIsOpen] = useState(false);
-  const [userRole, setUserRole] = useState<'admin' | 'employee' | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarPinned, setSidebarPinned] = useState(false);
   const [desktopHoverEnabled, setDesktopHoverEnabled] = useState(false);
@@ -216,28 +215,40 @@ export default function AdminNav({
   const closeSidebarTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pathname = usePathname();
   const isDesktopExpanded = sidebarPinned || sidebarOpen;
+  const userRole: StaffRole | null = accessContext?.role ?? null;
 
   const isConfigPage = pathname === '/admin' && setActiveSection !== undefined;
 
-  const shouldShowByRole = useCallback(
-    (requiredRole: NavRole) => {
-      if (requiredRole === 'all') return true;
-      if (requiredRole === 'admin') return userRole === 'admin';
-      if (requiredRole === 'employee') return userRole === 'employee' || userRole === 'admin';
-      return false;
+  const canAccessItem = useCallback(
+    (item: SidebarMenuItem) => {
+      if (!accessContext) return false;
+      if (accessContext.role === 'admin') return true;
+
+      if (item.type === 'config') {
+        return canAccessAdminPath(accessContext, '/admin', item.section);
+      }
+
+      if (item.href.startsWith('/admin/stylist-stats') || item.href.startsWith('/admin/location-stats')) {
+        return canAccessModule(accessContext, MODULE_VIEW_PERMISSIONS.stylist_stats);
+      }
+
+      if (item.href === '/admin/user-management' || item.href === '/admin/webhook-diagnostics') {
+        return false;
+      }
+
+      return canAccessAdminPath(accessContext, item.href, null);
     },
-    [userRole]
+    [accessContext]
   );
 
   const visibleGroups = useMemo(() => {
     return SIDEBAR_GROUPS
-      .filter((group) => shouldShowByRole(group.role))
       .map((group) => ({
         ...group,
-        items: group.items.filter((item) => shouldShowByRole(item.role)),
+        items: group.items.filter((item) => canAccessItem(item)),
       }))
       .filter((group) => group.items.length > 0);
-  }, [shouldShowByRole]);
+  }, [canAccessItem]);
 
   const visibleGroupIds = useMemo(() => visibleGroups.map((group) => group.id), [visibleGroups]);
 
@@ -250,17 +261,6 @@ export default function AdminNav({
     if (!userRole) return null;
     return `admin-nav:groups:v1:${userRole}`;
   }, [userRole]);
-
-  useEffect(() => {
-    const checkUserRole = async () => {
-      setIsLoading(true);
-      const role = await getUserRole();
-      setUserRole(role);
-      setIsLoading(false);
-    };
-
-    checkUserRole();
-  }, []);
 
   // Comprobar el tamaño de la pantalla al iniciar
   useEffect(() => {

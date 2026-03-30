@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
+
+import { insertAdminAuditLog } from '@/lib/admin/audit';
 import { requireStaffAuth } from '@/lib/apiAuth';
 import { getSupabaseAdminClient } from '@/lib/supabaseAdmin';
 
@@ -8,7 +10,8 @@ export async function GET(
 ) {
   try {
     const auth = await requireStaffAuth(request, {
-      allowedRoles: ['admin'],
+      allowedRoles: ['admin', 'staff'],
+      requiredPermission: 'boutique.orders.view',
       feature: 'boutique_pedido_detail',
     });
     if ('response' in auth) {
@@ -52,7 +55,8 @@ export async function PUT(
 ) {
   try {
     const auth = await requireStaffAuth(request, {
-      allowedRoles: ['admin'],
+      allowedRoles: ['admin', 'staff'],
+      requiredPermission: 'boutique.orders.edit',
       feature: 'boutique_pedido_update',
     });
     if ('response' in auth) {
@@ -64,21 +68,27 @@ export async function PUT(
     const body = await request.json();
     const { estado } = body;
 
-    // Validar que el estado sea válido
     const estadosValidos = ['pendiente', 'en_traitement', 'traite'];
     if (!estadosValidos.includes(estado)) {
-      return NextResponse.json(
-        { error: 'Estado no válido' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Estado no válido' }, { status: 400 });
     }
 
-    // Actualizar el pedido
+    const { data: previousPedido, error: previousPedidoError } = await supabase
+      .from('pedidos')
+      .select('id,estado')
+      .eq('id', id)
+      .single();
+
+    if (previousPedidoError) {
+      console.error('Error fetching pedido before update:', previousPedidoError);
+      return NextResponse.json({ error: 'Commande introuvable' }, { status: 404 });
+    }
+
     const { data, error } = await supabase
       .from('pedidos')
-      .update({ 
+      .update({
         estado,
-        updated_at: new Date().toISOString()
+        updated_at: new Date().toISOString(),
       })
       .eq('id', id)
       .select()
@@ -86,18 +96,24 @@ export async function PUT(
 
     if (error) {
       console.error('Error updating pedido:', error);
-      return NextResponse.json(
-        { error: 'Error al actualizar el pedido' },
-        { status: 500 }
-      );
+      return NextResponse.json({ error: 'Error al actualizar el pedido' }, { status: 500 });
     }
+
+    await insertAdminAuditLog({
+      actorUserId: auth.userId,
+      entityType: 'pedidos',
+      entityId: String(id),
+      action: 'update',
+      before: previousPedido,
+      after: data,
+      meta: {
+        source: 'boutique_pedidos_api',
+      },
+    });
 
     return NextResponse.json(data);
   } catch (error) {
     console.error('Error in pedido update API:', error);
-    return NextResponse.json(
-      { error: 'Error interno del servidor' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Error interno del servidor' }, { status: 500 });
   }
-} 
+}

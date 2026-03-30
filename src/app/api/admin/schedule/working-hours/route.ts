@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 
+import { insertAdminAuditLog } from "@/lib/admin/audit";
 import { requireStaffAuth } from "@/lib/apiAuth";
+import { canAccessScopedResource, getScopedPermissionFilter, getStaffAccessContext } from "@/lib/permissions/server";
 import { getSupabaseAdminClient } from "@/lib/supabaseAdmin";
 
 type WorkingHourInput = {
@@ -34,14 +36,16 @@ function badRequest(code: string, error: string) {
 export async function POST(request: Request) {
   try {
     const auth = await requireStaffAuth(request, {
-      allowedRoles: ["admin"],
+      allowedRoles: ["admin", "staff"],
       feature: "admin_schedule_working_hours_replace",
+      requiredPermission: "schedule.working_hours.manage",
     });
 
     if ("response" in auth) {
       return auth.response;
     }
 
+    const accessContext = await getStaffAccessContext(auth.userId);
     const body = await request.json().catch(() => ({}));
     const stylistId = typeof body?.stylistId === "string" ? body.stylistId : null;
     const rows = Array.isArray(body?.workingHours) ? (body.workingHours as WorkingHourInput[]) : null;
@@ -52,6 +56,24 @@ export async function POST(request: Request) {
 
     if (!rows || rows.length === 0) {
       return badRequest("invalid_working_hours", "workingHours est obligatoire");
+    }
+
+    const permissionScope = getScopedPermissionFilter(accessContext, "schedule.working_hours.manage");
+    if (permissionScope.kind === "none") {
+      return NextResponse.json(
+        { code: "insufficient_scope", error: "Scope insuffisant pour modifier cet agenda styliste" },
+        { status: 403 }
+      );
+    }
+
+    if (
+      permissionScope.kind === "stylist" &&
+      !canAccessScopedResource(accessContext, "schedule.working_hours.manage", { stylistId })
+    ) {
+      return NextResponse.json(
+        { code: "insufficient_scope", error: "Scope insuffisant pour modifier cet agenda styliste" },
+        { status: 403 }
+      );
     }
 
     const normalizedRows = rows.map((row, index) => {
@@ -113,7 +135,36 @@ export async function POST(request: Request) {
     }
 
     const uniqueLocationIds = Array.from(new Set(normalizedRows.map((row) => row.location_id)));
+    const unauthorizedLocationId = uniqueLocationIds.find((locationId) => (
+      !canAccessScopedResource(accessContext, "schedule.working_hours.manage", { stylistId, locationId })
+    ));
+
+    if (unauthorizedLocationId) {
+      return NextResponse.json(
+        {
+          code: "insufficient_scope",
+          error: `Scope insuffisant pour modifier les horaires du centre ${unauthorizedLocationId}`,
+        },
+        { status: 403 }
+      );
+    }
+
     const supabase = getSupabaseAdminClient();
+    const { data: previousWorkingHours, error: previousWorkingHoursError } = await supabase
+      .from("working_hours")
+      .select("id,stylist_id,location_id,day_of_week,start_time,end_time")
+      .eq("stylist_id", stylistId)
+      .order("day_of_week", { ascending: true })
+      .order("location_id", { ascending: true })
+      .order("start_time", { ascending: true });
+
+    if (previousWorkingHoursError) {
+      console.error("working_hours_previous_fetch_error", previousWorkingHoursError);
+      return NextResponse.json(
+        { code: "working_hours_previous_fetch_failed", error: "Impossible de charger les horaires actuels du styliste" },
+        { status: 500 }
+      );
+    }
 
     // Validar que el estilista existe
     const { data: stylist, error: stylistError } = await supabase
@@ -212,6 +263,24 @@ export async function POST(request: Request) {
         { status: 500 }
       );
     }
+
+    await insertAdminAuditLog({
+      actorUserId: auth.userId,
+      entityType: "working_hours",
+      entityId: stylistId,
+      action: "update",
+      before: {
+        stylist_id: stylistId,
+        working_hours: previousWorkingHours ?? [],
+      },
+      after: {
+        stylist_id: stylistId,
+        working_hours: rowsToInsert,
+      },
+      meta: {
+        source: "admin_schedule_working_hours_api",
+      },
+    });
 
     const today = new Date();
     const y = today.getFullYear();

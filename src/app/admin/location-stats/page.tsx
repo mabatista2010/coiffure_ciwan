@@ -8,6 +8,7 @@ import {
   type FocusEvent,
   type MouseEvent,
 } from "react";
+import { useAdminAccess } from "@/components/admin/AdminAccessProvider";
 import Image from "next/image";
 import {
   FaCalendarAlt,
@@ -34,6 +35,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { getPermissionScopeFilter } from "@/lib/permissions/helpers";
 import { supabase } from "@/lib/supabase";
 
 type DateRangeType =
@@ -266,6 +268,8 @@ function buildDateRange(
 }
 
 export default function LocationStatsPage() {
+  const { accessContext, isLoading: loadingAccess } = useAdminAccess();
+  const statsScope = useMemo(() => getPermissionScopeFilter(accessContext, "stats.view"), [accessContext]);
   const [locations, setLocations] = useState<Location[]>([]);
   const [selectedLocation, setSelectedLocation] = useState<string | null>(null);
   const [selectedLocationData, setSelectedLocationData] = useState<Location | null>(null);
@@ -289,23 +293,53 @@ export default function LocationStatsPage() {
   );
 
   useEffect(() => {
+    if (loadingAccess) {
+      return;
+    }
+
+    if (statsScope.kind === "none") {
+      setLocations([]);
+      setSelectedLocation("");
+      setError("Votre compte n'a pas accès aux statistiques de centres.");
+      setLoading(false);
+      return;
+    }
+
+    if (statsScope.kind === "stylist") {
+      setLocations([]);
+      setSelectedLocation("");
+      setError("Votre scope statistiques est limité au styliste associé.");
+      setLoading(false);
+      return;
+    }
+
     async function loadLocations() {
       try {
-        const { data, error: locationsError } = await supabase
+        let query = supabase
           .from("locations")
           .select("id, name, image")
           .eq("active", true)
           .order("name");
 
+        if (statsScope.kind === "locations") {
+          query = query.in("id", statsScope.locationIds);
+        }
+
+        const { data, error: locationsError } = await query;
+
         if (locationsError) {
           throw locationsError;
         }
 
-        setLocations(data || []);
-
-        if (data && data.length > 0) {
-          setSelectedLocation(data[0].id);
-        }
+        const nextLocations = data || [];
+        setLocations(nextLocations);
+        setSelectedLocation((current) => {
+          if (current && nextLocations.some((location) => location.id === current)) {
+            return current;
+          }
+          return nextLocations[0]?.id ?? "";
+        });
+        setError(nextLocations.length === 0 ? "Aucun centre autorisé pour ce scope." : null);
       } catch (err) {
         console.error("Error al cargar centros:", err);
         setError("Error al cargar la lista de centros");
@@ -315,7 +349,7 @@ export default function LocationStatsPage() {
     }
 
     void loadLocations();
-  }, []);
+  }, [loadingAccess, statsScope]);
 
   useEffect(() => {
     if (selectedLocation && locations.length > 0) {
@@ -332,7 +366,7 @@ export default function LocationStatsPage() {
 
   useEffect(() => {
     setTrendPopover(null);
-  }, [selectedLocation, dateRange]);
+  }, [dateRange, loadingAccess, selectedLocation, statsScope]);
 
   useEffect(() => {
     if (!trendPopover?.pinned) {
@@ -402,7 +436,12 @@ export default function LocationStatsPage() {
   };
 
   useEffect(() => {
-    if (!selectedLocation) {
+    if (loadingAccess || !selectedLocation || statsScope.kind === "none" || statsScope.kind === "stylist") {
+      return;
+    }
+
+    if (statsScope.kind === "locations" && !statsScope.locationIds.includes(selectedLocation)) {
+      setError("Centre non autorisé pour le scope courant.");
       return;
     }
 
@@ -605,7 +644,7 @@ export default function LocationStatsPage() {
     }
 
     void loadLocationStats();
-  }, [selectedLocation, dateRange]);
+  }, [dateRange, loadingAccess, selectedLocation, statsScope]);
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat("fr-FR", {

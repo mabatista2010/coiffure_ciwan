@@ -99,8 +99,9 @@ export async function GET(
 ) {
   try {
     const auth = await requireStaffAuth(request, {
-      allowedRoles: ['admin', 'employee'],
+      allowedRoles: ['admin', 'staff'],
       feature: 'crm_customer_notes_get',
+      requiredPermission: 'crm.notes.view',
     });
     if ('response' in auth) {
       return auth.response;
@@ -147,8 +148,9 @@ export async function POST(
 ) {
   try {
     const auth = await requireStaffAuth(request, {
-      allowedRoles: ['admin', 'employee'],
+      allowedRoles: ['admin', 'staff'],
       feature: 'crm_customer_notes_create',
+      requiredPermission: 'crm.notes.create',
     });
     if ('response' in auth) {
       return auth.response;

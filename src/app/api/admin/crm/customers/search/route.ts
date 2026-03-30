@@ -111,8 +111,9 @@ export async function GET(request: Request) {
 
   try {
     const auth = await requireStaffAuth(request, {
-      allowedRoles: ['admin', 'employee'],
+      allowedRoles: ['admin', 'staff'],
       feature: 'crm_customer_search',
+      requiredPermission: 'crm.customers.view',
     });
 
     if ('response' in auth) {

@@ -96,6 +96,7 @@ Steel & Blade est l’application web de **Coiffure Ciwan**, un salon masculin m
 - Le panneau latéral admin affiche les erreurs de validation et confirmations de sauvegarde directement dans le panneau.
 - Fase 2 ajoute `public.location_daily_schedule` comme registre explicite de l’état quotidien (`is_closed`) avec 7 lignes par centre après backfill.
 - Fase 2.5 retire la compatibilité legacy basée uniquement sur l’absence de lignes dans `location_hours` pour savoir si un jour est fermé.
+- `DELETE /api/admin/locations/[id]` ne supprime plus physiquement un centre : l’action retire désormais le centre des parcours actifs via `locations.active = false`, avec conservation de l’historique et audit.
 
 ## Catalogue services hiérarchique
 - Le catalogue n’est plus pensé comme une simple liste plate : il repose désormais sur **`service_groups` → `service_subgroups` (optionnel) → `servicios`**.
@@ -169,14 +170,15 @@ Steel & Blade est l’application web de **Coiffure Ciwan**, un salon masculin m
   - panneau latéral unique pour groupe / sous-groupe / service,
   - actions contextuelles “créer ici”,
   - sélection landing (`landing_featured`, `landing_sort_order`),
-  - suppression définitive autorisée pour les services individuels depuis le menu d'édition,
+  - retrait sûr des services individuels depuis le menu d’édition (`active = false` au lieu d’un hard delete),
   - action de suppression toujours visible sur groupes / sous-groupes, mais si l'élément n'est pas vide une modale stylée explique qu'il faut d'abord supprimer ou re-déplacer les services associés,
   - suppression définitive autorisée pour un groupe ou un sous-groupe uniquement s'il est vide,
   - suppression avec confirmation explicite stylée (plus d'alertes navigateur sur cette gestion),
-  - lors d'une suppression de service, les affectations `stylist_services` sont supprimées en cascade et les réservations historiques gardent la réservation mais avec `service_id = null`,
+  - le retrait d’un service conserve les affectations et l’historique ; le service reste archivé côté admin et sort seulement des parcours publics/actifs,
   - blocage explicite au 7e service mis en avant.
 - Les slugs sont gérés côté formulaire avec mode auto/manuel cohérent avec le nom, puis validés définitivement en base via triggers.
 - Support SQL ajouté : `public.convert_group_single_subgroup_to_direct_services(p_group_id bigint)` pour aplatir un groupe mono-sous-groupe sans casser les contraintes de mode exclusif.
+- `public.ensure_service_write_permissions()` autorise maintenant explicitement la transition `active=true -> false` si l’utilisateur possède `services.delete`, tout en gardant `services.content.edit` pour réactiver un service ou modifier son contenu.
 
 ## Landing - section services
 - `src/components/Services.tsx` n’affiche plus automatiquement tous les services actifs.
@@ -211,11 +213,11 @@ Steel & Blade est l’application web de **Coiffure Ciwan**, un salon masculin m
 
 ### CRM Admin
 - `GET /api/admin/crm/customers/[id]/profile`
-  - Endpoint interne protégé (`Authorization: Bearer <access_token>`) via `requireStaffAuth` (`admin|employee`).
+  - Endpoint interne protégé (`Authorization: Bearer <access_token>`) via `requireStaffAuth` (`admin|staff`) + permission `crm.customers.view`.
   - Retourne la fiche étendue du client.
   - Supporte lazy-create du profil quand absent (avec `customerName/customerEmail/customerPhone` passés en query), avec récupération sur conflit `unique` pour éviter les erreurs de concurrence.
 - `PUT /api/admin/crm/customers/[id]/profile`
-  - Endpoint interne protégé (`admin|employee`).
+  - Endpoint interne protégé (`admin|staff`) + permission `crm.customers.edit`.
   - Crée/met à jour la fiche client (données étendues CRM) avec validations serveur.
 - `GET /api/admin/crm/customers/[id]/notes`
   - Endpoint interne protégé (`admin|employee`).
@@ -225,7 +227,13 @@ Steel & Blade est l’application web de **Coiffure Ciwan**, un salon masculin m
   - Endpoint interne protégé (`admin|employee`).
   - Crée une note CRM (`general|follow_up|incident|preference`) avec `created_by`.
 - `GET /api/admin/crm/customers/search`
-  - Endpoint interne protégé (`admin|employee`) pour autocomplétion et annuaire client.
+  - Endpoint interne protégé (`admin|staff`) + permission `crm.customers.view` pour autocomplétion et annuaire client.
+
+### Admin - retrait sûr / soft delete
+- `DELETE /api/admin/stylists/[id]` effectue désormais une désactivation sûre (`stylists.active = false`) au lieu d’un hard delete ; associations, agenda et historique restent intacts.
+- `DELETE /api/admin/locations/[id]` effectue une désactivation sûre (`locations.active = false`) au lieu de supprimer horaires/fermetures/assignations.
+- `src/components/admin/services/ServiceManagement.tsx` retire désormais un service en mettant `servicios.active = false` ; l’action reste contrôlée par `services.delete`.
+- `DELETE /api/boutique/productos/[id]` retire désormais le produit du catalogue via `productos.activo = false` sans suppression Stripe ni effacement des références panier/commande.
   - Recherche multi-critères (`nom`, `email`, `téléphone`) avec ranking de pertinence.
   - Réponse enrichie par client (`customer_key`, contact, `last_visit_date`, `total_visits`, `total_spent`, `source`) avec `limit` borné côté serveur.
 
@@ -246,23 +254,24 @@ Steel & Blade est l’application web de **Coiffure Ciwan**, un salon masculin m
   - Endpoint interne protégé (`admin|employee`).
   - Actions de triage: `confirm`, `cancel`, `move` (déplacement de créneau avec validation serveur via `check_booking_slot_v2`).
 - `GET/POST /api/admin/schedule/time-off`
-  - Endpoint interne protégé.
-  - `GET`: lecture indisponibilités (`admin|employee`, scope employé restreint au styliste associé).
-  - `POST`: création indisponibilité (`admin`) avec `category`.
+  - Endpoint interne protégé par `requireStaffAuth` (`admin|staff`) + permission `schedule.time_off.manage`.
+  - `GET` et `POST` filtrent/valident désormais aussi le scope effectif (`own_stylist`, `assigned_location`, `specific_locations`, `all`, `none`).
 - `PUT/DELETE /api/admin/schedule/time-off/[id]`
-  - Endpoint interne protégé (`admin`) pour modification/suppression.
+  - Endpoint interne protégé par permission `schedule.time_off.manage` avec validation de scope sur l’indisponibilité ciblée.
 - `GET/POST /api/admin/schedule/location-closures`
-  - Endpoint interne protégé.
-  - `GET`: lecture fermetures centre (`admin|employee`).
-  - `POST`: création fermeture (`admin`), journée complète ou plage partielle.
+  - Endpoint interne protégé par `requireStaffAuth` (`admin|staff`) + permission `schedule.location_closures.manage`.
+  - `GET` et `POST` filtrent/valident aussi le scope location effectif.
 - `PUT/DELETE /api/admin/schedule/location-closures/[id]`
-  - Endpoint interne protégé (`admin`) pour modification/suppression.
+  - Endpoint interne protégé par permission `schedule.location_closures.manage` avec validation de scope sur la fermeture ciblée.
 - `POST /api/admin/schedule/working-hours`
-  - Endpoint interne protégé (`admin`) pour remplacement des `working_hours` d’un styliste.
+  - Endpoint interne protégé par `requireStaffAuth` (`admin|staff`) + permission `schedule.working_hours.manage`.
+  - Valide aussi le scope effectif sur le styliste ciblé et sur chaque `locationId` fourni.
   - Validation serveur: format des plages, ordre strict `start < end`, anti-solape interne, compatibilité stricte avec `location_hours`; en cas d’erreur, le message inclut désormais l’index/tranche invalide, et pour `outside_location_hours` le détail `locationId/dayOfWeek/start→end`.
   - Réponse avec compteurs (`updated_working_hours_count`, `needs_replan_detected_count`).
 - `POST /api/admin/schedule/location-hours`
-  - Endpoint interne protégé (`admin`) pour remplacement complet des horaires hebdomadaires d’un centre.
+  - Endpoint interne protégé par `requireStaffAuth` (`admin|staff`).
+  - Autorise désormais la sauvegarde des horaires centre si l'utilisateur possède soit `schedule.location_hours.manage`, soit `locations.operations.edit`, avec validation de scope sur le centre ciblé.
+  - Valide aussi le scope effectif sur le centre ciblé avant d’appeler la RPC SQL.
   - Attend `locationId` + `daySchedules[]` (7 jours) et appelle la fonction SQL transactionnelle `public.save_location_weekly_schedule_v2`.
   - Persistance métier actuelle :
     - `location_daily_schedule` = source autoritative de l’état ouvert/fermé par jour,
@@ -352,38 +361,62 @@ Steel & Blade est l’application web de **Coiffure Ciwan**, un salon masculin m
 - Auth Supabase par email/password (`AdminLayout`).
 - Écran de connexion admin harmonisé en français (titre, labels, CTA et messages d’accès refusé).
 - Layout admin avec 3 états (chargement / non‑auth / auth) + formulaire login unifié.
-- Après connexion, `admin` et `employee` sont redirigés par défaut vers `/admin/home`.
+- Après connexion, `admin` et `staff` sont redirigés vers la première section autorisée calculée depuis le contexte d’accès effectif (fallback `/admin/home`).
 - Vérification de session Supabase sur toutes les routes `/admin/*`.
 - Les pages admin boutique/webhook envoient le `access_token` Supabase en `Authorization: Bearer` vers les endpoints internes protégés.
-- **Rôles** : `admin` vs `employee`.
-  - Les employés peuvent accéder uniquement à `/admin/home`, `/admin/reservations` et `/admin/crm`.
-  - `/admin` (configuration métier) est réservé à `admin`; un employé est redirigé vers `/admin/home`.
+- **Rôles globaux** : `admin` vs `staff`.
+  - `staff` est désormais piloté par **profil de permissions + overrides + scopes** (plus de whitelist fixe par rôle).
+  - `admin` reste superutilisateur total; `staff` est fail-closed si le contexte d’accès n’est pas valide.
 - **AdminNav** unifiée :
   - Sidebar pliante, fermée par défaut, auto‑close clic externe, hamburger mobile.
   - Interaction adaptative: hover-to-open sur desktop (pointeur fin) et toggle au tap sur tablette/iPad (logo), avec fermeture en tapant à l’extérieur.
-  - Navigation role‑based organisée par catégories (`Opérations`, `Analyses`, `Catalogue`, `Système`) avec sections pliables.
-  - Les catégories sont ouvertes par défaut et mémorisées par rôle en `localStorage` (plié/déplié persistant).
-  - Les employés voient uniquement les catégories/entrées autorisées (principalement `Reservations`, `Clients`, `Page d'accueil`).
+  - Navigation pilotée par permissions effectives (`dashboard`, `reservations`, `crm`, `services`, `stylists`, `locations`, `gallery`, `boutique`, `stats`) avec sections pliables.
+  - Les catégories sont ouvertes par défaut et mémorisées par utilisateur/contexte en `localStorage` (plié/déplié persistant).
+  - Chaque entrée se rend seulement si le contexte d’accès possède le droit `view` ou opérationnel correspondant.
   - Rendu unique via `AdminLayout` (pas de rendu direct dans les pages) pour éviter les doublons desktop.
   - `/admin` lit `?section=` de manière réactive (`services|gallery|stylists|locations|hero`) pour piloter la section active.
 - Composant UI réutilisable `AdminSidePanel` ajouté (`src/components/admin/ui/AdminSidePanel.tsx`) pour unifier les panneaux latéraux admin (header, scroll, footer, fermeture, animations).
 
+### Modèle d'autorisations V1 (2026-03-27)
+- Nouveau rôle non-admin canonique: `staff` (migration complète depuis `employee`).
+- Le système d'accès repose désormais sur :
+  - `permission_profiles`
+  - `profile_permissions`
+  - `user_profiles`
+  - `user_permission_overrides`
+  - `user_location_assignments`
+  - `stylist_users` (toujours utilisé comme scope `own_stylist`)
+  - `admin_audit_log`
+- Catégories de permissions V1 : `dashboard`, `reservations`, `crm`, `services`, `stylists`, `locations`, `gallery`, `boutique_orders`, `boutique_catalog`, `stats`.
+- Scopes supportés : `all`, `none`, `own_stylist`, `assigned_location`, `specific_locations`.
+- `src/lib/permissions/` centralise le catalogue, les types, le résolveur serveur, les helpers de scope et le routage admin.
+- `src/app/api/admin/access-context/route.ts` expose le contexte d'accès effectif courant au frontend admin.
+- `requireStaffAuth` supporte maintenant `requiredPermission` en plus de `allowedRoles`.
+- Les mutations sensibles `stylists` / `locations` sont maintenant centralisées côté serveur avec `service_role`, contrôle explicite de scope et entrée d’audit `admin_audit_log`.
+- `src/app/admin/reservations/page.tsx` applique désormais le scope effectif `reservations.view` aussi sur les listes de centres/stylistes et sur toutes les requêtes `bookings` (mois, semaine, jour) : un `staff` scoped ne voit plus de centres hors périmètre dans le filtre visuel.
+- Le sous-panel CRM `/api/admin/crm/customers/[id]/profile` résout maintenant les fiches par `customer_key`, email normalisé **ou** téléphone normalisé, ce qui évite les faux `Impossible de créer le profil client` sur des profils déjà existants sous un identifiant alternatif.
+- Le contrôle `stylists.profile.edit` sur `/api/admin/stylists/[id]` accepte désormais un styliste multi-centres si **au moins un** de ses `location_ids` est dans le scope effectif du `staff` (plus de dépendance fragile à `location_ids[0]`).
+- Les guards SQL `ensure_service_write_permissions()` et `ensure_products_write_permissions()` autorisent désormais explicitement `auth.role() = 'service_role'` : les endpoints serveur `boutique`/futurs endpoints `services` peuvent écrire sans casser les permissions DB, tout en gardant le contrôle d’accès applicatif.
+- La fonction SQL `audit_admin_change()` a été durcie pour lire dynamiquement `id` / `user_id` via `to_jsonb(old/new)` ; elle ne casse plus silencieusement sur des tables sans colonne `user_id` (`servicios`, `productos`, `time_off`, `location_hours`, etc.).
+
 ### Sections Admin
 - **Accueil dashboard** (`/admin/home`)
-  - Page d’entrée par défaut après login (admin + employee).
+  - Page d’entrée par défaut après login (admin + staff).
   - Affiche des données opérationnelles réelles (KPIs du jour, agenda, alertes, actions rapides).
   - Rafraîchissement manuel via bouton `Actualiser` basé sur `bookings` (aujourd’hui + 7 jours).
-  - Contenu filtré par rôle (actions admin supplémentaires: configuration/stats/utilisateurs/boutique).
+  - Contenu filtré par permissions effectives et scopes (quick actions, alertes et KPIs visibles selon le contexte).
   - Salutation personnalisée: priorité au nom du styliste associé (`stylist_users`), avec fallback sur le profil auth/email.
   - Les alertes de réservations en attente ouvrent un panneau latéral (slide-in) de triage rapide.
-  - L’alerte “réservations en attente” utilise le total à venir (`booking_date >= today`) selon le scope du rôle: employé (styliste associé), admin (global).
+  - L’alerte “réservations en attente” utilise le total à venir (`booking_date >= today`) selon le scope effectif (`all`, `own_stylist`, `assigned_location`, `specific_locations`, `none`).
   - Le panneau latéral permet: approbation individuelle, sélection multiple et approbation de masse, avec synchronisation immédiate des KPIs.
   - Le bloc **Actions rapides** est personnalisable via un modal `Dialog` (shadcn/ui) avec persistance `localStorage` par `user_id + role`; affichage limité à **5 raccourcis max** sur le dashboard.
 - **Configuration** (`/admin`)
   - Services, galerie, stylists, centres, hero/images.
   - Uploads Supabase Storage avec preview.
-  - Stylists : CRUD, services assignés, horaires via panneau latéral (`AdminSidePanel`) avec mode centre/personnalisé, `plages` personnalisées multiples, CRUD d’indisponibilités (`time_off`) et fermetures (`location_closures`) contextualisé.
-  - Centres : CRUD complet (nom, adresse, tel, email, description, image) + horaires multiples par jour.
+  - Les sous-sections `services`, `gallery`, `stylists`, `locations` lisent désormais le contexte d’accès effectif et passent en mode lecture seule si l’utilisateur n’a que le droit `view`, en désactivant création/édition/suppression selon les permissions fines.
+  - Services : `ServiceManagement` sépare désormais clairement lecture, édition contenu, édition business (`prix`, `duration`) et suppression selon `services.*`.
+  - Stylists : panneau latéral aligné sur `stylists.profile.*`, `stylists.operations.*`, `schedule.working_hours.manage`, `schedule.time_off.manage`, `schedule.location_closures.manage`; la liste est filtrée par scope effectif et les writes passent désormais par `/api/admin/stylists` + `/api/admin/stylists/[id]`.
+  - Centres : panneau latéral aligné sur `locations.profile.*`, `locations.operations.*`, `schedule.location_hours.manage`; la liste est filtrée par scope effectif et les writes passent désormais par `/api/admin/locations` + `/api/admin/locations/[id]`.
 - **Réservations**
   - Calendrier, filtres (date, centre, styliste), statuts.
   - Filtre global de statut (`all|pending|confirmed|completed|cancelled`) appliqué aux vues `Mois`, `Semaine` et `Jour`.
@@ -418,11 +451,27 @@ Steel & Blade est l’application web de **Coiffure Ciwan**, un salon masculin m
 - **Stats**
   - Filtres avancés (semaine/mois/année + période custom).
   - Graphiques responsives + étiquettes adaptatives.
+  - `stylist-stats` et `location-stats` lisent le contexte d'accès effectif (`stats.view`) via `AdminAccessProvider` et appliquent désormais le scope en UI: `own_stylist`, `assigned_location` / `specific_locations`, `all`, `none`.
+  - `/admin/location-stats` bloque explicitement les scopes de type styliste ; `/admin/stylist-stats` filtre la liste des stylistes selon le styliste associé ou les centres assignés.
 - **Utilisateurs**
-  - Gestion roles + association styliste (table `stylist_users`).
-  - Suppression: retire uniquement `user_roles` + `stylist_users`.
+  - Gestion admin-only via nouveau panneau latéral : rôle global, profil de permissions, styliste associé, centres assignés, overrides `allow/deny`, scopes et aperçu des permissions effectives.
+  - APIs dédiées: `GET /api/admin/users`, `GET/PATCH/DELETE /api/admin/users/[id]`.
+  - Le détail utilisateur affiche également un extrait d’audit récent (`admin_audit_log`).
+- **Stylists / Centres (writes server-side)**
+  - `POST /api/admin/stylists`, `PATCH/DELETE /api/admin/stylists/[id]`
+    - protégés par `requireStaffAuth` (`admin|staff`) + contrôles explicites `stylists.profile.*` / `stylists.operations.*`
+    - filtrage de scope réel sur les `location_ids`
+    - synchronisation des `stylist_services` côté serveur
+    - audit `admin_audit_log`
+  - `POST /api/admin/locations`, `PATCH/DELETE /api/admin/locations/[id]`
+    - protégés par `requireStaffAuth` (`admin|staff`)
+    - création limitée à `admin` ou scope global (`all`) pour éviter la création hors scope local
+    - audit `admin_audit_log`
 - **Boutique**
   - Onglets produits/commandes, status visuels, détails client, sync Stripe.
+  - La page `/admin/boutique` lit maintenant le contexte d'accès effectif et n'affiche que les onglets/actions autorisés (`boutique.catalog.*`, `boutique.orders.*`).
+  - Les endpoints `/api/boutique/productos`, `/api/boutique/productos/[id]`, `/api/boutique/pedidos`, `/api/boutique/pedidos/[id]` sont protégés par permissions granulares `requireStaffAuth` ; le GET public des produits conserve le fallback catalogue actif pour la boutique publique.
+  - Les writes serveurs sur `productos` journalisent aussi explicitement dans `admin_audit_log` (`source = boutique_productos_api`) et les changements d’état de commande journalisent `source = boutique_pedidos_api`.
 - **Webhooks**
   - `/admin/webhook-diagnostics` pour diagnostic Stripe.
 
@@ -438,7 +487,7 @@ Steel & Blade est l’application web de **Coiffure Ciwan**, un salon masculin m
 - **location_closures**: `id` (uuid), `location_id`, `closure_date`, `start_time?`, `end_time?`, `reason?`, `created_at`, `created_by?`.
   - Check de fenêtre: fermeture complète (`start_time/end_time` null) ou partielle (`start_time < end_time`).
   - Index: `idx_location_closures_location_date_time`.
-  - RLS: lecture staff (`admin|employee`), écriture `admin`.
+  - RLS: lecture staff (`admin|staff`) ; certaines mutations sont désormais autorisées à `staff` seulement si les helpers SQL de permission (`current_user_has_permission`, `current_user_permission_scope`, `current_user_can_access_resource`) valident le droit et le scope.
 - **bookings**: `id` (uuid), `customer_name/email/phone`, `stylist_id`, `service_id`, `location_id`, `booking_date`, `start_time`, `end_time`, `status` (`pending|confirmed|needs_replan|cancelled|completed`), `notes?`, `replan_reason?`, `replan_marked_at?`, `created_at`, `slot_range` (generated `tsrange`).
   - Contraintes de robustesse actives: `bookings_start_before_end` (`start_time < end_time`) + `bookings_no_overlap` (exclusion `gist` par `stylist_id + slot_range` pour statuts `pending|confirmed|needs_replan`).
   - Index agenda ajoutés: `idx_bookings_stylist_date_status_start`, `idx_bookings_location_date_status_start`, `idx_bookings_service_date`, `idx_working_hours_stylist_location_day`, `idx_time_off_stylist_location_start_end`.
@@ -457,7 +506,7 @@ Steel & Blade est l’application web de **Coiffure Ciwan**, un salon masculin m
 - **imagenes_galeria**: `id` (int8), `descripcion`, `imagen_url`, `fecha`, `created_at`.
 - **configuracion**: `id` (int8), `clave` (unique), `valor`, `descripcion?`, `created_at`, `updated_at`.
   - Clés opérationnelles réservations matérialisées: `booking_slot_interval_minutes=15`, `booking_buffer_minutes=0`, `booking_max_advance_days=90`, `booking_min_advance_hours=2`, `business_timezone=Europe/Zurich`.
-- **user_roles**: `id` (uuid → auth.users), `role` (default `employee`), `created_at`, `updated_at`.
+- **user_roles**: `id` (uuid → auth.users), `role` (default `staff`), `created_at`, `updated_at`.
 - **stylist_users**: `id` (uuid), `user_id` → auth.users, `stylist_id` → stylists.
 
 ### Tables Boutique
@@ -494,13 +543,13 @@ Publics:
 - RLS activée sur : `bookings`, `booking_requests`, `customer_profiles`, `customer_notes`, `configuracion`, `imagenes_galeria`, `locations`, `servicios`, `stylists`, `stylist_services`, `working_hours`, `time_off`, `location_hours`, `location_closures`, `user_roles`, `stylist_users`, `productos`, `categorias_productos`, `pedidos`, `items_pedido`, `carrito_sesiones`, `items_carrito`.
 - `bookings` (phase sécurité):
   - suppression des policies publiques (`INSERT public` / `SELECT public`).
-  - policies actives: `bookings_staff_select` + `bookings_staff_update` pour `authenticated` avec rôle `admin|employee`.
+  - policies actives: `bookings_staff_select` + `bookings_staff_update` pour `authenticated` avec rôle `admin|staff`.
 - `booking_requests`:
   - RLS activée.
-  - policy `booking_requests_staff_select` pour `authenticated` avec rôle `admin|employee`.
+  - policy `booking_requests_staff_select` pour `authenticated` avec rôle `admin|staff`.
 - `customer_profiles` / `customer_notes`:
   - RLS activée.
-  - lecture/écriture réservées aux rôles internes `admin|employee`.
+  - lecture/écriture réservées aux rôles internes `admin|staff`.
   - `customer_notes` exige `created_by = auth.uid()` à l’insertion.
 - Hardening post-robustez (2026-02-27):
   - suppression des policies permissives `FOR ALL ... USING true` sur tables admin core.
@@ -632,7 +681,7 @@ Publics:
 - Palette historique (ex: `#FFD700`) ≠ palette actuelle (`#c8981d`).
 - Palette legacy détaillée (docs) :
   - Primary `#FFD700`, Secondary `#212121`, Accent `#000000`, Text dark `#1a1a1a`, Text light `#ffffff`, Text medium `#E0E0E0`, Coral `#E76F51`.
-- `LocationManagement` utilise encore la table `centros` (legacy) alors que la DB réelle utilise `locations`.
+- `LocationManagement` utilise désormais `locations` (et non plus le legacy `centros`) pour les writes critiques via API dédiée.
 - `pedidos.estado` est utilisé avec plusieurs vocabulaires : DB default `pendiente`, admin `pendiente|en_traitement|traite`, webhook `pagado|fallido` (à harmoniser).
 
 ## Docs & Scripts utiles

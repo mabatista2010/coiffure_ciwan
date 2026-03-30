@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 
 import { requireStaffAuth } from '@/lib/apiAuth';
 import {
-  findProfileByCustomerKey,
+  findProfileByIdentifiers,
   buildProfilePayload,
   isUniqueViolation,
   type CustomerProfileRow,
@@ -20,8 +20,9 @@ export async function GET(
 ) {
   try {
     const auth = await requireStaffAuth(request, {
-      allowedRoles: ['admin', 'employee'],
+      allowedRoles: ['admin', 'staff'],
       feature: 'crm_customer_profile_get',
+      requiredPermission: 'crm.customers.view',
     });
     if ('response' in auth) {
       return auth.response;
@@ -34,14 +35,18 @@ export async function GET(
     }
 
     const supabase = getSupabaseAdminClient();
-    let profile = await findProfileByCustomerKey(supabase, id);
+    const url = new URL(request.url);
+    const customerName = (url.searchParams.get('customerName') || '').trim();
+    const customerEmail = normalizeEmail(url.searchParams.get('customerEmail') || '');
+    const customerPhone = normalizePhone(url.searchParams.get('customerPhone') || '');
+
+    let profile = await findProfileByIdentifiers(supabase, {
+      customerKeyRaw: id,
+      customerEmail,
+      customerPhone,
+    });
 
     if (!profile) {
-      const url = new URL(request.url);
-      const customerName = (url.searchParams.get('customerName') || '').trim();
-      const customerEmail = normalizeEmail(url.searchParams.get('customerEmail') || '');
-      const customerPhone = normalizePhone(url.searchParams.get('customerPhone') || '');
-
       // Lazy create du profil lors de la première ouverture si on a des données client.
       if (customerName || customerEmail || customerPhone) {
         const payload = buildProfilePayload(
@@ -62,7 +67,11 @@ export async function GET(
 
         if (createError) {
           if (isUniqueViolation(createError)) {
-            const recoveredProfile = await findProfileByCustomerKey(supabase, id);
+            const recoveredProfile = await findProfileByIdentifiers(supabase, {
+              customerKeyRaw: id,
+              customerEmail,
+              customerPhone,
+            });
             if (recoveredProfile) {
               profile = recoveredProfile;
             } else {
@@ -121,8 +130,9 @@ export async function PUT(
 ) {
   try {
     const auth = await requireStaffAuth(request, {
-      allowedRoles: ['admin', 'employee'],
+      allowedRoles: ['admin', 'staff'],
       feature: 'crm_customer_profile_update',
+      requiredPermission: 'crm.customers.edit',
     });
     if ('response' in auth) {
       return auth.response;
@@ -160,7 +170,11 @@ export async function PUT(
     };
 
     const supabase = getSupabaseAdminClient();
-    const existing = await findProfileByCustomerKey(supabase, id);
+    const existing = await findProfileByIdentifiers(supabase, {
+      customerKeyRaw: id,
+      customerEmail,
+      customerPhone,
+    });
 
     try {
       const payload = buildProfilePayload(input, auth.userId, !existing);
@@ -185,7 +199,11 @@ export async function PUT(
 
         if (createError) {
           if (isUniqueViolation(createError)) {
-            const recoveredProfile = await findProfileByCustomerKey(supabase, id);
+            const recoveredProfile = await findProfileByIdentifiers(supabase, {
+              customerKeyRaw: id,
+              customerEmail,
+              customerPhone,
+            });
             if (!recoveredProfile) {
               console.error('crm_profile_insert_unique_conflict_no_recovery', createError);
               return NextResponse.json(

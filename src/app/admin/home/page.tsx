@@ -22,14 +22,17 @@ import {
   FaUsers,
 } from 'react-icons/fa';
 import { Loader2, Settings2, X } from 'lucide-react';
+import { useAdminAccess } from '@/components/admin/AdminAccessProvider';
 import { AdminCard, AdminCardContent, AdminCardHeader, SectionHeader, StatusBadge } from '@/components/admin/ui';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogPortal, DialogTitle } from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { fetchWithStaffAuth } from '@/lib/fetchWithStaffAuth';
+import { getPermissionScopeFilter, hasPermission } from '@/lib/permissions/helpers';
+import type { StaffRole } from '@/lib/permissions/catalog';
 import { supabase, type Booking, type Location, type Service, type Stylist } from '@/lib/supabase';
-import { getUserRole, type UserRole } from '@/lib/userRoles';
 
-type DashboardRole = UserRole | 'all';
+type DashboardRole = StaffRole | 'all';
 
 type BookingWithDetails = Pick<
   Booking,
@@ -93,8 +96,9 @@ type DashboardAlert = {
 type PendingBookingsResponse = {
   bookings?: BookingWithDetails[];
   scope?: {
-    role?: 'admin' | 'employee';
+    role?: 'admin' | 'staff';
     stylist_id?: string | null;
+    location_ids?: string[] | null;
     code?: string;
   };
   code?: string;
@@ -333,56 +337,10 @@ function getAlertStyles(level: AlertLevel): string {
   return 'border-blue-400/40 bg-blue-500/10 text-blue-900';
 }
 
-async function getStaffAccessToken(forceRefresh = false): Promise<string> {
-  if (forceRefresh) {
-    const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
-    if (refreshError || !refreshData.session?.access_token) {
-      throw new Error('Session admin introuvable');
-    }
-
-    return refreshData.session.access_token;
-  }
-
-  const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
-  const accessToken = sessionData.session?.access_token;
-
-  if (sessionError || !accessToken) {
-    throw new Error('Session admin introuvable');
-  }
-
-  return accessToken;
-}
-
-async function fetchWithStaffAuth(
-  input: RequestInfo | URL,
-  init: RequestInit = {},
-  retryOnUnauthorized = true
-): Promise<Response> {
-  const execute = async (accessToken: string) => {
-    const headers = new Headers(init.headers || {});
-    headers.set('Authorization', `Bearer ${accessToken}`);
-
-    return fetch(input, {
-      ...init,
-      headers,
-    });
-  };
-
-  let response = await execute(await getStaffAccessToken(false));
-  if (response.status !== 401 || !retryOnUnauthorized) {
-    return response;
-  }
-
-  response = await execute(await getStaffAccessToken(true));
-  return response;
-}
-
 export default function AdminHomePage() {
+  const { accessContext, isLoading: loadingAccess } = useAdminAccess();
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
-  const [role, setRole] = useState<UserRole | null>(null);
   const [userDisplayName, setUserDisplayName] = useState<string>('Utilisateur');
-  const [associatedStylistId, setAssociatedStylistId] = useState<string | null>(null);
-  const [loadingRole, setLoadingRole] = useState(true);
 
   const [loadingData, setLoadingData] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -402,47 +360,15 @@ export default function AdminHomePage() {
   const [isQuickActionsModalOpen, setIsQuickActionsModalOpen] = useState(false);
   const [selectedQuickActionIds, setSelectedQuickActionIds] = useState<string[]>([]);
   const [quickActionsReady, setQuickActionsReady] = useState(false);
+  const role = accessContext?.role ?? null;
+  const associatedStylistId = accessContext?.associatedStylistId ?? null;
 
   useEffect(() => {
-    const fetchRole = async () => {
-      setLoadingRole(true);
-      const [currentRole, sessionResult] = await Promise.all([
-        getUserRole(),
-        supabase.auth.getSession(),
-      ]);
-
+    const fetchSessionMetadata = async () => {
+      const sessionResult = await supabase.auth.getSession();
       const user = sessionResult.data.session?.user || null;
-      let stylistAssociatedName = '';
-      let stylistScopeId: string | null = null;
-
-      if (user?.id) {
-        const { data: stylistUserData, error: stylistUserError } = await supabase
-          .from('stylist_users')
-          .select('stylist_id, stylist:stylists(id,name)')
-          .eq('user_id', user.id)
-          .maybeSingle();
-
-        if (!stylistUserError) {
-          const parsedStylistData = stylistUserData as {
-            stylist_id?: string | null;
-            stylist?: { id?: string | null; name?: string | null } | null;
-          } | null;
-
-          const stylistNameCandidate = parsedStylistData?.stylist?.name;
-          const stylistIdCandidate = parsedStylistData?.stylist_id || parsedStylistData?.stylist?.id;
-
-          if (typeof stylistNameCandidate === 'string' && stylistNameCandidate.trim()) {
-            stylistAssociatedName = stylistNameCandidate.trim();
-          }
-
-          if (typeof stylistIdCandidate === 'string' && stylistIdCandidate.trim()) {
-            stylistScopeId = stylistIdCandidate.trim();
-          }
-        }
-      }
 
       const rawName =
-        stylistAssociatedName ||
         (typeof user?.user_metadata?.full_name === 'string' && user.user_metadata.full_name.trim()) ||
         (typeof user?.user_metadata?.name === 'string' && user.user_metadata.name.trim()) ||
         (user?.email ? user.email.split('@')[0] : '');
@@ -455,18 +381,15 @@ export default function AdminHomePage() {
           .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
           .join(' ') || 'Utilisateur';
 
-      setRole(currentRole);
       setCurrentUserId(user?.id ?? null);
       setUserDisplayName(normalizedName);
-      setAssociatedStylistId(stylistScopeId);
-      setLoadingRole(false);
     };
 
-    fetchRole();
+    void fetchSessionMetadata();
   }, []);
 
   const fetchDashboardData = useCallback(async () => {
-    if (loadingRole) return;
+    if (loadingAccess) return;
 
     setLoadingData(true);
     setError(null);
@@ -477,7 +400,9 @@ export default function AdminHomePage() {
     nextWeek.setDate(nextWeek.getDate() + 7);
     const nextWeekKey = toDateKey(nextWeek);
 
-    if (role === 'employee' && !associatedStylistId) {
+    const reservationsScope = getPermissionScopeFilter(accessContext, 'reservations.view');
+
+    if (reservationsScope.kind === 'none') {
       setBookingsToday([]);
       setBookingsNextDays([]);
       setPendingUpcomingTotal(0);
@@ -485,8 +410,6 @@ export default function AdminHomePage() {
       setLoadingData(false);
       return;
     }
-
-    const stylistScope = role === 'employee' ? associatedStylistId : null;
 
     const selection = `
       id,
@@ -521,15 +444,24 @@ export default function AdminHomePage() {
         .eq('status', 'pending')
         .gte('booking_date', todayKey);
 
-      const scopedTodayQuery = stylistScope
-        ? todayQuery.eq('stylist_id', stylistScope)
-        : todayQuery;
-      const scopedWeekQuery = stylistScope
-        ? weekQuery.eq('stylist_id', stylistScope)
-        : weekQuery;
-      const scopedPendingCountQuery = stylistScope
-        ? pendingCountQuery.eq('stylist_id', stylistScope)
-        : pendingCountQuery;
+      const scopedTodayQuery =
+        reservationsScope.kind === 'stylist'
+          ? todayQuery.eq('stylist_id', reservationsScope.stylistId)
+          : reservationsScope.kind === 'locations'
+            ? todayQuery.in('location_id', reservationsScope.locationIds)
+            : todayQuery;
+      const scopedWeekQuery =
+        reservationsScope.kind === 'stylist'
+          ? weekQuery.eq('stylist_id', reservationsScope.stylistId)
+          : reservationsScope.kind === 'locations'
+            ? weekQuery.in('location_id', reservationsScope.locationIds)
+            : weekQuery;
+      const scopedPendingCountQuery =
+        reservationsScope.kind === 'stylist'
+          ? pendingCountQuery.eq('stylist_id', reservationsScope.stylistId)
+          : reservationsScope.kind === 'locations'
+            ? pendingCountQuery.in('location_id', reservationsScope.locationIds)
+            : pendingCountQuery;
 
       const [todayResponse, weekResponse, pendingResponse] = await Promise.all([
         scopedTodayQuery.order('start_time', { ascending: true }),
@@ -565,12 +497,12 @@ export default function AdminHomePage() {
     } finally {
       setLoadingData(false);
     }
-  }, [associatedStylistId, loadingRole, role]);
+  }, [accessContext, loadingAccess]);
 
   useEffect(() => {
-    if (loadingRole) return;
-    fetchDashboardData();
-  }, [fetchDashboardData, loadingRole]);
+    if (loadingAccess) return;
+    void fetchDashboardData();
+  }, [fetchDashboardData, loadingAccess]);
 
   const fetchPendingPanelBookings = useCallback(async () => {
     setPendingPanelLoading(true);
@@ -590,8 +522,11 @@ export default function AdminHomePage() {
         previous.filter((id) => fetchedBookings.some((booking) => booking.id === id))
       );
 
-      if (payload.scope?.code === 'employee_without_stylist') {
-        setPendingPanelError('Aucun styliste associé à ce compte. Impossible de valider les réservations.');
+      if (
+        payload.scope?.code === 'employee_without_stylist' ||
+        payload.scope?.code === 'missing_associated_stylist'
+      ) {
+        setPendingPanelError('Aucun styliste associé à ce compte staff. Impossible de valider les réservations.');
       }
     } catch (fetchError) {
       console.error('pending_panel_fetch_error', fetchError);
@@ -669,10 +604,59 @@ export default function AdminHomePage() {
   const allPendingSelected =
     pendingPanelBookings.length > 0 && selectedPendingIds.length === pendingPanelBookings.length;
 
-  const availableQuickActions = useMemo(
-    () => QUICK_ACTIONS.filter((item) => item.role === 'all' || item.role === role),
-    [role]
-  );
+  const availableQuickActions = useMemo(() => {
+    if (!accessContext) return [];
+
+    return QUICK_ACTIONS.filter((item) => {
+      if (accessContext.role === 'admin') return true;
+
+      switch (item.id) {
+        case 'new-booking':
+          return hasPermission(accessContext, 'reservations.create');
+        case 'pending-day':
+        case 'open-pending-panel':
+          return hasPermission(accessContext, 'reservations.manage_pending');
+        case 'week-calendar':
+          return hasPermission(accessContext, 'reservations.view');
+        case 'crm-clients':
+          return (
+            hasPermission(accessContext, 'crm.customers.view') ||
+            hasPermission(accessContext, 'crm.customers.edit') ||
+            hasPermission(accessContext, 'crm.notes.view') ||
+            hasPermission(accessContext, 'crm.notes.create')
+          );
+        case 'refresh-dashboard':
+          return hasPermission(accessContext, 'dashboard.view');
+        case 'config-services':
+          return hasPermission(accessContext, 'services.view');
+        case 'config-stylists':
+          return (
+            hasPermission(accessContext, 'stylists.profile.view') ||
+            hasPermission(accessContext, 'stylists.operations.view')
+          );
+        case 'config-locations':
+          return (
+            hasPermission(accessContext, 'locations.profile.view') ||
+            hasPermission(accessContext, 'locations.operations.view')
+          );
+        case 'config-gallery':
+          return hasPermission(accessContext, 'gallery.view');
+        case 'stats-stylists':
+        case 'stats-locations':
+          return hasPermission(accessContext, 'stats.view');
+        case 'boutique':
+          return (
+            hasPermission(accessContext, 'boutique.orders.view') ||
+            hasPermission(accessContext, 'boutique.catalog.view')
+          );
+        case 'user-management':
+        case 'stripe-diagnostics':
+          return false;
+        default:
+          return item.role === 'all';
+      }
+    });
+  }, [accessContext]);
 
   const defaultQuickActionIds = useMemo(
     () =>
@@ -838,12 +822,17 @@ export default function AdminHomePage() {
 
   const alerts = useMemo<DashboardAlert[]>(() => {
     const items: DashboardAlert[] = [];
+    const reservationsScope = getPermissionScopeFilter(accessContext, 'reservations.view');
 
-    if (role === 'employee' && !associatedStylistId) {
+    if (
+      role === 'staff' &&
+      reservationsScope.kind === 'none' &&
+      reservationsScope.code === 'missing_associated_stylist'
+    ) {
       items.push({
-        id: 'employee-without-stylist',
-        title: 'Compte employé sans styliste associé',
-        description: 'Associez un styliste à cet employé pour activer la validation des réservations.',
+        id: 'staff-without-stylist',
+        title: 'Compte staff sans styliste associé',
+        description: 'Associez un styliste à ce compte pour activer son scope de réservation.',
         level: 'critical',
       });
     }
@@ -861,11 +850,11 @@ export default function AdminHomePage() {
       items.push({
         id: 'pending-bookings',
         title:
-          role === 'employee' && associatedStylistId
+          role === 'staff' && associatedStylistId
             ? `${pendingUpcomingTotal} réservation(s) en attente sur votre planning`
             : `${pendingUpcomingTotal} réservation(s) en attente`,
         description:
-          role === 'employee' && associatedStylistId
+          role === 'staff' && associatedStylistId
             ? 'Validez vos demandes en attente pour éviter les pertes de créneaux.'
             : 'Validez les demandes en attente pour éviter les pertes de créneaux.',
         level: 'warning',
@@ -913,7 +902,7 @@ export default function AdminHomePage() {
     }
 
     return items;
-  }, [associatedStylistId, bookingsNextDays, pendingUpcomingTotal, role, totals.total]);
+  }, [accessContext, associatedStylistId, bookingsNextDays, pendingUpcomingTotal, role, totals.total]);
 
   const todayLabel = formatHumanDate(new Date());
 
@@ -1023,7 +1012,7 @@ export default function AdminHomePage() {
             </AdminCard>
           ) : null}
 
-          {loadingRole || loadingData ? (
+          {loadingAccess || loadingData ? (
             <AdminCard>
               <AdminCardContent className="flex items-center justify-center gap-3 py-12 text-foreground">
                 <Loader2 className="h-5 w-5 animate-spin" />

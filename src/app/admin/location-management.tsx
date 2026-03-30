@@ -4,10 +4,11 @@ import { useState, useEffect, useRef } from 'react';
 import Image from 'next/image';
 import { v4 as uuidv4 } from 'uuid';
 import { AdminSidePanel, SectionHeader } from '@/components/admin/ui';
+import { useAdminAccess } from '@/components/admin/AdminAccessProvider';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { fetchWithAdminAuth } from '@/lib/fetchWithAdminAuth';
+import { fetchWithStaffAuth } from '@/lib/fetchWithStaffAuth';
 import {
   createDefaultLocationSchedule,
   createEmptyDaySlot,
@@ -15,6 +16,7 @@ import {
   validateLocationSchedule,
   WEEKDAYS,
 } from '@/lib/locationSchedule';
+import { canAccessScopedResource, getPermissionScope, hasPermission } from '@/lib/permissions/helpers';
 import { supabase } from '@/lib/supabase';
 
 // Definir la interfaz Location
@@ -40,6 +42,7 @@ const createInitialLocationState = (): Partial<Location> => ({
 });
 
 export default function LocationManagement() {
+  const { accessContext } = useAdminAccess();
   const [locations, setLocations] = useState<Location[]>([]);
   const [editingLocation, setEditingLocation] = useState<Location | null>(null);
   const [newLocation, setNewLocation] = useState<Partial<Location>>(createInitialLocationState());
@@ -53,6 +56,28 @@ export default function LocationManagement() {
   const [daySchedules, setDaySchedules] = useState<DaySchedule[]>(createDefaultLocationSchedule());
   const [scheduleErrors, setScheduleErrors] = useState<string[]>([]);
   const [panelFeedback, setPanelFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+  const canViewLocationProfiles = hasPermission(accessContext, 'locations.profile.view');
+  const canEditLocationProfiles = hasPermission(accessContext, 'locations.profile.edit');
+  const canDeleteLocationProfiles = hasPermission(accessContext, 'locations.profile.delete');
+  const canViewLocationOperations = hasPermission(accessContext, 'locations.operations.view');
+  const canEditLocationOperations = hasPermission(accessContext, 'locations.operations.edit');
+  const canManageLocationHours = hasPermission(accessContext, 'schedule.location_hours.manage');
+  const canCreateLocation = (
+    accessContext?.role === 'admin'
+    || (
+      canEditLocationProfiles
+      && canManageLocationHours
+      && getPermissionScope(accessContext, 'locations.profile.edit') === 'all'
+      && getPermissionScope(accessContext, 'schedule.location_hours.manage') === 'all'
+    )
+  );
+  const canEditLocationForm = canEditLocationProfiles || canEditLocationOperations || canManageLocationHours;
+  const canViewLocations = canViewLocationProfiles || canViewLocationOperations;
+  const filteredLocations = locations.filter((location) => (
+    canAccessScopedResource(accessContext, 'locations.profile.view', { locationId: location.id })
+    || canAccessScopedResource(accessContext, 'locations.operations.view', { locationId: location.id })
+    || canAccessScopedResource(accessContext, 'schedule.location_hours.manage', { locationId: location.id })
+  ));
 
   useEffect(() => {
     loadLocations();
@@ -219,7 +244,11 @@ export default function LocationManagement() {
   };
 
   const saveLocationHours = async (locationId: string) => {
-    const response = await fetchWithAdminAuth('/api/admin/schedule/location-hours', {
+    if (!(canManageLocationHours || canEditLocationOperations)) {
+      throw new Error('Vous n’avez pas les permissions suffisantes pour modifier l’opérationnel du centre.');
+    }
+
+    const response = await fetchWithStaffAuth('/api/admin/schedule/location-hours', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -267,11 +296,13 @@ export default function LocationManagement() {
   };
 
   const openNewLocationPanel = () => {
+    if (!canCreateLocation) return;
     resetLocationFormState();
     setShowLocationPanel(true);
   };
 
   const handleAddLocation = async () => {
+    if (!canCreateLocation) return;
     const validationErrors = validateLocationSchedule(daySchedules);
     setScheduleErrors(validationErrors);
 
@@ -304,17 +335,26 @@ export default function LocationManagement() {
         active: true
       };
 
-      const { error } = await supabase
-        .from('locations')
-        .insert(newLocationData);
+      const createResponse = await fetchWithStaffAuth('/api/admin/locations', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(newLocationData),
+      });
 
-      if (error) {
-        throw error;
+      const createPayload = await createResponse.json().catch(() => null);
+      if (!createResponse.ok) {
+        throw new Error(
+          createPayload?.error
+          || createPayload?.message
+          || 'Impossible de créer ce centre.'
+        );
       }
 
       await saveLocationHours(newLocationData.id);
       await loadLocations();
-      setEditingLocation(newLocationData);
+      setEditingLocation((createPayload?.location as Location | undefined) || newLocationData);
       setLocationImageFile(null);
       setPanelFeedback({
         type: 'success',
@@ -333,6 +373,7 @@ export default function LocationManagement() {
 
   const handleUpdateLocation = async () => {
     if (!editingLocation) return;
+    if (!canEditLocationForm) return;
 
     const validationErrors = validateLocationSchedule(daySchedules);
     setScheduleErrors(validationErrors);
@@ -356,24 +397,36 @@ export default function LocationManagement() {
         imageUrl = await uploadImage(locationImageFile) || '';
       }
 
-      const { error } = await supabase
-        .from('locations')
-        .update({
-          name: editingLocation.name,
-          address: editingLocation.address,
-          description: editingLocation.description,
-          phone: editingLocation.phone,
-          email: editingLocation.email,
-          image: imageUrl,
-          active: true
-        })
-        .eq('id', editingLocation.id);
+      if (canEditLocationProfiles) {
+        const updateResponse = await fetchWithStaffAuth(`/api/admin/locations/${editingLocation.id}`, {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            name: editingLocation.name,
+            address: editingLocation.address,
+            description: editingLocation.description,
+            phone: editingLocation.phone,
+            email: editingLocation.email,
+            image: imageUrl,
+            active: true,
+          }),
+        });
 
-      if (error) {
-        throw error;
+        const updatePayload = await updateResponse.json().catch(() => null);
+        if (!updateResponse.ok) {
+          throw new Error(
+            updatePayload?.error
+            || updatePayload?.message
+            || 'Impossible de mettre à jour ce centre.'
+          );
+        }
       }
 
-      await saveLocationHours(editingLocation.id);
+      if (canManageLocationHours) {
+        await saveLocationHours(editingLocation.id);
+      }
       await loadLocations();
       setEditingLocation({
         ...editingLocation,
@@ -382,7 +435,11 @@ export default function LocationManagement() {
       setLocationImageFile(null);
       setPanelFeedback({
         type: 'success',
-        message: 'Centre mis à jour avec succès.',
+        message: canEditLocationProfiles && canManageLocationHours
+          ? 'Centre et horaires mis à jour avec succès.'
+          : canEditLocationProfiles
+            ? 'Centre mis à jour avec succès.'
+            : 'Horaires du centre mis à jour avec succès.',
       });
     } catch (error) {
       console.error('Erreur lors de la mise à jour du centre:', error);
@@ -396,6 +453,7 @@ export default function LocationManagement() {
   };
 
   const handleEditLocation = async (location: Location) => {
+    if (!filteredLocations.some((item) => item.id === location.id)) return;
     setEditingLocation(location);
     setLocationImageFile(null);
     setLocationImagePreview(location.image || '');
@@ -406,28 +464,23 @@ export default function LocationManagement() {
   };
 
   const handleDeleteLocation = async (id: string) => {
-    if (!confirm('Êtes-vous sûr de vouloir supprimer ce centre ? Cette action est irréversible.')) {
+    if (!canDeleteLocationProfiles) return;
+    if (!confirm('Êtes-vous sûr de vouloir retirer ce centre ? Il sera masqué des parcours actifs sans suppression définitive.')) {
       return;
     }
     
     try {
-      // Primero eliminamos los horarios asociados
-      const { error: hoursError } = await supabase
-        .from('location_hours')
-        .delete()
-        .eq('location_id', id);
-      
-      if (hoursError) {
-        console.error('Erreur lors de la suppression des horaires:', hoursError);
-      }
-      
-      const { error } = await supabase
-        .from('locations')
-        .delete()
-        .eq('id', id);
-      
-      if (error) {
-        throw error;
+      const response = await fetchWithStaffAuth(`/api/admin/locations/${id}`, {
+        method: 'DELETE',
+      });
+      const payload = await response.json().catch(() => null);
+
+      if (!response.ok) {
+        throw new Error(
+          payload?.error
+          || payload?.message
+          || 'Impossible de retirer ce centre.'
+        );
       }
       
       // Recharger les centres
@@ -454,9 +507,23 @@ export default function LocationManagement() {
         description="CRUD centres, images et plages horaires multi-slot."
       />
 
+      {!canViewLocations ? (
+        <div className="rounded-xl border border-border bg-card p-4 text-sm text-muted-foreground">
+          Vous n’avez pas accès aux centres.
+        </div>
+      ) : null}
+
+      {canViewLocations && !canEditLocationForm ? (
+        <div className="rounded-xl border border-border bg-card p-4 text-sm text-muted-foreground">
+          Accès en lecture seule: les fiches centres restent visibles, mais les modifications sont désactivées.
+        </div>
+      ) : null}
+
+      {canCreateLocation ? (
       <Button onClick={openNewLocationPanel}>
         Ajouter nouveau centre
       </Button>
+      ) : null}
 
       <AdminSidePanel
         open={showLocationPanel}
@@ -475,7 +542,7 @@ export default function LocationManagement() {
             <Button type="button" variant="outline" onClick={closePanel} disabled={isUploading}>
               Fermer
             </Button>
-            <Button type="submit" form="location-panel-form" disabled={isUploading}>
+            <Button type="submit" form="location-panel-form" disabled={isUploading || !canEditLocationForm}>
               {isUploading ? 'Téléchargement...' : (editingLocation ? 'Mise à jour du Centre' : 'Créer un Nouveau Centre')}
             </Button>
           </div>
@@ -505,7 +572,7 @@ export default function LocationManagement() {
             </section>
           )}
 
-          <section className="space-y-4 rounded-xl border border-border bg-card p-4">
+          <fieldset className="space-y-4 rounded-xl border border-border bg-card p-4" disabled={!canEditLocationProfiles}>
             <div className="grid min-w-0 grid-cols-1 gap-4 md:grid-cols-2">
               <div className="space-y-2 min-w-0">
                 <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Nom</label>
@@ -599,9 +666,9 @@ export default function LocationManagement() {
                 </div>
               </div>
             </div>
-          </section>
+          </fieldset>
 
-          <section className="space-y-4 rounded-xl border border-border bg-card p-4">
+          <fieldset className="space-y-4 rounded-xl border border-border bg-card p-4" disabled={!(canManageLocationHours || canEditLocationOperations)}>
             <h3 className="text-lg font-semibold text-primary">Horaires du Centre</h3>
 
             <div className="rounded-xl border border-border bg-primary/5 p-3">
@@ -682,9 +749,9 @@ export default function LocationManagement() {
                         variant="destructive"
                         size="sm"
                         className="mt-2 sm:mt-0"
-                        aria-label="Eliminar franja horaria"
+                        aria-label="Supprimer la plage horaire"
                       >
-                        <span>Eliminar</span>
+                        <span>Supprimer</span>
                       </Button>
                     )}
                   </div>
@@ -710,17 +777,17 @@ export default function LocationManagement() {
               </div>
               );
             })}
-          </section>
+          </fieldset>
         </form>
       </AdminSidePanel>
       
       {/* Lista de centros existentes */}
       <div className="space-y-8">
         <div className="grid min-w-0 grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
-          {locations.length === 0 ? (
+          {!canViewLocations ? null : filteredLocations.length === 0 ? (
             <p className="text-light">Aucun centre enregistré.</p>
           ) : (
-            locations.map((location) => (
+            filteredLocations.map((location) => (
               <div
                 key={location.id}
                 className="min-w-0 overflow-hidden rounded-lg border border-border bg-secondary shadow-md transition-all hover:shadow-lg"
@@ -773,6 +840,7 @@ export default function LocationManagement() {
                     type="button"
                     variant="outline"
                     className="flex-1"
+                    disabled={!canEditLocationForm}
                     onClick={() => handleEditLocation(location)}
                   >
                     Modifier
@@ -781,9 +849,10 @@ export default function LocationManagement() {
                     type="button"
                     variant="destructive"
                     className="flex-1"
+                    disabled={!canDeleteLocationProfiles}
                     onClick={() => handleDeleteLocation(location.id)}
                   >
-                    Supprimer
+                    Retirer
                   </Button>
                 </div>
               </div>

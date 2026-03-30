@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 
 import { requireStaffAuth } from '@/lib/apiAuth';
+import { insertAdminAuditLog } from '@/lib/admin/audit';
+import { getScopedPermissionFilter, getStaffAccessContext } from '@/lib/permissions/server';
 import { getSupabaseAdminClient } from '@/lib/supabaseAdmin';
 
 const TIME_OFF_CATEGORIES = new Set([
@@ -21,33 +23,12 @@ function badRequest(code: string, error: string) {
   return NextResponse.json({ code, error }, { status: 400 });
 }
 
-async function getEmployeeStylistScope(userId: string): Promise<{ stylistId: string | null; response?: NextResponse }> {
-  const supabase = getSupabaseAdminClient();
-  const { data, error } = await supabase
-    .from('stylist_users')
-    .select('stylist_id')
-    .eq('user_id', userId)
-    .maybeSingle();
-
-  if (error) {
-    console.error('time_off_scope_fetch_error', error);
-    return {
-      stylistId: null,
-      response: NextResponse.json(
-        { code: 'scope_fetch_failed', error: 'Impossible de déterminer le scope employé' },
-        { status: 500 }
-      ),
-    };
-  }
-
-  return { stylistId: data?.stylist_id || null };
-}
-
 export async function GET(request: Request) {
   try {
     const auth = await requireStaffAuth(request, {
-      allowedRoles: ['admin', 'employee'],
+      allowedRoles: ['admin', 'staff'],
       feature: 'admin_schedule_time_off_get',
+      requiredPermission: 'schedule.time_off.manage',
     });
 
     if ('response' in auth) {
@@ -71,18 +52,14 @@ export async function GET(request: Request) {
     }
 
     const supabase = getSupabaseAdminClient();
+    const accessContext = await getStaffAccessContext(auth.userId);
+    const scope = getScopedPermissionFilter(accessContext, 'schedule.time_off.manage');
 
-    let scopedStylistId: string | null = stylistIdParam || null;
-    if (auth.role === 'employee') {
-      const scope = await getEmployeeStylistScope(auth.userId);
-      if (scope.response) {
-        return scope.response;
-      }
-      scopedStylistId = scope.stylistId;
-
-      if (!scopedStylistId) {
-        return NextResponse.json({ timeOff: [], scope: { role: auth.role, stylist_id: null } }, { status: 200 });
-      }
+    if (scope.kind === 'none') {
+      return NextResponse.json(
+        { timeOff: [], scope: { role: auth.role, stylist_id: null, location_ids: [], code: scope.code } },
+        { status: 200 }
+      );
     }
 
     let query = supabase
@@ -91,8 +68,15 @@ export async function GET(request: Request) {
       .order('start_datetime', { ascending: true })
       .limit(limit);
 
-    if (scopedStylistId) {
-      query = query.eq('stylist_id', scopedStylistId);
+    if (scope.kind === 'stylist') {
+      query = query.eq('stylist_id', stylistIdParam ?? scope.stylistId);
+    } else if (scope.kind === 'locations') {
+      query = query.in('location_id', scope.locationIds);
+      if (stylistIdParam) {
+        query = query.eq('stylist_id', stylistIdParam);
+      }
+    } else if (stylistIdParam) {
+      query = query.eq('stylist_id', stylistIdParam);
     }
 
     if (locationIdParam) {
@@ -120,7 +104,11 @@ export async function GET(request: Request) {
     return NextResponse.json(
       {
         timeOff: data || [],
-        scope: { role: auth.role, stylist_id: auth.role === 'employee' ? scopedStylistId : null },
+        scope: {
+          role: auth.role,
+          stylist_id: scope.kind === 'stylist' ? scope.stylistId : null,
+          location_ids: scope.kind === 'locations' ? scope.locationIds : [],
+        },
       },
       { status: 200 }
     );
@@ -136,8 +124,9 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   try {
     const auth = await requireStaffAuth(request, {
-      allowedRoles: ['admin'],
+      allowedRoles: ['admin', 'staff'],
       feature: 'admin_schedule_time_off_create',
+      requiredPermission: 'schedule.time_off.manage',
     });
 
     if ('response' in auth) {
@@ -176,6 +165,23 @@ export async function POST(request: Request) {
     }
 
     const supabase = getSupabaseAdminClient();
+    const accessContext = await getStaffAccessContext(auth.userId);
+    const scope = getScopedPermissionFilter(accessContext, 'schedule.time_off.manage');
+
+    if (scope.kind === 'none') {
+      return badRequest(scope.code, 'Scope insuffisant pour créer cette indisponibilité');
+    }
+
+    if (scope.kind === 'stylist' && stylistId !== scope.stylistId) {
+      return badRequest('stylist_out_of_scope', 'Ce styliste est hors scope');
+    }
+
+    if (scope.kind === 'locations') {
+      if (!locationId || !scope.locationIds.includes(locationId)) {
+        return badRequest('location_out_of_scope', 'Ce centre est hors scope');
+      }
+    }
+
     const { data, error } = await supabase
       .from('time_off')
       .insert([
@@ -198,6 +204,18 @@ export async function POST(request: Request) {
         { status: 500 }
       );
     }
+
+    await insertAdminAuditLog({
+      actorUserId: auth.userId,
+      entityType: 'time_off',
+      entityId: data.id,
+      action: 'create',
+      before: null,
+      after: data,
+      meta: {
+        source: 'admin_schedule_time_off_api',
+      },
+    });
 
     return NextResponse.json({ timeOff: data }, { status: 201 });
   } catch (error) {

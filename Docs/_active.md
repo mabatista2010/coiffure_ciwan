@@ -2,6 +2,6 @@
 
 No active implementation.
 
-- last_closed_slug: jerarquia-servicios-landing-reserva-directa
-- last_closed_path: Docs/jerarquia-servicios-landing-reserva-directa
-- cleared_at: 2026-03-27 16:40 Europe/Zurich
+- last_closed_slug: admin-permisos-granulares-v1
+- last_closed_path: Docs/admin-permisos-granulares-v1
+- cleared_at: 2026-03-30 17:47 Europe/Zurich

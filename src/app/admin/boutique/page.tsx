@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
 import Image from 'next/image';
 import { Plus, Edit, Trash2, Eye, EyeOff, Package, ShoppingCart, CheckCircle, Clock, AlertCircle } from 'lucide-react';
@@ -16,6 +16,8 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
+import { useAdminAccess } from '@/components/admin/AdminAccessProvider';
+import { hasPermission } from '@/lib/permissions/helpers';
 import { fetchWithAdminAuth } from '@/lib/fetchWithAdminAuth';
 
 interface Producto {
@@ -65,6 +67,22 @@ interface PedidoItem {
 }
 
 export default function BoutiqueAdminPage() {
+  const { accessContext, isLoading: loadingAccess } = useAdminAccess();
+  const canViewCatalog = hasPermission(accessContext, 'boutique.catalog.view');
+  const canEditCatalogContent = hasPermission(accessContext, 'boutique.catalog.content.edit');
+  const canEditCatalogBusiness = hasPermission(accessContext, 'boutique.catalog.business.edit');
+  const canDeleteCatalog = hasPermission(accessContext, 'boutique.catalog.delete');
+  const canViewOrders = hasPermission(accessContext, 'boutique.orders.view');
+  const canEditOrders = hasPermission(accessContext, 'boutique.orders.edit');
+  const canCreateCatalog = canEditCatalogContent && canEditCatalogBusiness;
+  const canEditAnyCatalog = canEditCatalogContent || canEditCatalogBusiness;
+  const availableTabs = useMemo(() => {
+    const tabs: Array<'productos' | 'pedidos'> = [];
+    if (canViewCatalog) tabs.push('productos');
+    if (canViewOrders) tabs.push('pedidos');
+    return tabs;
+  }, [canViewCatalog, canViewOrders]);
+
   const [activeTab, setActiveTab] = useState<'productos' | 'pedidos'>('productos');
   const [productos, setProductos] = useState<Producto[]>([]);
   const [pedidos, setPedidos] = useState<Pedido[]>([]);
@@ -85,12 +103,32 @@ export default function BoutiqueAdminPage() {
   });
 
   useEffect(() => {
-    if (activeTab === 'productos') {
-      fetchProductos();
-    } else {
-      fetchPedidos();
+    if (loadingAccess) {
+      return;
     }
-  }, [activeTab]);
+
+    if (!availableTabs.length) {
+      setLoading(false);
+      return;
+    }
+
+    if (!availableTabs.includes(activeTab)) {
+      setActiveTab(availableTabs[0]);
+      return;
+    }
+
+    if (activeTab === 'productos' && canViewCatalog) {
+      void fetchProductos();
+      return;
+    }
+
+    if (activeTab === 'pedidos' && canViewOrders) {
+      void fetchPedidos();
+      return;
+    }
+
+    setLoading(false);
+  }, [activeTab, availableTabs, canViewCatalog, canViewOrders, loadingAccess]);
 
   const fetchProductos = async () => {
     try {
@@ -201,9 +239,8 @@ export default function BoutiqueAdminPage() {
 
   const handleDelete = async (id: number) => {
     const confirmacion = confirm(
-      'Êtes-vous sûr de vouloir supprimer ce produit ?\n\n' +
-      '⚠️ AVERTISSEMENT: Cette action supprimera le produit de Stripe et de la base de données.\n' +
-      'Si le produit est dans des paniers ou des commandes, les références seront supprimées.\n\n' +
+      'Êtes-vous sûr de vouloir retirer ce produit du catalogue ?\n\n' +
+      'Le produit sera désactivé sans suppression définitive, afin de préserver l’historique et une éventuelle réactivation.\n\n' +
       'Voulez-vous continuer ?'
     );
     
@@ -218,17 +255,17 @@ export default function BoutiqueAdminPage() {
       console.log('Réponse du serveur:', response.status, response.statusText);
       
       if (response.ok) {
-        console.log('Produit supprimé avec succès');
-        alert('Produit supprimé correctement');
+        console.log('Produit retiré avec succès');
+        alert('Produit retiré du catalogue');
         fetchProductos();
       } else {
         const errorData = await response.json();
         console.error('Error del servidor:', errorData);
-        alert(`Erreur lors de la suppression du produit: ${errorData.error || 'Erreur inconnue'}`);
+        alert(`Erreur lors du retrait du produit: ${errorData.error || 'Erreur inconnue'}`);
       }
     } catch (error) {
-      console.error('Error deleting producto:', error);
-      alert('Erreur de connexion lors de la suppression du produit');
+      console.error('Error deactivating producto:', error);
+      alert('Erreur de connexion lors du retrait du produit');
     }
   };
 
@@ -322,7 +359,7 @@ export default function BoutiqueAdminPage() {
     });
   };
 
-  if (loading) {
+  if (loading || loadingAccess) {
     return (
       <div className="admin-scope min-h-screen bg-background px-4 py-8 text-foreground">
         <div className="mx-auto flex w-full max-w-7xl flex-col gap-6">
@@ -337,6 +374,20 @@ export default function BoutiqueAdminPage() {
     );
   }
 
+  if (!availableTabs.length) {
+    return (
+      <div className="admin-scope min-h-screen bg-background px-4 py-8 text-foreground">
+        <div className="mx-auto flex w-full max-w-4xl flex-col gap-6">
+          <AdminCard>
+            <AdminCardContent className="py-12 text-center text-muted-foreground">
+              Vous n&apos;avez pas d&apos;accès configuré pour la boutique.
+            </AdminCardContent>
+          </AdminCard>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="admin-scope min-h-screen bg-background px-4 py-8 text-foreground">
       <div className="mx-auto flex w-full max-w-7xl flex-col gap-6">
@@ -344,7 +395,7 @@ export default function BoutiqueAdminPage() {
           title="Gestion de la Boutique"
           description="Produits, synchronisation Stripe et suivi des commandes."
           actions={
-            activeTab === 'productos' ? (
+            activeTab === 'productos' && canCreateCatalog ? (
               <Button
                 type="button"
                 onClick={() => {
@@ -361,6 +412,7 @@ export default function BoutiqueAdminPage() {
         />
 
         <div className="flex flex-wrap gap-2 rounded-2xl border border-border bg-card p-2 shadow-[var(--admin-shadow-soft)]">
+          {canViewCatalog ? (
           <Button
             type="button"
             variant={activeTab === 'productos' ? 'default' : 'ghost'}
@@ -370,6 +422,8 @@ export default function BoutiqueAdminPage() {
             <Package size={20} />
             Produits
           </Button>
+          ) : null}
+          {canViewOrders ? (
           <Button
             type="button"
             variant={activeTab === 'pedidos' ? 'default' : 'ghost'}
@@ -379,6 +433,7 @@ export default function BoutiqueAdminPage() {
             <ShoppingCart size={20} />
             Commandes
           </Button>
+          ) : null}
         </div>
 
         {activeTab === 'productos' ? (
@@ -416,6 +471,7 @@ export default function BoutiqueAdminPage() {
                         <Input
                           type="text"
                           name="nombre"
+                          disabled={!canEditCatalogContent}
                           value={formData.nombre}
                           onChange={handleInputChange}
                           required
@@ -426,6 +482,7 @@ export default function BoutiqueAdminPage() {
                         <label className="text-sm font-medium text-foreground">Catégorie</label>
                         <Select
                           value={formData.categoria}
+                          disabled={!canEditCatalogContent}
                           onValueChange={(value) =>
                             setFormData((prev) => ({
                               ...prev,
@@ -449,6 +506,7 @@ export default function BoutiqueAdminPage() {
                         <Input
                           type="number"
                           name="precio"
+                          disabled={!canEditCatalogBusiness}
                           value={formData.precio}
                           onChange={handleInputChange}
                           step="0.01"
@@ -462,6 +520,7 @@ export default function BoutiqueAdminPage() {
                         <Input
                           type="number"
                           name="precio_original"
+                          disabled={!canEditCatalogBusiness}
                           value={formData.precio_original}
                           onChange={handleInputChange}
                           step="0.01"
@@ -474,6 +533,7 @@ export default function BoutiqueAdminPage() {
                         <Input
                           type="number"
                           name="stock"
+                          disabled={!canEditCatalogBusiness}
                           value={formData.stock}
                           onChange={handleInputChange}
                           min="0"
@@ -485,6 +545,7 @@ export default function BoutiqueAdminPage() {
                         <Input
                           type="number"
                           name="orden"
+                          disabled={!canEditCatalogContent}
                           value={formData.orden}
                           onChange={handleInputChange}
                           min="0"
@@ -495,6 +556,7 @@ export default function BoutiqueAdminPage() {
                         <label className="text-sm font-medium text-foreground">Description</label>
                         <Textarea
                           name="descripcion"
+                          disabled={!canEditCatalogContent}
                           value={formData.descripcion}
                           onChange={handleInputChange}
                           rows={3}
@@ -507,6 +569,7 @@ export default function BoutiqueAdminPage() {
                         <Input
                           type="url"
                           name="imagen_url"
+                          disabled={!canEditCatalogContent}
                           value={formData.imagen_url}
                           onChange={handleInputChange}
                         />
@@ -519,6 +582,7 @@ export default function BoutiqueAdminPage() {
                             name="activo"
                             checked={formData.activo}
                             onChange={handleInputChange}
+                            disabled={!canEditCatalogBusiness}
                             className="h-4 w-4 rounded border-input bg-background text-primary focus:ring-primary/40"
                           />
                           Actif
@@ -529,6 +593,7 @@ export default function BoutiqueAdminPage() {
                             name="destacado"
                             checked={formData.destacado}
                             onChange={handleInputChange}
+                            disabled={!canEditCatalogContent}
                             className="h-4 w-4 rounded border-input bg-background text-primary focus:ring-primary/40"
                           />
                           Vedette
@@ -536,7 +601,7 @@ export default function BoutiqueAdminPage() {
                       </div>
 
                       <div className="flex flex-wrap gap-3 md:col-span-2">
-                        <Button type="submit">
+                        <Button type="submit" disabled={!canEditAnyCatalog}>
                           {editingProduct ? 'Mettre à jour' : 'Créer'}
                         </Button>
                         <Button
@@ -639,6 +704,7 @@ export default function BoutiqueAdminPage() {
                         </Badge>
 
                         <div className="flex flex-wrap gap-2">
+                          {canEditAnyCatalog ? (
                           <Button
                             type="button"
                             size="sm"
@@ -649,6 +715,8 @@ export default function BoutiqueAdminPage() {
                             <Edit size={14} />
                             Modifier
                           </Button>
+                          ) : null}
+                          {canEditCatalogBusiness ? (
                           <Button
                             type="button"
                             size="sm"
@@ -658,15 +726,18 @@ export default function BoutiqueAdminPage() {
                           >
                             {producto.activo ? 'Désactiver' : 'Activer'}
                           </Button>
+                          ) : null}
+                          {canDeleteCatalog ? (
                           <Button
                             type="button"
                             size="sm"
                             variant="destructive"
                             onClick={() => handleDelete(producto.id)}
-                            title="Supprimer le produit définitivement"
+                            title="Retirer le produit du catalogue"
                           >
                             <Trash2 size={14} />
                           </Button>
+                          ) : null}
                         </div>
                       </AdminCardContent>
                     </AdminCard>
@@ -779,6 +850,7 @@ export default function BoutiqueAdminPage() {
                           <Select
                             value={pedido.estado}
                             onValueChange={(value) => handleUpdatePedidoStatus(pedido.id, value)}
+                            disabled={!canEditOrders}
                           >
                             <SelectTrigger>
                               <SelectValue placeholder="Statut de la commande" />

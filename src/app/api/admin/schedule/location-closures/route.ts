@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 
 import { requireStaffAuth } from '@/lib/apiAuth';
+import { insertAdminAuditLog } from '@/lib/admin/audit';
+import { getScopedPermissionFilter, getStaffAccessContext } from '@/lib/permissions/server';
 import { getSupabaseAdminClient } from '@/lib/supabaseAdmin';
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -26,8 +28,9 @@ function normalizeTime(value: string): string {
 export async function GET(request: Request) {
   try {
     const auth = await requireStaffAuth(request, {
-      allowedRoles: ['admin', 'employee'],
+      allowedRoles: ['admin', 'staff'],
       feature: 'admin_schedule_location_closures_get',
+      requiredPermission: 'schedule.location_closures.manage',
     });
 
     if ('response' in auth) {
@@ -54,6 +57,16 @@ export async function GET(request: Request) {
     }
 
     const supabase = getSupabaseAdminClient();
+    const accessContext = await getStaffAccessContext(auth.userId);
+    const scope = getScopedPermissionFilter(accessContext, 'schedule.location_closures.manage');
+
+    if (scope.kind === 'none') {
+      return NextResponse.json(
+        { closures: [], scope: { role: auth.role, location_ids: [], code: scope.code } },
+        { status: 200 }
+      );
+    }
+
     let query = supabase
       .from('location_closures')
       .select('id,location_id,closure_date,start_time,end_time,reason,created_at,created_by')
@@ -61,7 +74,16 @@ export async function GET(request: Request) {
       .order('start_time', { ascending: true })
       .limit(limit);
 
-    if (locationId) {
+    if (scope.kind === 'locations') {
+      const allowedLocations = locationId ? scope.locationIds.filter((id) => id === locationId) : scope.locationIds;
+      if (allowedLocations.length === 0) {
+        return NextResponse.json(
+          { closures: [], scope: { role: auth.role, location_ids: scope.locationIds, code: 'location_out_of_scope' } },
+          { status: 200 }
+        );
+      }
+      query = query.in('location_id', allowedLocations);
+    } else if (locationId) {
       query = query.eq('location_id', locationId);
     }
 
@@ -96,8 +118,9 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   try {
     const auth = await requireStaffAuth(request, {
-      allowedRoles: ['admin'],
+      allowedRoles: ['admin', 'staff'],
       feature: 'admin_schedule_location_closures_create',
+      requiredPermission: 'schedule.location_closures.manage',
     });
 
     if ('response' in auth) {
@@ -144,6 +167,17 @@ export async function POST(request: Request) {
     }
 
     const supabase = getSupabaseAdminClient();
+    const accessContext = await getStaffAccessContext(auth.userId);
+    const scope = getScopedPermissionFilter(accessContext, 'schedule.location_closures.manage');
+
+    if (scope.kind === 'none') {
+      return badRequest(scope.code, 'Scope insuffisant pour créer cette fermeture');
+    }
+
+    if (scope.kind === 'locations' && !scope.locationIds.includes(locationId)) {
+      return badRequest('location_out_of_scope', 'Ce centre est hors scope');
+    }
+
     const { data, error } = await supabase
       .from('location_closures')
       .insert([
@@ -166,6 +200,18 @@ export async function POST(request: Request) {
         { status: 500 }
       );
     }
+
+    await insertAdminAuditLog({
+      actorUserId: auth.userId,
+      entityType: 'location_closures',
+      entityId: data.id,
+      action: 'create',
+      before: null,
+      after: data,
+      meta: {
+        source: 'admin_schedule_location_closures_api',
+      },
+    });
 
     return NextResponse.json({ closure: data }, { status: 201 });
   } catch (error) {

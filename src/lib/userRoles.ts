@@ -1,6 +1,6 @@
 import { supabase } from './supabase';
 
-export type UserRole = 'admin' | 'employee';
+export type UserRole = 'admin' | 'staff';
 
 export interface UserRoleData {
   id: string;
@@ -61,11 +61,11 @@ export async function isAdmin(): Promise<boolean> {
 }
 
 /**
- * Verifica si el usuario actual es empleado
+ * Verifica si el usuario actual es miembro staff
  */
-export async function isEmployee(): Promise<boolean> {
+export async function isStaff(): Promise<boolean> {
   const role = await getUserRole();
-  return role === 'employee';
+  return role === 'staff';
 }
 
 /**
@@ -94,7 +94,7 @@ export async function getActiveStylists(): Promise<Stylist[]> {
 /**
  * Asigna un rol a un usuario existente y lo asocia a un estilista
  */
-export async function assignUserRole(userId: string, role: UserRole = 'employee', stylistId?: string): Promise<{ success: boolean; error?: string }> {
+export async function assignUserRole(userId: string, role: UserRole = 'staff', stylistId?: string): Promise<{ success: boolean; error?: string }> {
   try {
     // Solo los administradores pueden asignar roles
     if (!(await isAdmin())) {
@@ -288,7 +288,7 @@ export async function getAllUsers(): Promise<{ users: UserWithStylist[]; error?:
       return {
         id: user.id,
         email: user.email,
-        role: (roleData?.role as UserRole) || 'employee',
+        role: (roleData?.role as UserRole) || 'staff',
         stylist_id: stylist?.id,
         stylist_name: stylist?.name
       };

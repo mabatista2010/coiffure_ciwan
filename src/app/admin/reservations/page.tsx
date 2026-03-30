@@ -1,13 +1,15 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { Suspense, useState, useEffect, useCallback, useMemo } from 'react';
 import { supabase } from '@/lib/supabase';
 import type { Booking, Location, Service, Stylist } from '@/lib/supabase';
 import { FaCalendarAlt, FaCalendarDay } from 'react-icons/fa';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { useAdminAccess } from '@/components/admin/AdminAccessProvider';
 import { AdminCard, AdminCardContent, AdminDateInput, ReservationStatusSelect, SectionHeader } from '@/components/admin/ui';
 import { Button } from '@/components/ui/button';
+import { getPermissionScopeFilter } from '@/lib/permissions/helpers';
 import {
   Select,
   SelectContent,
@@ -139,7 +141,7 @@ const isValidStatusFilter = (value: string | null): value is BookingStatusFilter
 const isValidCalendarViewMode = (value: string | null): value is CalendarViewMode =>
   value === 'month' || value === 'week' || value === 'day';
 
-export default function AdminBookingsPage() {
+function AdminBookingsPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const today = new Date();
@@ -177,6 +179,48 @@ export default function AdminBookingsPage() {
   const [loadingWeekBookings, setLoadingWeekBookings] = useState<boolean>(false);
   const [weekBookingsByDate, setWeekBookingsByDate] = useState<Record<string, BookingWithDetails[]>>({});
   const [showFiltersMobile, setShowFiltersMobile] = useState<boolean>(false);
+  const { accessContext } = useAdminAccess();
+  const reservationsScope = useMemo(() => getPermissionScopeFilter(accessContext, 'reservations.view'), [accessContext]);
+
+  const filterStylistsForReservationsScope = useCallback((items: Stylist[]) => {
+    if (accessContext?.role === 'admin') return items;
+
+    if (reservationsScope.kind === 'none') {
+      return [];
+    }
+
+    if (reservationsScope.kind === 'stylist') {
+      return items.filter((stylist) => stylist.id === reservationsScope.stylistId);
+    }
+
+    if (reservationsScope.kind === 'locations') {
+      return items.filter((stylist) =>
+        stylist.location_ids?.some((locationId) => reservationsScope.locationIds.includes(locationId))
+      );
+    }
+
+    return items;
+  }, [accessContext?.role, reservationsScope]);
+
+  const filterLocationsForReservationsScope = useCallback((items: Location[], scopedStylists: Stylist[]) => {
+    if (accessContext?.role === 'admin') return items;
+
+    if (reservationsScope.kind === 'none') {
+      return [];
+    }
+
+    if (reservationsScope.kind === 'locations') {
+      return items.filter((location) => reservationsScope.locationIds.includes(location.id));
+    }
+
+    if (reservationsScope.kind === 'stylist') {
+      const stylist = scopedStylists.find((item) => item.id === reservationsScope.stylistId);
+      const locationIds = stylist?.location_ids ?? [];
+      return items.filter((location) => locationIds.includes(location.id));
+    }
+
+    return items;
+  }, [accessContext?.role, reservationsScope]);
 
   useEffect(() => {
     const params = new URLSearchParams(searchParams.toString());
@@ -252,6 +296,12 @@ export default function AdminBookingsPage() {
           service:servicios(*)
         `)
         .eq('booking_date', selectedDate);
+
+      if (reservationsScope.kind === 'stylist') {
+        query = query.eq('stylist_id', reservationsScope.stylistId);
+      } else if (reservationsScope.kind === 'locations') {
+        query = query.in('location_id', reservationsScope.locationIds);
+      }
       
       // Añadir filtro por centro si es necesario
       if (selectedLocation !== 'all') {
@@ -282,7 +332,7 @@ export default function AdminBookingsPage() {
     } finally {
       setLoading(false);
     }
-  }, [selectedDate, selectedLocation, selectedStatus, selectedStylist]);
+  }, [reservationsScope, selectedDate, selectedLocation, selectedStatus, selectedStylist]);
 
   const getVisibleDateRange = useCallback(() => {
     if (calendarViewMode === "month") {
@@ -410,6 +460,12 @@ export default function AdminBookingsPage() {
         .gte('booking_date', startKey)
         .lte('booking_date', endKey);
 
+      if (reservationsScope.kind === 'stylist') {
+        query = query.eq('stylist_id', reservationsScope.stylistId);
+      } else if (reservationsScope.kind === 'locations') {
+        query = query.in('location_id', reservationsScope.locationIds);
+      }
+
       if (selectedLocation !== 'all') {
         query = query.eq('location_id', selectedLocation);
       }
@@ -489,7 +545,7 @@ export default function AdminBookingsPage() {
       const err = error as ErrorType;
       console.error('Error al cargar los días con reservas:', err.message);
     }
-  }, [getVisibleDateRange, selectedLocation, selectedStatus, selectedStylist, showCalendarView, getDayName]);
+  }, [getVisibleDateRange, getDayName, reservationsScope, selectedLocation, selectedStatus, selectedStylist, showCalendarView]);
 
   const fetchWeekBookings = useCallback(async () => {
     if (!showCalendarView || calendarViewMode !== "week") {
@@ -513,6 +569,12 @@ export default function AdminBookingsPage() {
         .lte('booking_date', endKey)
         .order('booking_date')
         .order('start_time');
+
+      if (reservationsScope.kind === 'stylist') {
+        query = query.eq('stylist_id', reservationsScope.stylistId);
+      } else if (reservationsScope.kind === 'locations') {
+        query = query.in('location_id', reservationsScope.locationIds);
+      }
 
       if (selectedLocation !== 'all') {
         query = query.eq('location_id', selectedLocation);
@@ -546,46 +608,45 @@ export default function AdminBookingsPage() {
     } finally {
       setLoadingWeekBookings(false);
     }
-  }, [calendarViewMode, getVisibleDateRange, selectedLocation, selectedStatus, selectedStylist, showCalendarView]);
+  }, [calendarViewMode, getVisibleDateRange, reservationsScope, selectedLocation, selectedStatus, selectedStylist, showCalendarView]);
 
   useEffect(() => {
-    // Cargar centros al inicio
-    const fetchLocations = async () => {
+    const fetchScopedFilters = async () => {
       try {
-        const { data, error } = await supabase
-          .from('locations')
-          .select('*')
-          .order('id');
-          
-        if (error) throw error;
-        
-        setLocations(data || []);
+        const [{ data: locationsData, error: locationsError }, { data: stylistsData, error: stylistsError }] =
+          await Promise.all([
+            supabase.from('locations').select('*').order('id'),
+            supabase.from('stylists').select('*').eq('active', true).order('name'),
+          ]);
+
+        if (locationsError) throw locationsError;
+        if (stylistsError) throw stylistsError;
+
+        const scopedStylists = filterStylistsForReservationsScope((stylistsData || []) as Stylist[]);
+        const scopedLocations = filterLocationsForReservationsScope((locationsData || []) as Location[], scopedStylists);
+
+        setStylists(scopedStylists);
+        setLocations(scopedLocations);
       } catch (error: unknown) {
         const err = error as ErrorType;
-        console.error('Error al cargar los centros:', err.message);
+        console.error('Error al cargar les filtres de réservations:', err.message);
       }
     };
-    
-    const fetchStylists = async () => {
-      try {
-        const { data, error } = await supabase
-          .from('stylists')
-          .select('*')
-          .eq('active', true)
-          .order('name');
-          
-        if (error) throw error;
-        
-        setStylists(data || []);
-      } catch (error: unknown) {
-        const err = error as ErrorType;
-        console.error('Error al cargar los estilistas:', err.message);
-      }
-    };
-    
-    fetchLocations();
-    fetchStylists();
-  }, []);
+
+    void fetchScopedFilters();
+  }, [filterLocationsForReservationsScope, filterStylistsForReservationsScope]);
+
+  useEffect(() => {
+    if (selectedLocation !== 'all' && !locations.some((location) => location.id === selectedLocation)) {
+      setSelectedLocation('all');
+    }
+  }, [locations, selectedLocation]);
+
+  useEffect(() => {
+    if (selectedStylist !== 'all' && !stylists.some((stylist) => stylist.id === selectedStylist)) {
+      setSelectedStylist('all');
+    }
+  }, [selectedStylist, stylists]);
   
   useEffect(() => {
     // Cargar reservas cuando cambie la fecha, ubicación o estilista
@@ -782,6 +843,12 @@ export default function AdminBookingsPage() {
             service:servicios(*)
           `)
           .eq('booking_date', dateStr);
+
+        if (reservationsScope.kind === 'stylist') {
+          query = query.eq('stylist_id', reservationsScope.stylistId);
+        } else if (reservationsScope.kind === 'locations') {
+          query = query.in('location_id', reservationsScope.locationIds);
+        }
         
         // Añadir filtro por centro si es necesario
         if (selectedLocation !== 'all') {
@@ -814,7 +881,7 @@ export default function AdminBookingsPage() {
       }
     };
     
-    loadBookingsForSelectedDay();
+    void loadBookingsForSelectedDay();
   };
   
   const backToCalendar = () => {
@@ -1541,3 +1608,12 @@ export default function AdminBookingsPage() {
     </div>
   );
 } 
+
+
+export default function AdminBookingsPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-background" />}>
+      <AdminBookingsPageContent />
+    </Suspense>
+  );
+}

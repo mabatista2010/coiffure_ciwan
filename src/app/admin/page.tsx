@@ -8,9 +8,12 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import StylistManagement from './stylist-management';
 import LocationManagement from './location-management';
 import ServiceManagement from '@/components/admin/services/ServiceManagement';
+import { useAdminAccess } from '@/components/admin/AdminAccessProvider';
 import { AdminCard, AdminCardContent, AdminCardHeader, SectionHeader } from '@/components/admin/ui';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { hasPermission } from '@/lib/permissions/helpers';
+import { canAccessAdminPath, getDefaultAdminPath } from '@/lib/permissions/routing';
 
 // Definir la interfaz Location
 interface Location {
@@ -25,6 +28,7 @@ interface Location {
 }
 
 function AdminPageContent() {
+  const { accessContext, isLoading: loadingAccess } = useAdminAccess();
   const router = useRouter();
   const searchParams = useSearchParams();
   const sectionParam = searchParams.get('section');
@@ -76,20 +80,25 @@ function AdminPageContent() {
   
   // Estado pour indiquer le chargement
   const [isUploading, setIsUploading] = useState(false);
+  const canViewGallery = hasPermission(accessContext, 'gallery.view');
+  const canEditGallery = hasPermission(accessContext, 'gallery.edit');
+  const canDeleteGallery = hasPermission(accessContext, 'gallery.delete');
 
   useEffect(() => {
+    if (loadingAccess) return;
+
     if (!sectionParam) {
-      router.replace('/admin/home');
+      router.replace(getDefaultAdminPath(accessContext));
       return;
     }
 
-    if (hasValidSection) {
+    if (hasValidSection && canAccessAdminPath(accessContext, '/admin', sectionParam)) {
       setActiveSection(sectionParam);
       return;
     }
 
-    router.replace('/admin?section=services');
-  }, [hasValidSection, router, sectionParam]);
+    router.replace(getDefaultAdminPath(accessContext));
+  }, [accessContext, hasValidSection, loadingAccess, router, sectionParam]);
 
   const loadData = useCallback(async () => {
     try {
@@ -177,10 +186,14 @@ function AdminPageContent() {
   }, []);
 
   useEffect(() => {
-    if (!hasValidSection) return;
+    if (loadingAccess || !hasValidSection || !canAccessAdminPath(accessContext, '/admin', sectionParam)) return;
     // Cargar los datos iniciales solo cuando la sección de configuración es válida.
     loadData();
-  }, [hasValidSection, loadData]);
+  }, [accessContext, hasValidSection, loadData, loadingAccess, sectionParam]);
+
+  if (loadingAccess) {
+    return null;
+  }
 
   // Fonction pour gérer la sélection de fichiers
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, setFile: React.Dispatch<React.SetStateAction<File | null>>, setPreview: React.Dispatch<React.SetStateAction<string>>) => {
@@ -248,6 +261,7 @@ function AdminPageContent() {
 
   const handleAddImage = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!canEditGallery) return;
     
     try {
       let imagen_url = newImage.imagen_url;
@@ -300,6 +314,7 @@ function AdminPageContent() {
 
   // Añadir función para editar una imagen
   const handleEditImage = (image: GalleryImage) => {
+    if (!canEditGallery) return;
     setNewImage({
       descripcion: image.descripcion,
       imagen_url: image.imagen_url,
@@ -330,6 +345,7 @@ function AdminPageContent() {
   };
 
   const handleDeleteImage = async (id: number) => {
+    if (!canDeleteGallery) return;
     if (confirm('Êtes-vous sûr de vouloir supprimer cette image ?')) {
       try {
         const { error } = await supabase
@@ -448,21 +464,35 @@ function AdminPageContent() {
               title="Gestion de la Galerie"
               description="Ajout, édition et suppression des médias de la galerie."
             />
+
+            {!canViewGallery ? (
+              <div className="rounded-xl border border-border bg-card p-4 text-sm text-muted-foreground">
+                Vous n’avez pas accès à la galerie.
+              </div>
+            ) : null}
+
+            {canViewGallery && !canEditGallery ? (
+              <div className="rounded-xl border border-border bg-card p-4 text-sm text-muted-foreground">
+                Accès en lecture seule: les médias restent visibles, mais les modifications sont désactivées.
+              </div>
+            ) : null}
             
-            <Button
-              onClick={() => {
-                if (showGalleryForm) {
-                  cancelGalleryForm();
-                } else {
-                  setShowGalleryForm(true);
-                }
-              }}
-              variant={showGalleryForm ? 'outline' : 'default'}
-            >
-              {showGalleryForm ? 'Fermer formulaire' : 'Ajouter nouvelle image'}
-            </Button>
+            {canEditGallery ? (
+              <Button
+                onClick={() => {
+                  if (showGalleryForm) {
+                    cancelGalleryForm();
+                  } else {
+                    setShowGalleryForm(true);
+                  }
+                }}
+                variant={showGalleryForm ? 'outline' : 'default'}
+              >
+                {showGalleryForm ? 'Fermer formulaire' : 'Ajouter nouvelle image'}
+              </Button>
+            ) : null}
             
-            {showGalleryForm && (
+            {showGalleryForm && canEditGallery && (
               <AdminCard tone="highlight">
                 <AdminCardHeader>
                   <h2 className="text-xl font-semibold text-primary">
@@ -530,7 +560,7 @@ function AdminPageContent() {
                     <div className="flex flex-wrap items-center gap-3 pt-2 md:col-span-2">
                       <Button
                         type="submit"
-                        disabled={isUploading}
+                        disabled={isUploading || !canEditGallery}
                       >
                         {isUploading ? 'Téléchargement...' : (editingGalleryId ? 'Mise à jour' : 'Ajouter image')}
                       </Button>
@@ -547,7 +577,7 @@ function AdminPageContent() {
               </AdminCard>
             )}
             
-            <AdminCard>
+            {canViewGallery ? <AdminCard>
               <AdminCardHeader>
                 <h2 className="text-xl font-semibold text-primary">Images de la Galerie</h2>
               </AdminCardHeader>
@@ -584,6 +614,7 @@ function AdminPageContent() {
                             type="button"
                             variant="outline"
                             className="flex-1"
+                            disabled={!canEditGallery}
                             onClick={() => handleEditImage(image)}
                           >
                             Modifier
@@ -592,6 +623,7 @@ function AdminPageContent() {
                             type="button"
                             variant="destructive"
                             className="flex-1"
+                            disabled={!canDeleteGallery}
                             onClick={() => handleDeleteImage(image.id)}
                           >
                             Supprimer
@@ -602,7 +634,7 @@ function AdminPageContent() {
                   </div>
                 )}
               </AdminCardContent>
-            </AdminCard>
+            </AdminCard> : null}
           </div>
         )}
         

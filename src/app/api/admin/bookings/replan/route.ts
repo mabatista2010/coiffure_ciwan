@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 
 import { requireStaffAuth } from '@/lib/apiAuth';
+import { getScopedPermissionFilter, getStaffAccessContext } from '@/lib/permissions/server';
 import { getSupabaseAdminClient } from '@/lib/supabaseAdmin';
 
 const MAX_BULK_IDS = 200;
@@ -20,33 +21,12 @@ function unprocessable(code: string, error: string) {
   return NextResponse.json({ code, error }, { status: 422 });
 }
 
-async function getEmployeeStylistScope(userId: string): Promise<{ stylistId: string | null; response?: NextResponse }> {
-  const supabase = getSupabaseAdminClient();
-  const { data, error } = await supabase
-    .from('stylist_users')
-    .select('stylist_id')
-    .eq('user_id', userId)
-    .maybeSingle();
-
-  if (error) {
-    console.error('replan_scope_fetch_error', error);
-    return {
-      stylistId: null,
-      response: NextResponse.json(
-        { code: 'scope_fetch_failed', error: 'Impossible de déterminer le scope du styliste' },
-        { status: 500 }
-      ),
-    };
-  }
-
-  return { stylistId: data?.stylist_id || null };
-}
-
 export async function GET(request: Request) {
   try {
     const auth = await requireStaffAuth(request, {
-      allowedRoles: ['admin', 'employee'],
+      allowedRoles: ['admin', 'staff'],
       feature: 'admin_replan_get',
+      requiredPermission: 'reservations.replan',
     });
 
     if ('response' in auth) {
@@ -78,18 +58,14 @@ export async function GET(request: Request) {
     }
 
     const supabase = getSupabaseAdminClient();
+    const accessContext = await getStaffAccessContext(auth.userId);
+    const scope = getScopedPermissionFilter(accessContext, 'reservations.replan');
 
-    let scopedStylistId: string | null = stylistIdParam || null;
-    if (auth.role === 'employee') {
-      const scope = await getEmployeeStylistScope(auth.userId);
-      if (scope.response) {
-        return scope.response;
-      }
-
-      scopedStylistId = scope.stylistId;
-      if (!scopedStylistId) {
-        return NextResponse.json({ bookings: [], scope: { role: auth.role, stylist_id: null } }, { status: 200 });
-      }
+    if (scope.kind === 'none') {
+      return NextResponse.json(
+        { bookings: [], scope: { role: auth.role, stylist_id: null, location_ids: [], code: scope.code } },
+        { status: 200 }
+      );
     }
 
     let query = supabase
@@ -118,8 +94,15 @@ export async function GET(request: Request) {
       .order('start_time', { ascending: true })
       .limit(limit);
 
-    if (scopedStylistId) {
-      query = query.eq('stylist_id', scopedStylistId);
+    if (scope.kind === 'stylist') {
+      query = query.eq('stylist_id', stylistIdParam ?? scope.stylistId);
+    } else if (scope.kind === 'locations') {
+      query = query.in('location_id', scope.locationIds);
+      if (stylistIdParam) {
+        query = query.eq('stylist_id', stylistIdParam);
+      }
+    } else if (stylistIdParam) {
+      query = query.eq('stylist_id', stylistIdParam);
     }
 
     if (locationIdParam) {
@@ -147,7 +130,11 @@ export async function GET(request: Request) {
     return NextResponse.json(
       {
         bookings: data || [],
-        scope: { role: auth.role, stylist_id: auth.role === 'employee' ? scopedStylistId : null },
+        scope: {
+          role: auth.role,
+          stylist_id: scope.kind === 'stylist' ? scope.stylistId : null,
+          location_ids: scope.kind === 'locations' ? scope.locationIds : [],
+        },
       },
       { status: 200 }
     );
@@ -163,8 +150,9 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   try {
     const auth = await requireStaffAuth(request, {
-      allowedRoles: ['admin', 'employee'],
+      allowedRoles: ['admin', 'staff'],
       feature: 'admin_replan_post',
+      requiredPermission: 'reservations.replan',
     });
 
     if ('response' in auth) {
@@ -179,17 +167,11 @@ export async function POST(request: Request) {
     }
 
     const supabase = getSupabaseAdminClient();
+    const accessContext = await getStaffAccessContext(auth.userId);
+    const scope = getScopedPermissionFilter(accessContext, 'reservations.replan');
 
-    let scopedStylistId: string | null = null;
-    if (auth.role === 'employee') {
-      const scope = await getEmployeeStylistScope(auth.userId);
-      if (scope.response) {
-        return scope.response;
-      }
-      scopedStylistId = scope.stylistId;
-      if (!scopedStylistId) {
-        return unprocessable('employee_without_stylist', 'Aucun styliste associé à ce compte');
-      }
+    if (scope.kind === 'none') {
+      return unprocessable(scope.code, 'Scope insuffisant pour replanifier cette réservation');
     }
 
     if (action === 'move') {
@@ -218,8 +200,10 @@ export async function POST(request: Request) {
         .eq('id', bookingId)
         .eq('status', 'needs_replan');
 
-      if (scopedStylistId) {
-        bookingQuery = bookingQuery.eq('stylist_id', scopedStylistId);
+      if (scope.kind === 'stylist') {
+        bookingQuery = bookingQuery.eq('stylist_id', scope.stylistId);
+      } else if (scope.kind === 'locations') {
+        bookingQuery = bookingQuery.in('location_id', scope.locationIds);
       }
 
       const { data: booking, error: bookingError } = await bookingQuery.maybeSingle();
@@ -280,8 +264,10 @@ export async function POST(request: Request) {
         .eq('status', 'needs_replan')
         .select('id,booking_date,start_time,end_time,status,replan_reason,replan_marked_at');
 
-      if (scopedStylistId) {
-        updateQuery = updateQuery.eq('stylist_id', scopedStylistId);
+      if (scope.kind === 'stylist') {
+        updateQuery = updateQuery.eq('stylist_id', scope.stylistId);
+      } else if (scope.kind === 'locations') {
+        updateQuery = updateQuery.in('location_id', scope.locationIds);
       }
 
       const { data: movedBooking, error: moveError } = await updateQuery.maybeSingle();
@@ -330,8 +316,10 @@ export async function POST(request: Request) {
       .eq('status', 'needs_replan')
       .select('id');
 
-    if (scopedStylistId) {
-      query = query.eq('stylist_id', scopedStylistId);
+    if (scope.kind === 'stylist') {
+      query = query.eq('stylist_id', scope.stylistId);
+    } else if (scope.kind === 'locations') {
+      query = query.in('location_id', scope.locationIds);
     }
 
     const { data: updatedRows, error: updateError } = await query;

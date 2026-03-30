@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 
 import { requireStaffAuth } from '@/lib/apiAuth';
+import { getScopedPermissionFilter, getStaffAccessContext } from '@/lib/permissions/server';
 import { getSupabaseAdminClient } from '@/lib/supabaseAdmin';
 
 const MAX_BULK_IDS = 500;
@@ -61,33 +62,12 @@ function normalizePendingRows(rows: PendingBookingRowFromQuery[]): PendingBookin
   }));
 }
 
-async function getEmployeeStylistScope(userId: string): Promise<{ stylistId: string | null; error?: NextResponse }> {
-  const supabase = getSupabaseAdminClient();
-  const { data, error } = await supabase
-    .from('stylist_users')
-    .select('stylist_id')
-    .eq('user_id', userId)
-    .maybeSingle();
-
-  if (error) {
-    console.error('pending_bookings_scope_error', error);
-    return {
-      stylistId: null,
-      error: NextResponse.json(
-        { code: 'scope_fetch_failed', error: 'Impossible de déterminer le scope du styliste' },
-        { status: 500 }
-      ),
-    };
-  }
-
-  return { stylistId: data?.stylist_id || null };
-}
-
 export async function GET(request: Request) {
   try {
     const auth = await requireStaffAuth(request, {
-      allowedRoles: ['admin', 'employee'],
+      allowedRoles: ['admin', 'staff'],
       feature: 'admin_pending_bookings_get',
+      requiredPermission: 'reservations.manage_pending',
     });
 
     if ('response' in auth) {
@@ -96,24 +76,17 @@ export async function GET(request: Request) {
 
     const todayKey = toDateKey(new Date());
     const supabase = getSupabaseAdminClient();
+    const accessContext = await getStaffAccessContext(auth.userId);
+    const scope = getScopedPermissionFilter(accessContext, 'reservations.manage_pending');
 
-    let scopedStylistId: string | null = null;
-    if (auth.role === 'employee') {
-      const scope = await getEmployeeStylistScope(auth.userId);
-      if (scope.error) {
-        return scope.error;
-      }
-      scopedStylistId = scope.stylistId;
-
-      if (!scopedStylistId) {
-        return NextResponse.json(
-          {
-            bookings: [],
-            scope: { role: auth.role, stylist_id: null, code: 'employee_without_stylist' },
-          },
-          { status: 200 }
-        );
-      }
+    if (scope.kind === 'none') {
+      return NextResponse.json(
+        {
+          bookings: [],
+          scope: { role: auth.role, stylist_id: null, location_ids: [], code: scope.code },
+        },
+        { status: 200 }
+      );
     }
 
     let query = supabase
@@ -142,8 +115,10 @@ export async function GET(request: Request) {
       .order('start_time', { ascending: true })
       .limit(300);
 
-    if (scopedStylistId) {
-      query = query.eq('stylist_id', scopedStylistId);
+    if (scope.kind === 'stylist') {
+      query = query.eq('stylist_id', scope.stylistId);
+    } else if (scope.kind === 'locations') {
+      query = query.in('location_id', scope.locationIds);
     }
 
     const { data, error } = await query;
@@ -159,7 +134,11 @@ export async function GET(request: Request) {
     return NextResponse.json(
       {
         bookings: normalizePendingRows((data || []) as PendingBookingRowFromQuery[]),
-        scope: { role: auth.role, stylist_id: scopedStylistId },
+        scope: {
+          role: auth.role,
+          stylist_id: scope.kind === 'stylist' ? scope.stylistId : null,
+          location_ids: scope.kind === 'locations' ? scope.locationIds : [],
+        },
       },
       { status: 200 }
     );
@@ -175,8 +154,9 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   try {
     const auth = await requireStaffAuth(request, {
-      allowedRoles: ['admin', 'employee'],
+      allowedRoles: ['admin', 'staff'],
       feature: 'admin_pending_bookings_confirm',
+      requiredPermission: 'reservations.manage_pending',
     });
 
     if ('response' in auth) {
@@ -200,21 +180,11 @@ export async function POST(request: Request) {
 
     const todayKey = toDateKey(new Date());
     const supabase = getSupabaseAdminClient();
+    const accessContext = await getStaffAccessContext(auth.userId);
+    const scope = getScopedPermissionFilter(accessContext, 'reservations.manage_pending');
 
-    let scopedStylistId: string | null = null;
-    if (auth.role === 'employee') {
-      const scope = await getEmployeeStylistScope(auth.userId);
-      if (scope.error) {
-        return scope.error;
-      }
-      scopedStylistId = scope.stylistId;
-
-      if (!scopedStylistId) {
-        return unprocessable(
-          'employee_without_stylist',
-          'Aucun styliste associé à ce compte employé'
-        );
-      }
+    if (scope.kind === 'none') {
+      return unprocessable(scope.code, 'Scope insuffisant pour valider des réservations');
     }
 
     let eligibleQuery = supabase
@@ -223,8 +193,10 @@ export async function POST(request: Request) {
       .eq('status', 'pending')
       .gte('booking_date', todayKey);
 
-    if (scopedStylistId) {
-      eligibleQuery = eligibleQuery.eq('stylist_id', scopedStylistId);
+    if (scope.kind === 'stylist') {
+      eligibleQuery = eligibleQuery.eq('stylist_id', scope.stylistId);
+    } else if (scope.kind === 'locations') {
+      eligibleQuery = eligibleQuery.in('location_id', scope.locationIds);
     }
 
     if (!approveAll) {
@@ -262,8 +234,10 @@ export async function POST(request: Request) {
       .eq('status', 'pending')
       .select('id');
 
-    if (scopedStylistId) {
-      updateQuery = updateQuery.eq('stylist_id', scopedStylistId);
+    if (scope.kind === 'stylist') {
+      updateQuery = updateQuery.eq('stylist_id', scope.stylistId);
+    } else if (scope.kind === 'locations') {
+      updateQuery = updateQuery.in('location_id', scope.locationIds);
     }
 
     const { data: updatedRows, error: updateError } = await updateQuery;

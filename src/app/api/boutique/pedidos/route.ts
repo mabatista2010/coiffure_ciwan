@@ -1,11 +1,13 @@
 import { NextResponse } from 'next/server';
+
 import { requireStaffAuth } from '@/lib/apiAuth';
 import { getSupabaseAdminClient } from '@/lib/supabaseAdmin';
 
 export async function GET(request: Request) {
   try {
     const auth = await requireStaffAuth(request, {
-      allowedRoles: ['admin'],
+      allowedRoles: ['admin', 'staff'],
+      requiredPermission: 'boutique.orders.view',
       feature: 'boutique_pedidos_list',
     });
     if ('response' in auth) {
@@ -13,8 +15,6 @@ export async function GET(request: Request) {
     }
 
     const supabase = getSupabaseAdminClient();
-
-    // Obtener todos los pedidos
     const { data: pedidos, error: pedidosError } = await supabase
       .from('pedidos')
       .select('*')
@@ -25,7 +25,6 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: 'Error al obtener pedidos' }, { status: 500 });
     }
 
-    // Para cada pedido, obtener sus items con información del producto
     const pedidosConItems = await Promise.all(
       pedidos.map(async (pedido) => {
         const { data: items, error: itemsError } = await supabase
@@ -50,4 +49,4 @@ export async function GET(request: Request) {
     console.error('Error in pedidos API:', error);
     return NextResponse.json({ error: 'Error interno del servidor' }, { status: 500 });
   }
-} 
+}

@@ -1,12 +1,13 @@
 import { NextResponse } from 'next/server';
 
+import type { StaffRole } from '@/lib/permissions/catalog';
+import { getStaffAccessContext, hasPermission } from '@/lib/permissions/server';
 import { getSupabaseAdminClient } from '@/lib/supabaseAdmin';
-
-export type StaffRole = 'admin' | 'employee';
 
 interface RequireStaffAuthOptions {
   allowedRoles?: StaffRole[];
   feature?: string;
+  requiredPermission?: string;
 }
 
 type RequireStaffAuthResult =
@@ -51,7 +52,7 @@ export async function requireStaffAuth(
   options: RequireStaffAuthOptions = {}
 ): Promise<RequireStaffAuthResult> {
   const feature = options.feature ?? 'api';
-  const allowedRoles = options.allowedRoles ?? ['admin', 'employee'];
+  const allowedRoles = options.allowedRoles ?? ['admin', 'staff'];
   const path = extractPath(request.url);
   const token = extractBearerToken(request);
 
@@ -104,6 +105,21 @@ export async function requireStaffAuth(
         reason: 'insufficient_role',
       });
       return { response: forbidden('insufficient_role') };
+    }
+
+    if (options.requiredPermission) {
+      const accessContext = await getStaffAccessContext(userId);
+      if (!hasPermission(accessContext, options.requiredPermission)) {
+        console.warn('api_auth_denied', {
+          feature,
+          path,
+          user_id: userId,
+          role,
+          permission: options.requiredPermission,
+          reason: 'insufficient_permission',
+        });
+        return { response: forbidden('insufficient_permission') };
+      }
     }
 
     return { userId, role };

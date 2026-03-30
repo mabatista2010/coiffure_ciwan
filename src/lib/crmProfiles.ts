@@ -65,6 +65,46 @@ export async function findProfileByCustomerKey(
   return data ?? null;
 }
 
+export async function findProfileByIdentifiers(
+  supabase: SupabaseClient,
+  options: {
+    customerKeyRaw?: string | null;
+    customerEmail?: string | null;
+    customerPhone?: string | null;
+  }
+): Promise<CustomerProfileRow | null> {
+  const attempted = new Set<string>();
+
+  const key = parseCustomerKey(options.customerKeyRaw || '');
+  if (key) {
+    const lookupKey = `${key.type}:${key.value}`;
+    attempted.add(lookupKey);
+    const profileByKey = await findProfileByCustomerKey(supabase, lookupKey);
+    if (profileByKey) {
+      return profileByKey;
+    }
+  }
+
+  const normalizedEmail = normalizeEmail(options.customerEmail || '');
+  if (normalizedEmail && !attempted.has(`email:${normalizedEmail}`)) {
+    attempted.add(`email:${normalizedEmail}`);
+    const profileByEmail = await findProfileByCustomerKey(supabase, `email:${normalizedEmail}`);
+    if (profileByEmail) {
+      return profileByEmail;
+    }
+  }
+
+  const normalizedPhone = normalizePhone(options.customerPhone || '');
+  if (normalizedPhone && !attempted.has(`phone:${normalizedPhone}`)) {
+    const profileByPhone = await findProfileByCustomerKey(supabase, `phone:${normalizedPhone}`);
+    if (profileByPhone) {
+      return profileByPhone;
+    }
+  }
+
+  return null;
+}
+
 export function sanitizeProfileInput(input: CustomerProfileInput): CustomerProfileInput {
   const birthDate = input.birthDate ? input.birthDate.trim() : null;
   if (birthDate) {

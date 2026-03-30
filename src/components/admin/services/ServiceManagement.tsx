@@ -7,6 +7,7 @@ import { MoreHorizontal, Plus, Search, ChevronDown, ChevronRight, ArrowUp, Arrow
 import { v4 as uuidv4 } from 'uuid';
 
 import { supabase } from '@/lib/supabase';
+import { useAdminAccess } from '@/components/admin/AdminAccessProvider';
 import {
   buildServiceCatalog,
   getPublicFeaturedServices,
@@ -19,6 +20,7 @@ import {
 } from '@/lib/serviceCatalog';
 import { getSafeServiceDuration, getServiceDurationValidationMessage } from '@/lib/serviceDuration';
 import { getImageUrl } from '@/lib/getImageUrl';
+import { hasPermission } from '@/lib/permissions/helpers';
 import { AdminCard, AdminCardContent, AdminCardHeader, AdminSidePanel, SectionHeader } from '@/components/admin/ui';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -247,6 +249,7 @@ function FloatingNodeMenu({
 }
 
 export default function ServiceManagement({ onUpdate }: ServiceManagementProps) {
+  const { accessContext } = useAdminAccess();
   const [groups, setGroups] = useState<ServiceGroup[]>([]);
   const [subgroups, setSubgroups] = useState<ServiceSubgroup[]>([]);
   const [services, setServices] = useState<CatalogService[]>([]);
@@ -272,6 +275,13 @@ export default function ServiceManagement({ onUpdate }: ServiceManagementProps) 
 
   const catalog = useMemo(() => buildServiceCatalog(groups, subgroups, services), [groups, subgroups, services]);
   const featuredLanding = useMemo(() => getPublicFeaturedServices(catalog), [catalog]);
+  const canViewServices = hasPermission(accessContext, 'services.view');
+  const canEditServicesContent = hasPermission(accessContext, 'services.content.edit');
+  const canEditServicesBusiness = hasPermission(accessContext, 'services.business.edit');
+  const canDeleteServices = hasPermission(accessContext, 'services.delete');
+  const canCreateGroupsAndSubgroups = canEditServicesContent;
+  const canCreateServices = canEditServicesContent && canEditServicesBusiness;
+  const isReadOnly = !canEditServicesContent && !canEditServicesBusiness && !canDeleteServices;
 
   const editingGroupNode = useMemo(() => {
     if (editor?.kind !== 'group' || editor.mode !== 'edit' || !editor.form.id) return null;
@@ -298,6 +308,17 @@ export default function ServiceManagement({ onUpdate }: ServiceManagementProps) 
       ])
       .find((node) => node.service.id === editor.form.id) ?? null;
   }, [catalog, editor]);
+
+  const canSaveEditor = useMemo(() => {
+    if (!editor) return false;
+    if (editor.kind === 'group' || editor.kind === 'subgroup') {
+      return canEditServicesContent;
+    }
+    if (editor.mode === 'create') {
+      return canCreateServices;
+    }
+    return canEditServicesContent || canEditServicesBusiness;
+  }, [canCreateServices, canEditServicesBusiness, canEditServicesContent, editor]);
 
   const filteredCatalog = useMemo(() => {
     const query = search.trim().toLowerCase();
@@ -451,10 +472,12 @@ export default function ServiceManagement({ onUpdate }: ServiceManagementProps) 
   }
 
   function openCreateGroup() {
+    if (!canCreateGroupsAndSubgroups) return;
     setEditor({ kind: 'group', mode: 'create', form: createEmptyGroupForm() });
   }
 
   function openEditGroup(group: ServiceGroup) {
+    if (!canEditServicesContent) return;
     setEditor({
       kind: 'group',
       mode: 'edit',
@@ -473,10 +496,12 @@ export default function ServiceManagement({ onUpdate }: ServiceManagementProps) 
   }
 
   function openCreateSubgroup(groupId: number) {
+    if (!canCreateGroupsAndSubgroups) return;
     setEditor({ kind: 'subgroup', mode: 'create', form: createEmptySubgroupForm(groupId) });
   }
 
   function openEditSubgroup(subgroup: ServiceSubgroup) {
+    if (!canEditServicesContent) return;
     setEditor({
       kind: 'subgroup',
       mode: 'edit',
@@ -494,10 +519,12 @@ export default function ServiceManagement({ onUpdate }: ServiceManagementProps) 
   }
 
   function openCreateService(groupId: number, subgroupId: number | null = null) {
+    if (!canCreateServices) return;
     setEditor({ kind: 'service', mode: 'create', form: createEmptyServiceForm(groupId, subgroupId) });
   }
 
   function openEditService(service: CatalogService) {
+    if (!canEditServicesContent && !canEditServicesBusiness) return;
     setEditor({
       kind: 'service',
       mode: 'edit',
@@ -521,6 +548,7 @@ export default function ServiceManagement({ onUpdate }: ServiceManagementProps) 
   }
 
   function openDuplicateService(node: ServiceLeafNode) {
+    if (!canCreateServices) return;
     const service = node.service;
     setEditor({
       kind: 'service',
@@ -595,6 +623,14 @@ export default function ServiceManagement({ onUpdate }: ServiceManagementProps) 
 
   async function handleSave() {
     if (!editor) return;
+    if (editor.kind === 'service' && (!canEditServicesContent || !canEditServicesBusiness)) {
+      setErrorMessage('Vous n’avez pas les permissions suffisantes pour sauvegarder ce service.');
+      return;
+    }
+    if ((editor.kind === 'group' || editor.kind === 'subgroup') && !canEditServicesContent) {
+      setErrorMessage('Vous n’avez pas les permissions suffisantes pour modifier cette structure.');
+      return;
+    }
     setSaving(true);
     setErrorMessage('');
 
@@ -692,6 +728,7 @@ export default function ServiceManagement({ onUpdate }: ServiceManagementProps) 
   }
 
   async function toggleNodeVisibility(kind: EditorKind, id: number, value: boolean) {
+    if (!canEditServicesContent) return;
     try {
       if (kind === 'group') {
         const { error } = await supabase.from('service_groups').update({ is_visible: value }).eq('id', id);
@@ -712,6 +749,7 @@ export default function ServiceManagement({ onUpdate }: ServiceManagementProps) 
   }
 
   async function toggleLandingFeatured(node: ServiceLeafNode, value: boolean) {
+    if (!canEditServicesContent) return;
     try {
       if (value && !canEnableLandingFeatured(node.service.id)) {
         setErrorMessage('Maximum 6 services mis en avant sur la landing');
@@ -731,6 +769,7 @@ export default function ServiceManagement({ onUpdate }: ServiceManagementProps) 
 
 
   async function deleteService(node: ServiceLeafNode) {
+    if (!canDeleteServices) return;
     const serviceId = node.service.id;
 
     try {
@@ -746,12 +785,12 @@ export default function ServiceManagement({ onUpdate }: ServiceManagementProps) 
         title: 'Supprimer ce service ?',
         description:
           bookingCount > 0
-            ? `Ce service sera supprimé définitivement. ${bookingCount} réservation(s) historique(s) seront conservées, mais la référence du service sera retirée.`
-            : 'Ce service sera supprimé définitivement.',
-        confirmLabel: 'Supprimer',
+            ? `Ce service sera retiré du catalogue actif. ${bookingCount} réservation(s) historique(s) seront conservées et le service restera archivé dans l’admin.`
+            : 'Ce service sera retiré du catalogue actif, sans suppression définitive.',
+        confirmLabel: 'Retirer',
         confirmTone: 'danger',
         onConfirm: async () => {
-          const { error } = await supabase.from('servicios').delete().eq('id', serviceId);
+          const { error } = await supabase.from('servicios').update({ active: false }).eq('id', serviceId);
           if (error) throw error;
 
           if (editor?.kind === 'service' && editor.form.id === serviceId) {
@@ -769,6 +808,7 @@ export default function ServiceManagement({ onUpdate }: ServiceManagementProps) 
 
 
   async function deleteEmptyGroup(groupNode: ServiceGroupNode) {
+    if (!canDeleteServices) return;
     if (groupNode.mode !== 'empty') {
       requestAlert({
         title: 'Suppression impossible',
@@ -799,6 +839,7 @@ export default function ServiceManagement({ onUpdate }: ServiceManagementProps) 
   }
 
   async function deleteEmptySubgroup(groupNode: ServiceGroupNode, subgroupNode: ServiceSubgroupNode) {
+    if (!canDeleteServices) return;
     if (subgroupNode.services.length > 0) {
       requestAlert({
         title: 'Suppression impossible',
@@ -829,6 +870,7 @@ export default function ServiceManagement({ onUpdate }: ServiceManagementProps) 
   }
 
   async function convertSingleSubgroupToDirectServices(groupNode: ServiceGroupNode, subgroupNode: ServiceSubgroupNode) {
+    if (!canEditServicesContent) return;
     if (groupNode.mode !== 'subgroups' || groupNode.subgroups.length !== 1) {
       setErrorMessage("Cette conversion n'est possible que si le groupe contient un seul sous-groupe.");
       return;
@@ -853,6 +895,7 @@ export default function ServiceManagement({ onUpdate }: ServiceManagementProps) 
   }
 
   async function moveNode(kind: EditorKind, currentId: number, direction: 'up' | 'down', scopeIds: number[]) {
+    if (!canEditServicesContent) return;
     const currentIndex = scopeIds.indexOf(currentId);
     const swapIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1;
     if (currentIndex < 0 || swapIndex < 0 || swapIndex >= scopeIds.length) return;
@@ -936,20 +979,20 @@ export default function ServiceManagement({ onUpdate }: ServiceManagementProps) 
             </div>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <label className="flex items-center gap-2 text-xs text-muted-foreground"><span>Visible</span><input type="checkbox" checked={node.service.active !== false} onChange={(e) => void toggleNodeVisibility('service', node.service.id, e.target.checked)} /></label>
-            <label className="flex items-center gap-2 text-xs text-muted-foreground"><span>Landing</span><input type="checkbox" checked={Boolean(node.service.landing_featured)} onChange={(e) => void toggleLandingFeatured(node, e.target.checked)} /></label>
+            <label className="flex items-center gap-2 text-xs text-muted-foreground"><span>Visible</span><input type="checkbox" disabled={!canEditServicesContent} checked={node.service.active !== false} onChange={(e) => void toggleNodeVisibility('service', node.service.id, e.target.checked)} /></label>
+            <label className="flex items-center gap-2 text-xs text-muted-foreground"><span>Landing</span><input type="checkbox" disabled={!canEditServicesContent} checked={Boolean(node.service.landing_featured)} onChange={(e) => void toggleLandingFeatured(node, e.target.checked)} /></label>
             <div className="flex items-center gap-1">
-              <Button type="button" variant="ghost" size="icon" className="h-8 w-8" onClick={() => void moveNode('service', node.service.id, 'up', getServiceScopeIds(groupNode, subgroupNode))}><ArrowUp className="h-4 w-4" /></Button>
-              <Button type="button" variant="ghost" size="icon" className="h-8 w-8" onClick={() => void moveNode('service', node.service.id, 'down', getServiceScopeIds(groupNode, subgroupNode))}><ArrowDown className="h-4 w-4" /></Button>
+              <Button type="button" variant="ghost" size="icon" className="h-8 w-8" disabled={!canEditServicesContent} onClick={() => void moveNode('service', node.service.id, 'up', getServiceScopeIds(groupNode, subgroupNode))}><ArrowUp className="h-4 w-4" /></Button>
+              <Button type="button" variant="ghost" size="icon" className="h-8 w-8" disabled={!canEditServicesContent} onClick={() => void moveNode('service', node.service.id, 'down', getServiceScopeIds(groupNode, subgroupNode))}><ArrowDown className="h-4 w-4" /></Button>
             </div>
-            {renderNodeMenu(
+            {!isReadOnly ? renderNodeMenu(
               <div className="space-y-1">
-                <Button type="button" variant="ghost" className="w-full justify-start whitespace-normal" onClick={() => openEditService(node.service)}>Modifier le service</Button>
-                <Button type="button" variant="ghost" className="w-full justify-start whitespace-normal" onClick={() => openDuplicateService(node)}>Dupliquer le service</Button>
-                <Button type="button" variant="ghost" className="w-full justify-start whitespace-normal text-destructive hover:text-destructive" onClick={() => void deleteService(node)}>Supprimer le service</Button>
+                {(canEditServicesContent || canEditServicesBusiness) ? <Button type="button" variant="ghost" className="w-full justify-start whitespace-normal" onClick={() => openEditService(node.service)}>Modifier le service</Button> : null}
+                {canCreateServices ? <Button type="button" variant="ghost" className="w-full justify-start whitespace-normal" onClick={() => openDuplicateService(node)}>Dupliquer le service</Button> : null}
+                {canDeleteServices ? <Button type="button" variant="ghost" className="w-full justify-start whitespace-normal text-destructive hover:text-destructive" onClick={() => void deleteService(node)}>Retirer le service</Button> : null}
               </div>,
               `${makeNodeKey('service', node.service.id)}:menu`
-            )}
+            ) : null}
           </div>
         </div>
       </div>
@@ -975,16 +1018,16 @@ export default function ServiceManagement({ onUpdate }: ServiceManagementProps) 
             </div>
             <p className="truncate text-xs text-muted-foreground">/{subgroupNode.subgroup.slug}</p>
           </div>
-          <label className="flex items-center gap-2 text-xs text-muted-foreground"><span>Visible</span><input type="checkbox" checked={subgroupNode.subgroup.is_visible} onChange={(e) => void toggleNodeVisibility('subgroup', subgroupNode.subgroup.id, e.target.checked)} /></label>
+          <label className="flex items-center gap-2 text-xs text-muted-foreground"><span>Visible</span><input type="checkbox" disabled={!canEditServicesContent} checked={subgroupNode.subgroup.is_visible} onChange={(e) => void toggleNodeVisibility('subgroup', subgroupNode.subgroup.id, e.target.checked)} /></label>
           <div className="flex items-center gap-1">
-            <Button type="button" variant="ghost" size="icon" className="h-8 w-8" onClick={() => void moveNode('subgroup', subgroupNode.subgroup.id, 'up', getSubgroupScopeIds(groupNode))}><ArrowUp className="h-4 w-4" /></Button>
-            <Button type="button" variant="ghost" size="icon" className="h-8 w-8" onClick={() => void moveNode('subgroup', subgroupNode.subgroup.id, 'down', getSubgroupScopeIds(groupNode))}><ArrowDown className="h-4 w-4" /></Button>
+            <Button type="button" variant="ghost" size="icon" className="h-8 w-8" disabled={!canEditServicesContent} onClick={() => void moveNode('subgroup', subgroupNode.subgroup.id, 'up', getSubgroupScopeIds(groupNode))}><ArrowUp className="h-4 w-4" /></Button>
+            <Button type="button" variant="ghost" size="icon" className="h-8 w-8" disabled={!canEditServicesContent} onClick={() => void moveNode('subgroup', subgroupNode.subgroup.id, 'down', getSubgroupScopeIds(groupNode))}><ArrowDown className="h-4 w-4" /></Button>
           </div>
-          {renderNodeMenu(
+          {!isReadOnly ? renderNodeMenu(
             <div className="space-y-1">
-              <Button type="button" variant="ghost" className="w-full justify-start whitespace-normal" onClick={() => openEditSubgroup(subgroupNode.subgroup)}>Modifier le sous-groupe</Button>
-              <Button type="button" variant="ghost" className="w-full justify-start whitespace-normal" onClick={() => openCreateService(groupNode.group.id, subgroupNode.subgroup.id)}>Nouveau service</Button>
-              {groupNode.subgroups.length === 1 ? (
+              {canEditServicesContent ? <Button type="button" variant="ghost" className="w-full justify-start whitespace-normal" onClick={() => openEditSubgroup(subgroupNode.subgroup)}>Modifier le sous-groupe</Button> : null}
+              {canCreateServices ? <Button type="button" variant="ghost" className="w-full justify-start whitespace-normal" onClick={() => openCreateService(groupNode.group.id, subgroupNode.subgroup.id)}>Nouveau service</Button> : null}
+              {canEditServicesContent && groupNode.subgroups.length === 1 ? (
                 <Button
                   type="button"
                   variant="ghost"
@@ -994,17 +1037,17 @@ export default function ServiceManagement({ onUpdate }: ServiceManagementProps) 
                   Convertir en services directs
                 </Button>
               ) : null}
-              <Button
+              {canDeleteServices ? <Button
                 type="button"
                 variant="ghost"
                 className="w-full justify-start whitespace-normal text-destructive hover:text-destructive"
                 onClick={() => void deleteEmptySubgroup(groupNode, subgroupNode)}
               >
                 Supprimer le sous-groupe
-              </Button>
+              </Button> : null}
             </div>,
             `${key}:menu`
-          )}
+          ) : null}
         </div>
         {isExpanded ? (
           <div className="space-y-3 p-4">
@@ -1036,20 +1079,20 @@ export default function ServiceManagement({ onUpdate }: ServiceManagementProps) 
             </div>
             <p className="truncate text-xs text-muted-foreground">/{groupNode.group.slug}</p>
           </div>
-          <label className="flex items-center gap-2 text-xs text-muted-foreground"><span>Visible</span><input type="checkbox" checked={groupNode.group.is_visible} onChange={(e) => void toggleNodeVisibility('group', groupNode.group.id, e.target.checked)} /></label>
+          <label className="flex items-center gap-2 text-xs text-muted-foreground"><span>Visible</span><input type="checkbox" disabled={!canEditServicesContent} checked={groupNode.group.is_visible} onChange={(e) => void toggleNodeVisibility('group', groupNode.group.id, e.target.checked)} /></label>
           <div className="flex items-center gap-1">
-            <Button type="button" variant="ghost" size="icon" className="h-8 w-8" onClick={() => void moveNode('group', groupNode.group.id, 'up', getGroupScopeIds())}><ArrowUp className="h-4 w-4" /></Button>
-            <Button type="button" variant="ghost" size="icon" className="h-8 w-8" onClick={() => void moveNode('group', groupNode.group.id, 'down', getGroupScopeIds())}><ArrowDown className="h-4 w-4" /></Button>
+            <Button type="button" variant="ghost" size="icon" className="h-8 w-8" disabled={!canEditServicesContent} onClick={() => void moveNode('group', groupNode.group.id, 'up', getGroupScopeIds())}><ArrowUp className="h-4 w-4" /></Button>
+            <Button type="button" variant="ghost" size="icon" className="h-8 w-8" disabled={!canEditServicesContent} onClick={() => void moveNode('group', groupNode.group.id, 'down', getGroupScopeIds())}><ArrowDown className="h-4 w-4" /></Button>
           </div>
-          {renderNodeMenu(
+          {!isReadOnly ? renderNodeMenu(
             <div className="space-y-1">
-              <Button type="button" variant="ghost" className="w-full justify-start whitespace-normal" onClick={() => openEditGroup(groupNode.group)}>Modifier le groupe</Button>
-              {(groupNode.mode === 'empty' || groupNode.mode === 'services') ? <Button type="button" variant="ghost" className="w-full justify-start whitespace-normal" onClick={() => openCreateService(groupNode.group.id)}>Nouveau service direct</Button> : null}
-              {(groupNode.mode === 'empty' || groupNode.mode === 'subgroups') ? <Button type="button" variant="ghost" className="w-full justify-start whitespace-normal" onClick={() => openCreateSubgroup(groupNode.group.id)}>Nouveau sous-groupe</Button> : null}
-              <Button type="button" variant="ghost" className="w-full justify-start whitespace-normal text-destructive hover:text-destructive" onClick={() => void deleteEmptyGroup(groupNode)}>Supprimer le groupe</Button>
+              {canEditServicesContent ? <Button type="button" variant="ghost" className="w-full justify-start whitespace-normal" onClick={() => openEditGroup(groupNode.group)}>Modifier le groupe</Button> : null}
+              {canCreateServices && (groupNode.mode === 'empty' || groupNode.mode === 'services') ? <Button type="button" variant="ghost" className="w-full justify-start whitespace-normal" onClick={() => openCreateService(groupNode.group.id)}>Nouveau service direct</Button> : null}
+              {canCreateGroupsAndSubgroups && (groupNode.mode === 'empty' || groupNode.mode === 'subgroups') ? <Button type="button" variant="ghost" className="w-full justify-start whitespace-normal" onClick={() => openCreateSubgroup(groupNode.group.id)}>Nouveau sous-groupe</Button> : null}
+              {canDeleteServices ? <Button type="button" variant="ghost" className="w-full justify-start whitespace-normal text-destructive hover:text-destructive" onClick={() => void deleteEmptyGroup(groupNode)}>Supprimer le groupe</Button> : null}
             </div>,
             `${key}:menu`
-          )}
+          ) : null}
         </div>
         {isExpanded ? (
           <div className="space-y-3 p-4">
@@ -1068,7 +1111,7 @@ export default function ServiceManagement({ onUpdate }: ServiceManagementProps) 
     if (!editor) return null;
     if (editor.kind === 'group') {
       return (
-        <div className="space-y-4">
+        <fieldset className="space-y-4" disabled={!canEditServicesContent}>
           <div className="space-y-2"><label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Nom</label><Input value={editor.form.name} onChange={(e) => updateGroupName(e.target.value)} /></div>
           <div className="space-y-2"><label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Slug</label><Input value={editor.form.slug} onChange={(e) => setEditor({ ...editor, form: { ...editor.form, slug: slugifyInput(e.target.value), slug_manually_edited: e.target.value.trim() !== '' } })} placeholder="auto" /></div>
           <div className="space-y-2"><label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Description</label><Textarea value={editor.form.description} onChange={(e) => setEditor({ ...editor, form: { ...editor.form, description: e.target.value } })} rows={4} /></div>
@@ -1077,37 +1120,37 @@ export default function ServiceManagement({ onUpdate }: ServiceManagementProps) 
             <label className="flex items-center gap-2 text-sm text-foreground"><input type="checkbox" checked={editor.form.is_visible} onChange={(e) => setEditor({ ...editor, form: { ...editor.form, is_visible: e.target.checked } })} />Visible</label>
             <label className="flex items-center gap-2 text-sm text-foreground"><input type="checkbox" checked={editor.form.skip_subgroup_step_when_single_visible_child} onChange={(e) => setEditor({ ...editor, form: { ...editor.form, skip_subgroup_step_when_single_visible_child: e.target.checked } })} />Omettre le sous-groupe s&apos;il est seul</label>
           </div>
-        </div>
+        </fieldset>
       );
     }
     if (editor.kind === 'subgroup') {
       return (
-        <div className="space-y-4">
+        <fieldset className="space-y-4" disabled={!canEditServicesContent}>
           <div className="space-y-2"><label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Groupe parent</label><select className="w-full rounded-xl border border-input bg-background px-3 py-2 text-sm" value={editor.form.group_id ?? ''} onChange={(e) => setEditor({ ...editor, form: { ...editor.form, group_id: Number(e.target.value) } })}><option value="">Sélectionner</option>{groups.map((group) => <option key={group.id} value={group.id}>{group.name}</option>)}</select></div>
           <div className="space-y-2"><label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Nom</label><Input value={editor.form.name} onChange={(e) => updateSubgroupName(e.target.value)} /></div>
           <div className="space-y-2"><label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Slug</label><Input value={editor.form.slug} onChange={(e) => setEditor({ ...editor, form: { ...editor.form, slug: slugifyInput(e.target.value), slug_manually_edited: e.target.value.trim() !== '' } })} placeholder="auto" /></div>
           <div className="space-y-2"><label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Description</label><Textarea value={editor.form.description} onChange={(e) => setEditor({ ...editor, form: { ...editor.form, description: e.target.value } })} rows={4} /></div>
           <label className="flex items-center gap-2 text-sm text-foreground"><input type="checkbox" checked={editor.form.is_visible} onChange={(e) => setEditor({ ...editor, form: { ...editor.form, is_visible: e.target.checked } })} />Visible</label>
-        </div>
+        </fieldset>
       );
     }
     return (
       <div className="space-y-4">
         <div className="grid gap-4 md:grid-cols-2">
-          <div className="space-y-2"><label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Groupe</label><select className="w-full rounded-xl border border-input bg-background px-3 py-2 text-sm" value={editor.form.group_id ?? ''} onChange={(e) => setEditor({ ...editor, form: { ...editor.form, group_id: Number(e.target.value), subgroup_id: null } })}><option value="">Sélectionner</option>{groups.map((group) => <option key={group.id} value={group.id}>{group.name}</option>)}</select></div>
-          <div className="space-y-2"><label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Sous-groupe (optionnel)</label><select className="w-full rounded-xl border border-input bg-background px-3 py-2 text-sm" value={editor.form.subgroup_id ?? ''} onChange={(e) => setEditor({ ...editor, form: { ...editor.form, subgroup_id: e.target.value ? Number(e.target.value) : null } })}><option value="">Aucun (service direct)</option>{subgroups.filter((subgroup) => subgroup.group_id === editor.form.group_id).map((subgroup) => <option key={subgroup.id} value={subgroup.id}>{subgroup.name}</option>)}</select></div>
+          <fieldset className="space-y-2" disabled={!canEditServicesContent}><label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Groupe</label><select className="w-full rounded-xl border border-input bg-background px-3 py-2 text-sm" value={editor.form.group_id ?? ''} onChange={(e) => setEditor({ ...editor, form: { ...editor.form, group_id: Number(e.target.value), subgroup_id: null } })}><option value="">Sélectionner</option>{groups.map((group) => <option key={group.id} value={group.id}>{group.name}</option>)}</select></fieldset>
+          <fieldset className="space-y-2" disabled={!canEditServicesContent}><label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Sous-groupe (optionnel)</label><select className="w-full rounded-xl border border-input bg-background px-3 py-2 text-sm" value={editor.form.subgroup_id ?? ''} onChange={(e) => setEditor({ ...editor, form: { ...editor.form, subgroup_id: e.target.value ? Number(e.target.value) : null } })}><option value="">Aucun (service direct)</option>{subgroups.filter((subgroup) => subgroup.group_id === editor.form.group_id).map((subgroup) => <option key={subgroup.id} value={subgroup.id}>{subgroup.name}</option>)}</select></fieldset>
         </div>
-        <div className="space-y-2"><label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Nom</label><Input value={editor.form.nombre} onChange={(e) => updateServiceName(e.target.value)} /></div>
-        <div className="space-y-2"><label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Slug</label><Input value={editor.form.slug} onChange={(e) => setEditor({ ...editor, form: { ...editor.form, slug: slugifyInput(e.target.value), slug_manually_edited: e.target.value.trim() !== '' } })} placeholder="auto" /></div>
+        <fieldset className="space-y-2" disabled={!canEditServicesContent}><label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Nom</label><Input value={editor.form.nombre} onChange={(e) => updateServiceName(e.target.value)} /></fieldset>
+        <fieldset className="space-y-2" disabled={!canEditServicesContent}><label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Slug</label><Input value={editor.form.slug} onChange={(e) => setEditor({ ...editor, form: { ...editor.form, slug: slugifyInput(e.target.value), slug_manually_edited: e.target.value.trim() !== '' } })} placeholder="auto" /></fieldset>
         <div className="grid gap-4 md:grid-cols-2">
-          <div className="space-y-2"><label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Prix (CHF)</label><Input type="number" value={editor.form.precio} onChange={(e) => setEditor({ ...editor, form: { ...editor.form, precio: Number(e.target.value) } })} /></div>
-          <div className="space-y-2"><label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Durée (min)</label><Input type="number" value={editor.form.duration} onChange={(e) => setEditor({ ...editor, form: { ...editor.form, duration: Number(e.target.value) } })} /></div>
+          <fieldset className="space-y-2" disabled={!canEditServicesBusiness}><label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Prix (CHF)</label><Input type="number" value={editor.form.precio} onChange={(e) => setEditor({ ...editor, form: { ...editor.form, precio: Number(e.target.value) } })} /></fieldset>
+          <fieldset className="space-y-2" disabled={!canEditServicesBusiness}><label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Durée (min)</label><Input type="number" value={editor.form.duration} onChange={(e) => setEditor({ ...editor, form: { ...editor.form, duration: Number(e.target.value) } })} /></fieldset>
         </div>
-        <div className="space-y-2"><label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Description</label><Textarea value={editor.form.descripcion} onChange={(e) => setEditor({ ...editor, form: { ...editor.form, descripcion: e.target.value } })} rows={4} /></div>
-        <div className="space-y-2"><label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Image</label><Input type="file" accept="image/*" onChange={(e) => setServiceImageFile(e.target.files?.[0] ?? null)} /><Input value={editor.form.imagen_url} onChange={(e) => setEditor({ ...editor, form: { ...editor.form, imagen_url: e.target.value } })} placeholder="URL publique existante" /></div>
+        <fieldset className="space-y-2" disabled={!canEditServicesContent}><label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Description</label><Textarea value={editor.form.descripcion} onChange={(e) => setEditor({ ...editor, form: { ...editor.form, descripcion: e.target.value } })} rows={4} /></fieldset>
+        <fieldset className="space-y-2" disabled={!canEditServicesContent}><label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Image</label><Input type="file" accept="image/*" onChange={(e) => setServiceImageFile(e.target.files?.[0] ?? null)} /><Input value={editor.form.imagen_url} onChange={(e) => setEditor({ ...editor, form: { ...editor.form, imagen_url: e.target.value } })} placeholder="URL publique existante" /></fieldset>
         <div className="grid gap-4 md:grid-cols-2">
-          <label className="flex items-center gap-2 text-sm text-foreground"><input type="checkbox" checked={editor.form.active} onChange={(e) => setEditor({ ...editor, form: { ...editor.form, active: e.target.checked } })} />Visible</label>
-          <label className="flex items-center gap-2 text-sm text-foreground"><input type="checkbox" checked={editor.form.landing_featured} onChange={(e) => {
+          <label className="flex items-center gap-2 text-sm text-foreground"><input type="checkbox" disabled={!canEditServicesContent} checked={editor.form.active} onChange={(e) => setEditor({ ...editor, form: { ...editor.form, active: e.target.checked } })} />Visible</label>
+          <label className="flex items-center gap-2 text-sm text-foreground"><input type="checkbox" disabled={!canEditServicesContent} checked={editor.form.landing_featured} onChange={(e) => {
             if (e.target.checked && !canEnableLandingFeatured(editor.form.id)) {
               setErrorMessage('Maximum 6 services mis en avant sur la landing');
               return;
@@ -1115,7 +1158,7 @@ export default function ServiceManagement({ onUpdate }: ServiceManagementProps) 
             setEditor({ ...editor, form: { ...editor.form, landing_featured: e.target.checked, landing_sort_order: e.target.checked ? (editor.form.landing_sort_order ?? getNextLandingOrder()) : null } });
           }} />Mettre en avant sur la landing</label>
         </div>
-        {editor.form.landing_featured ? <div className="space-y-2"><label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Ordre landing</label><Input type="number" value={editor.form.landing_sort_order ?? 0} onChange={(e) => setEditor({ ...editor, form: { ...editor.form, landing_sort_order: Number(e.target.value) } })} /></div> : null}
+        {editor.form.landing_featured ? <fieldset className="space-y-2" disabled={!canEditServicesContent}><label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Ordre landing</label><Input type="number" value={editor.form.landing_sort_order ?? 0} onChange={(e) => setEditor({ ...editor, form: { ...editor.form, landing_sort_order: Number(e.target.value) } })} /></fieldset> : null}
       </div>
     );
   }
@@ -1131,18 +1174,20 @@ export default function ServiceManagement({ onUpdate }: ServiceManagementProps) 
               <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Rechercher groupe, sous-groupe ou service" className="pl-9" />
             </div>
-            <Button type="button" onClick={openCreateGroup}><Plus className="h-4 w-4" />Nouveau groupe</Button>
+            {canCreateGroupsAndSubgroups ? <Button type="button" onClick={openCreateGroup}><Plus className="h-4 w-4" />Nouveau groupe</Button> : null}
           </div>
         }
       />
+      {!canViewServices ? <div className="rounded-xl border border-border bg-card p-4 text-sm text-muted-foreground">Vous n’avez pas accès au catalogue des services.</div> : null}
+      {canViewServices && isReadOnly ? <div className="rounded-xl border border-border bg-card p-4 text-sm text-muted-foreground">Accès en lecture seule: le catalogue reste visible, mais les actions de modification sont désactivées.</div> : null}
       {errorMessage ? <div className="rounded-xl border border-destructive/45 bg-destructive/10 p-3 text-sm text-destructive-foreground">{errorMessage}</div> : null}
-      <AdminCard>
+      {canViewServices ? <AdminCard>
         <AdminCardHeader><h3 className="text-xl font-semibold text-primary">Services mis en avant sur la landing</h3></AdminCardHeader>
         <AdminCardContent>
           {featuredLanding.length === 0 ? <p className="text-sm text-muted-foreground">Aucun service mis en avant pour l&apos;instant.</p> : <div className="flex flex-wrap gap-2">{featuredLanding.map((item) => <span key={item.service.id} className="inline-flex items-center gap-2 rounded-full bg-primary/10 px-3 py-1 text-xs font-medium text-primary"><Star className="h-3.5 w-3.5" />{item.service.nombre}</span>)}</div>}
         </AdminCardContent>
-      </AdminCard>
-      {loading ? <AdminCard><AdminCardContent><div className="p-4 text-sm text-muted-foreground">Chargement du catalogue...</div></AdminCardContent></AdminCard> : <div className="space-y-4">{filteredCatalog.map((groupNode) => renderGroupNode(groupNode))}</div>}
+      </AdminCard> : null}
+      {canViewServices ? (loading ? <AdminCard><AdminCardContent><div className="p-4 text-sm text-muted-foreground">Chargement du catalogue...</div></AdminCardContent></AdminCard> : <div className="space-y-4">{filteredCatalog.map((groupNode) => renderGroupNode(groupNode))}</div>) : null}
 
       <Dialog open={confirmDialog.open} onOpenChange={(open) => { if (!open) closeConfirmDialog(); }}>
         <DialogContent className="sm:max-w-md">
@@ -1171,7 +1216,7 @@ export default function ServiceManagement({ onUpdate }: ServiceManagementProps) 
         footer={
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
-              {editor?.kind === 'group' && editor.mode === 'edit' && editingGroupNode ? (
+              {canDeleteServices && editor?.kind === 'group' && editor.mode === 'edit' && editingGroupNode ? (
                 <Button
                   type="button"
                   variant="ghost"
@@ -1181,7 +1226,7 @@ export default function ServiceManagement({ onUpdate }: ServiceManagementProps) 
                   Supprimer le groupe
                 </Button>
               ) : null}
-              {editor?.kind === 'subgroup' && editor.mode === 'edit' && editingSubgroupNode ? (
+              {canDeleteServices && editor?.kind === 'subgroup' && editor.mode === 'edit' && editingSubgroupNode ? (
                 <Button
                   type="button"
                   variant="ghost"
@@ -1191,20 +1236,20 @@ export default function ServiceManagement({ onUpdate }: ServiceManagementProps) 
                   Supprimer le sous-groupe
                 </Button>
               ) : null}
-              {editor?.kind === 'service' && editor.mode === 'edit' && editingServiceNode ? (
+              {canDeleteServices && editor?.kind === 'service' && editor.mode === 'edit' && editingServiceNode ? (
                 <Button
                   type="button"
                   variant="ghost"
                   className="text-destructive hover:text-destructive"
                   onClick={() => void deleteService(editingServiceNode)}
                 >
-                  Supprimer le service
+                  Retirer le service
                 </Button>
               ) : null}
             </div>
             <div className="flex flex-wrap items-center justify-end gap-3">
               <Button type="button" variant="secondary" onClick={closeEditor}>Annuler</Button>
-              <Button type="button" onClick={() => void handleSave()} disabled={saving}>{saving ? 'Enregistrement...' : 'Enregistrer'}</Button>
+              <Button type="button" onClick={() => void handleSave()} disabled={saving || !canSaveEditor}>{saving ? 'Enregistrement...' : 'Enregistrer'}</Button>
             </div>
           </div>
         }
